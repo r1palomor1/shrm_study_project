@@ -83,30 +83,40 @@ export default function TraditionalStudyMode({ deck, onBack, onUpdateCardStatus 
                 </div>
             </div>
 
-            {/* Split Screen Container */}
+            {/* Vertical Stack Container */}
             <div style={{
                 display: 'flex',
-                gap: '2rem',
-                height: '500px',
+                flexDirection: 'column',
+                gap: '0',
+                minHeight: '500px',
                 position: 'relative'
             }}>
                 {/* Question Side */}
                 <div className="glass-panel" style={{
-                    flex: isAnswerRevealed ? '1' : '100%',
                     display: 'flex',
                     flexDirection: 'column',
-                    transition: 'all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1)',
+                    transition: 'min-height 0.2s ease',
                     margin: 0,
-                    overflow: 'hidden'
+                    overflow: 'hidden',
+                    borderBottom: isAnswerRevealed ? 'none' : '1px solid var(--border-color)',
+                    borderBottomLeftRadius: isAnswerRevealed ? '0' : '12px',
+                    borderBottomRightRadius: isAnswerRevealed ? '0' : '12px',
+                    flex: '0 0 auto',
+                    minHeight: isAnswerRevealed ? '200px' : '500px'
                 }}>
                     <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
-                        <h2 style={{ fontSize: isAnswerRevealed ? '1.5rem' : '2.5rem', textAlign: 'center', margin: 0, fontWeight: '500', transition: 'font-size 0.4s ease' }}>
+                        <h2 style={{ 
+                            fontSize: '2.5rem', 
+                            textAlign: 'center', 
+                            margin: 0, 
+                            fontWeight: '500'
+                        }}>
                             {card.question}
                         </h2>
                     </div>
 
                     {!isAnswerRevealed && (
-                        <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center' }}>
+                        <div style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center' }}>
                             <button onClick={() => setIsAnswerRevealed(true)} style={{ padding: '1rem 3rem', fontSize: '1.1rem' }}>
                                 Reveal Answer
                             </button>
@@ -114,23 +124,42 @@ export default function TraditionalStudyMode({ deck, onBack, onUpdateCardStatus 
                     )}
                 </div>
 
+                {/* Subtle Divider Line */}
+                {isAnswerRevealed && (
+                    <div style={{ 
+                        height: '1px', 
+                        background: 'var(--border-color)', 
+                        opacity: 0.3, 
+                        margin: '0 1.5rem',
+                        zIndex: 2
+                    }} />
+                )}
+
                 {/* Answer Side */}
                 <div className="glass-panel" style={{
                     flex: isAnswerRevealed ? '1' : '0',
                     opacity: isAnswerRevealed ? 1 : 0,
-                    transform: isAnswerRevealed ? 'translateY(0)' : 'translateY(20px)',
-                    transition: 'all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1)',
-                    display: 'flex',
+                    maxHeight: isAnswerRevealed ? '1000px' : '0px',
+                    transform: 'translateY(0)',
+                    transition: 'opacity 0.2s ease, max-height 0.2s ease',
+                    display: isAnswerRevealed ? 'flex' : 'none',
                     flexDirection: 'column',
                     margin: 0,
-                    pointerEvents: isAnswerRevealed ? 'auto' : 'none',
-                    overflow: 'hidden'
+                    borderTop: 'none',
+                    borderTopLeftRadius: '0',
+                    borderTopRightRadius: '0',
+                    overflow: 'hidden',
+                    background: 'rgba(255, 255, 255, 0.02)'
                 }}>
                     {isAnswerRevealed && (
                         <div style={{ padding: '2rem', display: 'flex', flexDirection: 'column', height: '100%' }}>
-                            <h3 style={{ margin: '0 0 1.5rem 0', color: 'var(--secondary)' }}>Answer</h3>
+                            <div style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <span style={{ color: 'var(--secondary)', fontWeight: 'bold', fontSize: '1.2rem' }}>A</span>
+                                <div style={{ height: '1px', flex: 1, background: 'var(--secondary)', opacity: 0.2 }} />
+                            </div>
+                            
                             <div style={{ flex: 1, overflowY: 'auto' }}>
-                                <p style={{ fontSize: '1.2rem', lineHeight: '1.8', margin: 0 }}>
+                                <p style={{ fontSize: '1.3rem', lineHeight: '1.7', margin: 0, color: 'rgba(255,255,255,0.9)' }}>
                                     {card.answer}
                                 </p>
                             </div>
@@ -138,7 +167,7 @@ export default function TraditionalStudyMode({ deck, onBack, onUpdateCardStatus 
                             <div style={{ marginTop: '2rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                                 <div style={{ display: 'flex', gap: '1rem' }}>
                                     <button onClick={handleHideAnswer} style={{ flex: 1, background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-muted)' }}>
-                                        Hide Answer (Return)
+                                        Hide Answer
                                     </button>
                                 </div>
                                 <div style={{ display: 'flex', gap: '1rem' }}>
