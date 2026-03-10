@@ -63,12 +63,12 @@ export default function FlashcardStudyMode({ deck, onBack, onUpdateCardStatus })
                 setUserInput(sessionHistory[nextIdx].userInput);
                 setResults(sessionHistory[nextIdx].results);
                 setIsFlipped(sessionHistory[nextIdx].isFlipped);
-            } else if (nextCardData.status !== 'unseen') {
-                setUserInput(nextCardData.history?.userInput || '');
+            } else if (nextCardData.status_test && nextCardData.status_test !== 'unseen') {
+                setUserInput(nextCardData.history_test?.userInput || '');
                 setResults({
-                    grade: nextCardData.history?.grade || nextCardData.status,
-                    percentage: nextCardData.history?.percentage || 100,
-                    feedback: nextCardData.history?.feedback || 'Previous answer recorded.'
+                    grade: nextCardData.history_test?.grade || nextCardData.status_test,
+                    percentage: nextCardData.history_test?.percentage || 100,
+                    feedback: nextCardData.history_test?.feedback || 'Previous test answer recorded.'
                 });
                 setIsFlipped(true);
             } else {
@@ -94,12 +94,12 @@ export default function FlashcardStudyMode({ deck, onBack, onUpdateCardStatus })
                 setUserInput(sessionHistory[prevIdx].userInput);
                 setResults(sessionHistory[prevIdx].results);
                 setIsFlipped(sessionHistory[prevIdx].isFlipped);
-            } else if (prevCardData.status !== 'unseen') {
-                setUserInput(prevCardData.history?.userInput || '');
+            } else if (prevCardData.status_test && prevCardData.status_test !== 'unseen') {
+                setUserInput(prevCardData.history_test?.userInput || '');
                 setResults({
-                    grade: prevCardData.history?.grade || prevCardData.status,
-                    percentage: prevCardData.history?.percentage || 100,
-                    feedback: prevCardData.history?.feedback || 'Previous answer recorded.'
+                    grade: prevCardData.history_test?.grade || prevCardData.status_test,
+                    percentage: prevCardData.history_test?.percentage || 100,
+                    feedback: prevCardData.history_test?.feedback || 'Previous test answer recorded.'
                 });
                 setIsFlipped(true);
             } else {

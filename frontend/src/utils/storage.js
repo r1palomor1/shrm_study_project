@@ -47,24 +47,30 @@ export function clearAllDecksFromStorage() {
     }
 }
 
-export function updateCardStatus(cardId, newStatus, historyData = null) {
+export function updateCardStatus(cardId, studyMode, newStatus, historyData = null) {
     const decks = loadDecksFromStorage();
     if (decks && decks.length > 0) {
         let updated = false;
         for (const deck of decks) {
             const cardIndex = deck.cards.findIndex(c => c.id === cardId);
             if (cardIndex !== -1) {
-                deck.cards[cardIndex].status = newStatus;
+                if (studyMode === 'traditional') {
+                    deck.cards[cardIndex].status_traditional = newStatus;
+                } else if (studyMode === 'test') {
+                    deck.cards[cardIndex].status_test = newStatus;
+                }
 
                 // Save permanent history if provided
                 if (historyData) {
-                    deck.cards[cardIndex].history = {
-                        userInput: historyData.userInput,
-                        grade: newStatus,
-                        percentage: historyData.percentage,
-                        feedback: historyData.feedback,
-                        timestamp: new Date().toISOString()
-                    };
+                    if (studyMode === 'test') {
+                        deck.cards[cardIndex].history_test = {
+                            userInput: historyData.userInput,
+                            grade: newStatus,
+                            percentage: historyData.percentage,
+                            feedback: historyData.feedback,
+                            timestamp: new Date().toISOString()
+                        };
+                    }
                 }
 
                 updated = true;

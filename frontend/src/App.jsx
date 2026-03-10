@@ -41,7 +41,14 @@ function App() {
     if (window.confirm(`Are you sure you want to reset your study progress for "${title}"?`)) {
       const updatedDecks = decks.map(d => {
         if (title === 'ALL' || d.title === title) {
-          d.cards = d.cards.map(c => ({ ...c, status: 'unseen' }));
+          d.cards = d.cards.map(c => {
+            const newCard = { ...c };
+            if (studyMode === 'traditional') newCard.status_traditional = 'unseen';
+            if (studyMode === 'test') newCard.status_test = 'unseen';
+            // Also reset legacy status so it doesn't fall back to it
+            newCard.status = 'unseen'; 
+            return newCard;
+          });
           saveDeckToStorage(d);
         }
         return d;
@@ -71,8 +78,9 @@ function App() {
       }
     }
 
-    const seenCards = cardsToStudy.filter(c => c.status !== 'unseen');
-    let unseenCards = cardsToStudy.filter(c => c.status === 'unseen');
+    const getStatus = (c) => studyMode === 'traditional' ? (c.status_traditional || c.status || 'unseen') : (c.status_test || c.status || 'unseen');
+    const seenCards = cardsToStudy.filter(c => getStatus(c) !== 'unseen');
+    let unseenCards = cardsToStudy.filter(c => getStatus(c) === 'unseen');
 
     if (cardsToStudy.length > 0 && unseenCards.length === 0) {
       alert("You have already completed all cards in this selection! Reset your progress to study them again.");
@@ -103,7 +111,7 @@ function App() {
   };
 
   const handleUpdateCardStatus = (cardId, status, historyData) => {
-    updateCardStatus(cardId, status, historyData);
+    updateCardStatus(cardId, studyMode, status, historyData);
     // Silent reload of decks to update main dashboard progress in background
     setDecks(loadDecksFromStorage());
   };
@@ -158,7 +166,8 @@ function App() {
             {/* Capsules per deck */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', marginBottom: '2rem' }}>
               {decks.map(deck => {
-                const completedCount = deck.cards.filter(c => c.status !== 'unseen').length;
+                const getStatus = (c) => studyMode === 'traditional' ? (c.status_traditional || c.status || 'unseen') : (c.status_test || c.status || 'unseen');
+                const completedCount = deck.cards.filter(c => getStatus(c) !== 'unseen').length;
                 const percent = deck.cards.length > 0 ? Math.round((completedCount / deck.cards.length) * 100) : 0;
 
                 return (

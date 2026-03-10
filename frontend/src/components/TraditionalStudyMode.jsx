@@ -31,7 +31,7 @@ export default function TraditionalStudyMode({ deck, onBack, onUpdateCardStatus 
             // green indicates mastery/completed
             onUpdateCardStatus(card.id, 'green');
             // Optimistically update local state so the button flips immediately
-            card.status = 'green';
+            card.status_traditional = 'green';
         }
         handleNext(); // Auto-advance
     };
@@ -40,7 +40,7 @@ export default function TraditionalStudyMode({ deck, onBack, onUpdateCardStatus 
         if (onUpdateCardStatus) {
             onUpdateCardStatus(card.id, 'unseen');
             // Optimistically update local state so the button flips immediately
-            card.status = 'unseen';
+            card.status_traditional = 'unseen';
         }
         // Don't auto-advance so they see it resets
     };
@@ -142,7 +142,7 @@ export default function TraditionalStudyMode({ deck, onBack, onUpdateCardStatus 
                                     </button>
                                 </div>
                                 <div style={{ display: 'flex', gap: '1rem' }}>
-                                    {card.status !== 'unseen' ? (
+                                    {(card.status_traditional || 'unseen') !== 'unseen' ? (
                                         <button onClick={handleMarkUnseen} style={{ flex: 1, background: 'rgba(255,255,255,0.1)', border: '1px solid var(--border-color)', color: 'white' }}>
                                             Reset (Mark Unseen)
                                         </button>
