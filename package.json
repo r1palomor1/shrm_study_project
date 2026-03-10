@@ -1,0 +1,25 @@
+{
+  "name": "shrm-study-project",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/r1palomor1/shrm_study_project.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/r1palomor1/shrm_study_project/issues"
+  },
+  "homepage": "https://github.com/r1palomor1/shrm_study_project#readme",
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "multiparty": "^4.2.3",
+    "pdf-parse": "^2.4.5"
+  }
+}
