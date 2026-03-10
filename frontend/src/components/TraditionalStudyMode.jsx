@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 export default function TraditionalStudyMode({ deck, onBack, onUpdateCardStatus }) {
     const [currentIndex, setCurrentIndex] = useState(deck.initialIndex || 0);
@@ -10,6 +10,22 @@ export default function TraditionalStudyMode({ deck, onBack, onUpdateCardStatus 
     useEffect(() => {
         setIsAnswerRevealed(false);
     }, [currentIndex, card]);
+
+    const ribbonRef = useRef(null);
+
+    // Auto-scroll ribbon to active dot
+    useEffect(() => {
+        if (ribbonRef.current) {
+            const activeDot = ribbonRef.current.querySelector('[data-active="true"]');
+            if (activeDot) {
+                activeDot.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'nearest',
+                    inline: 'center'
+                });
+            }
+        }
+    }, [currentIndex]);
 
     const handleNext = () => {
         if (currentIndex < deck.cards.length - 1) {
@@ -101,18 +117,21 @@ export default function TraditionalStudyMode({ deck, onBack, onUpdateCardStatus 
                     padding: '0.5rem 0'
                 }}>
                     <div style={{ color: 'var(--text-muted)', fontSize: '1.2rem', opacity: 0.5, paddingRight: '5px' }}>&lsaquo;</div>
-                    <div style={{ 
-                        display: 'flex', 
-                        justifyContent: 'flex-start', 
-                        gap: '12px', 
-                        overflowX: 'auto',
-                        padding: '10px 0',
-                        msOverflowStyle: 'none',
-                        scrollbarWidth: 'none',
-                        WebkitOverflowScrolling: 'touch',
-                        paddingLeft: '20px', // Prevent overlap with lsaquo
-                        flex: 1
-                    }} className="hide-scrollbar">
+                    <div 
+                        ref={ribbonRef}
+                        style={{ 
+                            display: 'flex', 
+                            justifyContent: 'flex-start', 
+                            gap: '12px', 
+                            overflowX: 'auto',
+                            padding: '10px 0',
+                            msOverflowStyle: 'none',
+                            scrollbarWidth: 'none',
+                            WebkitOverflowScrolling: 'touch',
+                            paddingLeft: '20px', // Prevent overlap with lsaquo
+                            flex: 1,
+                            scrollBehavior: 'smooth'
+                        }} className="hide-scrollbar">
                         {deck.cards.map((c, idx) => {
                             const status = c.status_traditional || 'unseen';
                             let dotColor = 'rgba(255,255,255,0.15)'; // Deep Grey/Unseen
@@ -128,27 +147,29 @@ export default function TraditionalStudyMode({ deck, onBack, onUpdateCardStatus 
                             return (
                                 <button
                                     key={c.id}
+                                    data-active={isCurrent}
                                     onClick={() => setCurrentIndex(idx)}
                                     title={`Card ${idx + 1}`}
                                     style={{
-                                        width: '24px', // Slightly larger for number
-                                        height: '24px',
+                                        width: '26px', // Increased slightly for clarity
+                                        height: '26px',
                                         borderRadius: '50%',
                                         padding: 0,
                                         border: isCurrent ? '2px solid white' : 'none',
                                         background: dotColor,
-                                        boxShadow: isCurrent ? '0 0 12px rgba(255,255,255,0.6)' : 'none',
+                                        boxShadow: isCurrent ? '0 0 15px rgba(255,255,255,0.6)' : 'none',
                                         cursor: 'pointer',
-                                        minWidth: '24px',
+                                        minWidth: '26px',
                                         flexShrink: 0,
-                                        transition: 'all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-                                        transform: isCurrent ? 'scale(1.3)' : 'scale(1)',
+                                        transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                                        transform: isCurrent ? 'scale(1.2)' : 'scale(1)',
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center',
-                                        fontSize: '0.65rem',
-                                        color: isCurrent ? 'white' : 'rgba(255,255,255,0.4)',
-                                        fontWeight: '600'
+                                        fontSize: isCurrent ? '0.85rem' : '0.65rem',
+                                        color: isCurrent ? 'white' : 'rgba(255,255,255,0.7)',
+                                        fontWeight: isCurrent ? '800' : '600',
+                                        textShadow: '0px 1px 2px rgba(0,0,0,0.6)'
                                     }}
                                 >
                                     {idx + 1}
