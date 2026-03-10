@@ -26,14 +26,22 @@ export default function TraditionalStudyMode({ deck, onBack, onUpdateCardStatus 
         }
     };
 
-    const handleMarkComplete = () => {
+    const handleRate = (rating) => {
         if (onUpdateCardStatus) {
-            // green indicates mastery/completed
-            onUpdateCardStatus(card.id, 'green');
-            // Optimistically update local state so the button flips immediately
-            card.status_traditional = 'green';
+            // Map 1-5 to meaningful statuses
+            const statusMap = {
+                1: 'difficulty-1', // Purple
+                2: 'difficulty-2', // Orange
+                3: 'difficulty-3', // Yellow
+                4: 'difficulty-4', // Light Green
+                5: 'difficulty-5'  // Blue
+            };
+            const newStatus = statusMap[rating];
+            onUpdateCardStatus(card.id, newStatus);
+            // Update local card status for immediate UI feedback
+            card.status_traditional = newStatus;
         }
-        handleNext(); // Auto-advance
+        handleNext(); 
     };
 
     const handleMarkUnseen = () => {
@@ -64,22 +72,68 @@ export default function TraditionalStudyMode({ deck, onBack, onUpdateCardStatus 
                 {card.topic}
             </div>
 
-            {/* Top Navigation */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem' }}>
-                <button
-                    onClick={onBack}
-                    style={{
-                        background: 'transparent',
-                        border: '1px solid var(--border-color)',
-                        boxShadow: 'none'
-                    }}
-                >
-                    &larr; Exit Deck
-                </button>
-                <div style={{ textAlign: 'right' }}>
+            {/* Top Navigation & Progress Ribbon */}
+            <div style={{ marginBottom: '1.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                    <button
+                        onClick={onBack}
+                        style={{
+                            background: 'transparent',
+                            border: '1px solid var(--border-color)',
+                            boxShadow: 'none',
+                            padding: '0.5rem 1rem',
+                            fontSize: '0.9rem'
+                        }}
+                    >
+                        &larr; Exit
+                    </button>
                     <div style={{ color: 'white', fontWeight: 'bold' }}>
                         Card {currentIndex + 1} of {deck.cards.length}
                     </div>
+                </div>
+
+                {/* Progress Ribbon Dots */}
+                <div style={{ 
+                    display: 'flex', 
+                    justifyContent: 'center', 
+                    gap: '8px', 
+                    flexWrap: 'wrap',
+                    padding: '0 1rem'
+                }}>
+                    {deck.cards.map((c, idx) => {
+                        const status = c.status_traditional || 'unseen';
+                        let dotColor = 'rgba(255,255,255,0.1)'; // Grey/Unseen
+                        
+                        if (status === 'difficulty-1') dotColor = '#9d174d'; // Purple
+                        if (status === 'difficulty-2') dotColor = '#f97316'; // Orange
+                        if (status === 'difficulty-3') dotColor = '#eab308'; // Yellow
+                        if (status === 'difficulty-4') dotColor = '#84cc16'; // Green
+                        if (status === 'difficulty-5') dotColor = '#0ea5e9'; // Blue
+                        if (status === 'green') dotColor = '#10b981'; // Legacy fallback
+                        
+                        const isCurrent = idx === currentIndex;
+
+                        return (
+                            <button
+                                key={c.id}
+                                onClick={() => setCurrentIndex(idx)}
+                                title={`Card ${idx + 1}`}
+                                style={{
+                                    width: '14px',
+                                    height: '14px',
+                                    borderRadius: '50%',
+                                    padding: 0,
+                                    border: isCurrent ? '2px solid white' : 'none',
+                                    background: dotColor,
+                                    boxShadow: isCurrent ? '0 0 10px rgba(255,255,255,0.5)' : 'none',
+                                    cursor: 'pointer',
+                                    minWidth: 'auto',
+                                    transition: 'all 0.2s ease',
+                                    transform: isCurrent ? 'scale(1.3)' : 'scale(1)'
+                                }}
+                            />
+                        );
+                    })}
                 </div>
             </div>
 
@@ -164,22 +218,49 @@ export default function TraditionalStudyMode({ deck, onBack, onUpdateCardStatus 
                                 </p>
                             </div>
 
-                            <div style={{ marginTop: '2rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                <div style={{ display: 'flex', gap: '1rem' }}>
-                                    <button onClick={handleHideAnswer} style={{ flex: 1, background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-muted)' }}>
-                                        Hide Answer
-                                    </button>
+                            <div style={{ marginTop: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', alignItems: 'center' }}>
+                                <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>How well did you know this?</div>
+                                
+                                <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', width: '100%' }}>
+                                    {[
+                                        { val: 1, label: 'Not at all', color: '#9d174d' },
+                                        { val: 2, label: '', color: '#f97316' },
+                                        { val: 3, label: '', color: '#eab308' },
+                                        { val: 4, label: '', color: '#84cc16' },
+                                        { val: 5, label: 'Perfectly', color: '#0ea5e9' }
+                                    ].map((btn) => (
+                                        <div key={btn.val} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
+                                            <button 
+                                                onClick={() => handleRate(btn.val)}
+                                                style={{
+                                                    width: '50px',
+                                                    height: '50px',
+                                                    borderRadius: '50%',
+                                                    background: btn.color,
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    fontSize: '1.2rem',
+                                                    fontWeight: 'bold',
+                                                    padding: 0,
+                                                    minWidth: 'auto',
+                                                    border: '2px solid rgba(255,255,255,0.1)'
+                                                }}
+                                            >
+                                                {btn.val}
+                                            </button>
+                                            {btn.label && <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{btn.label}</span>}
+                                        </div>
+                                    ))}
                                 </div>
-                                <div style={{ display: 'flex', gap: '1rem' }}>
-                                    {(card.status_traditional || 'unseen') !== 'unseen' ? (
-                                        <button onClick={handleMarkUnseen} style={{ flex: 1, background: 'rgba(255,255,255,0.1)', border: '1px solid var(--border-color)', color: 'white' }}>
-                                            Reset (Mark Unseen)
-                                        </button>
-                                    ) : (
-                                        <button onClick={handleMarkComplete} style={{ flex: 1, background: 'var(--success-color, #10b981)', color: 'white', fontWeight: 'bold' }}>
-                                            Mark as Complete
-                                        </button>
-                                    )}
+
+                                <div style={{ display: 'flex', width: '100%', gap: '1rem' }}>
+                                    <button onClick={handleHideAnswer} style={{ flex: 1, background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                                        Cancel / Return to Question
+                                    </button>
+                                    <button onClick={handleMarkUnseen} style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                                        Reset Progress
+                                    </button>
                                 </div>
                             </div>
                         </div>
