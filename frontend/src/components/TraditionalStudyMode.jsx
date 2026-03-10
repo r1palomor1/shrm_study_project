@@ -104,12 +104,13 @@ export default function TraditionalStudyMode({ deck, onBack, onUpdateCardStatus 
                     <div style={{ 
                         display: 'flex', 
                         justifyContent: 'flex-start', 
-                        gap: '16px', 
+                        gap: '12px', 
                         overflowX: 'auto',
                         padding: '10px 0',
                         msOverflowStyle: 'none',
                         scrollbarWidth: 'none',
                         WebkitOverflowScrolling: 'touch',
+                        paddingLeft: '20px', // Prevent overlap with lsaquo
                         flex: 1
                     }} className="hide-scrollbar">
                         {deck.cards.map((c, idx) => {
@@ -130,20 +131,28 @@ export default function TraditionalStudyMode({ deck, onBack, onUpdateCardStatus 
                                     onClick={() => setCurrentIndex(idx)}
                                     title={`Card ${idx + 1}`}
                                     style={{
-                                        width: '16px',
-                                        height: '16px',
+                                        width: '24px', // Slightly larger for number
+                                        height: '24px',
                                         borderRadius: '50%',
                                         padding: 0,
                                         border: isCurrent ? '2px solid white' : 'none',
                                         background: dotColor,
                                         boxShadow: isCurrent ? '0 0 12px rgba(255,255,255,0.6)' : 'none',
                                         cursor: 'pointer',
-                                        minWidth: '16px',
+                                        minWidth: '24px',
                                         flexShrink: 0,
                                         transition: 'all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-                                        transform: isCurrent ? 'scale(1.5)' : 'scale(1)'
+                                        transform: isCurrent ? 'scale(1.3)' : 'scale(1)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        fontSize: '0.65rem',
+                                        color: isCurrent ? 'white' : 'rgba(255,255,255,0.4)',
+                                        fontWeight: '600'
                                     }}
-                                />
+                                >
+                                    {idx + 1}
+                                </button>
                             );
                         })}
                     </div>
@@ -233,14 +242,14 @@ export default function TraditionalStudyMode({ deck, onBack, onUpdateCardStatus 
                             </div>
 
                             <div style={{ marginTop: '1rem', position: 'relative', display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center' }}>
-                                {/* Double Chevron Collapse Icon */}
+                                {/* SVG Collapse Icon */}
                                 <button 
                                     onClick={handleHideAnswer}
                                     title="Collapse Answer"
                                     style={{
                                         position: 'absolute',
-                                        left: '0',
-                                        bottom: '2.8rem',
+                                        left: '1rem',
+                                        bottom: '2.5rem',
                                         background: 'transparent',
                                         border: 'none',
                                         color: 'white',
@@ -248,15 +257,18 @@ export default function TraditionalStudyMode({ deck, onBack, onUpdateCardStatus 
                                         padding: '0.5rem',
                                         minWidth: 'auto',
                                         boxShadow: 'none',
-                                        opacity: 0.8,
+                                        width: '40px',
+                                        height: '40px',
                                         display: 'flex',
-                                        flexDirection: 'column',
                                         alignItems: 'center',
-                                        gap: '0'
+                                        justifyContent: 'center',
+                                        opacity: 0.8
                                     }}
                                 >
-                                    <span style={{ fontSize: '1.4rem', lineHeight: '0.4', fontWeight: '100' }}>&or;</span>
-                                    <span style={{ fontSize: '1.4rem', lineHeight: '0.4', fontWeight: '100' }}>&and;</span>
+                                    <svg width="24" height="24" viewBox="0 0 36 36" fill="white">
+                                        <path d="M29,19.41a1,1,0,0,1-.71-.29L18,8.83,7.71,19.12a1,1,0,0,1-1.41-1.41L18,6,29.71,17.71A1,1,0,0,1,29,19.41Z" />
+                                        <path d="M29,30.41a1,1,0,0,1-.71-.29L18,19.83,7.71,30.12a1,1,0,0,1-1.41-1.41L18,17,29.71,28.71A1,1,0,0,1,29,30.41Z" />
+                                    </svg>
                                 </button>
 
                                 <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>How well did you know this?</div>
