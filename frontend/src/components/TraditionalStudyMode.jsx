@@ -92,55 +92,62 @@ export default function TraditionalStudyMode({ deck, onBack, onUpdateCardStatus 
                     </div>
                 </div>
 
-                {/* Progress Ribbon Dots - Single Row Scroll */}
+                {/* Progress Ribbon Dots - Left Aligned Scrolling Row */}
                 <div style={{ 
+                    position: 'relative',
                     display: 'flex', 
-                    justifyContent: 'flex-start', 
-                    gap: '12px', 
-                    overflowX: 'auto',
-                    padding: '0.5rem 1rem',
-                    msOverflowStyle: 'none',
-                    scrollbarWidth: 'none',
-                    WebkitOverflowScrolling: 'touch'
-                }} className="hide-scrollbar">
-                    {/* Add spacer for centering first/last items */}
-                    <div style={{ minWidth: '40%' }} />
-                    {deck.cards.map((c, idx) => {
-                        const status = c.status_traditional || 'unseen';
-                        let dotColor = 'rgba(255,255,255,0.1)'; // Grey/Unseen
-                        
-                        if (status === 'difficulty-1') dotColor = '#9d174d'; // Purple
-                        if (status === 'difficulty-2') dotColor = '#f97316'; // Orange
-                        if (status === 'difficulty-3') dotColor = '#eab308'; // Yellow
-                        if (status === 'difficulty-4') dotColor = '#84cc16'; // Green
-                        if (status === 'difficulty-5') dotColor = '#0ea5e9'; // Blue
-                        if (status === 'green') dotColor = '#10b981'; // Legacy fallback
-                        
-                        const isCurrent = idx === currentIndex;
+                    alignItems: 'center',
+                    gap: '10px',
+                    padding: '0.5rem 0'
+                }}>
+                    <div style={{ color: 'var(--text-muted)', fontSize: '1.2rem', opacity: 0.5, paddingRight: '5px' }}>&lsaquo;</div>
+                    <div style={{ 
+                        display: 'flex', 
+                        justifyContent: 'flex-start', 
+                        gap: '16px', 
+                        overflowX: 'auto',
+                        padding: '10px 0',
+                        msOverflowStyle: 'none',
+                        scrollbarWidth: 'none',
+                        WebkitOverflowScrolling: 'touch',
+                        flex: 1
+                    }} className="hide-scrollbar">
+                        {deck.cards.map((c, idx) => {
+                            const status = c.status_traditional || 'unseen';
+                            let dotColor = 'rgba(255,255,255,0.15)'; // Deep Grey/Unseen
+                            
+                            if (status === 'difficulty-1') dotColor = '#9d174d'; // Purple
+                            if (status === 'difficulty-2') dotColor = '#f97316'; // Orange
+                            if (status === 'difficulty-3') dotColor = '#eab308'; // Yellow
+                            if (status === 'difficulty-4') dotColor = '#84cc16'; // Green
+                            if (status === 'difficulty-5') dotColor = '#0ea5e9'; // Blue
+                            
+                            const isCurrent = idx === currentIndex;
 
-                        return (
-                            <button
-                                key={c.id}
-                                onClick={() => setCurrentIndex(idx)}
-                                title={`Card ${idx + 1}`}
-                                style={{
-                                    width: '12px',
-                                    height: '12px',
-                                    borderRadius: '50%',
-                                    padding: 0,
-                                    border: isCurrent ? '2px solid white' : 'none',
-                                    background: dotColor,
-                                    boxShadow: isCurrent ? '0 0 10px rgba(255,255,255,0.5)' : 'none',
-                                    cursor: 'pointer',
-                                    minWidth: '12px',
-                                    flexShrink: 0,
-                                    transition: 'all 0.2s ease',
-                                    transform: isCurrent ? 'scale(1.4)' : 'scale(1)'
-                                }}
-                            />
-                        );
-                    })}
-                    <div style={{ minWidth: '40%' }} />
+                            return (
+                                <button
+                                    key={c.id}
+                                    onClick={() => setCurrentIndex(idx)}
+                                    title={`Card ${idx + 1}`}
+                                    style={{
+                                        width: '16px',
+                                        height: '16px',
+                                        borderRadius: '50%',
+                                        padding: 0,
+                                        border: isCurrent ? '2px solid white' : 'none',
+                                        background: dotColor,
+                                        boxShadow: isCurrent ? '0 0 12px rgba(255,255,255,0.6)' : 'none',
+                                        cursor: 'pointer',
+                                        minWidth: '16px',
+                                        flexShrink: 0,
+                                        transition: 'all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                                        transform: isCurrent ? 'scale(1.5)' : 'scale(1)'
+                                    }}
+                                />
+                            );
+                        })}
+                    </div>
+                    <div style={{ color: 'var(--text-muted)', fontSize: '1.2rem', opacity: 0.5, paddingLeft: '5px' }}>&rsaquo;</div>
                 </div>
             </div>
 
@@ -226,26 +233,30 @@ export default function TraditionalStudyMode({ deck, onBack, onUpdateCardStatus 
                             </div>
 
                             <div style={{ marginTop: '1rem', position: 'relative', display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center' }}>
-                                {/* Small Collapse Icon (left side aligned with Scale) */}
+                                {/* Double Chevron Collapse Icon */}
                                 <button 
                                     onClick={handleHideAnswer}
                                     title="Collapse Answer"
                                     style={{
                                         position: 'absolute',
                                         left: '0',
-                                        bottom: '2.5rem',
+                                        bottom: '2.8rem',
                                         background: 'transparent',
                                         border: 'none',
-                                        color: 'var(--text-muted)',
+                                        color: 'white',
                                         cursor: 'pointer',
                                         padding: '0.5rem',
                                         minWidth: 'auto',
                                         boxShadow: 'none',
-                                        opacity: 0.6
+                                        opacity: 0.8,
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        gap: '0'
                                     }}
                                 >
-                                    <span style={{ fontSize: '1.2rem', transform: 'rotate(0deg)', display: 'block' }}>&#x2242;</span>
-                                    <div style={{ fontSize: '0.6rem', marginTop: '-4px' }}>&#x2242;</div>
+                                    <span style={{ fontSize: '1.4rem', lineHeight: '0.4', fontWeight: '100' }}>&or;</span>
+                                    <span style={{ fontSize: '1.4rem', lineHeight: '0.4', fontWeight: '100' }}>&and;</span>
                                 </button>
 
                                 <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>How well did you know this?</div>
