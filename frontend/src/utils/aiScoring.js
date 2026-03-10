@@ -9,7 +9,7 @@
  */
 export async function evaluateAnswerViaAI(question, actual_answer, user_answer) {
     try {
-        const response = await fetch('http://localhost:8000/api/grade-answer', {
+        const response = await fetch('/api/grade-answer', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
