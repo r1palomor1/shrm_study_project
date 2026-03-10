@@ -92,14 +92,19 @@ export default function TraditionalStudyMode({ deck, onBack, onUpdateCardStatus 
                     </div>
                 </div>
 
-                {/* Progress Ribbon Dots */}
+                {/* Progress Ribbon Dots - Single Row Scroll */}
                 <div style={{ 
                     display: 'flex', 
-                    justifyContent: 'center', 
-                    gap: '8px', 
-                    flexWrap: 'wrap',
-                    padding: '0 1rem'
-                }}>
+                    justifyContent: 'flex-start', 
+                    gap: '12px', 
+                    overflowX: 'auto',
+                    padding: '0.5rem 1rem',
+                    msOverflowStyle: 'none',
+                    scrollbarWidth: 'none',
+                    WebkitOverflowScrolling: 'touch'
+                }} className="hide-scrollbar">
+                    {/* Add spacer for centering first/last items */}
+                    <div style={{ minWidth: '40%' }} />
                     {deck.cards.map((c, idx) => {
                         const status = c.status_traditional || 'unseen';
                         let dotColor = 'rgba(255,255,255,0.1)'; // Grey/Unseen
@@ -119,21 +124,23 @@ export default function TraditionalStudyMode({ deck, onBack, onUpdateCardStatus 
                                 onClick={() => setCurrentIndex(idx)}
                                 title={`Card ${idx + 1}`}
                                 style={{
-                                    width: '14px',
-                                    height: '14px',
+                                    width: '12px',
+                                    height: '12px',
                                     borderRadius: '50%',
                                     padding: 0,
                                     border: isCurrent ? '2px solid white' : 'none',
                                     background: dotColor,
                                     boxShadow: isCurrent ? '0 0 10px rgba(255,255,255,0.5)' : 'none',
                                     cursor: 'pointer',
-                                    minWidth: 'auto',
+                                    minWidth: '12px',
+                                    flexShrink: 0,
                                     transition: 'all 0.2s ease',
-                                    transform: isCurrent ? 'scale(1.3)' : 'scale(1)'
+                                    transform: isCurrent ? 'scale(1.4)' : 'scale(1)'
                                 }}
                             />
                         );
                     })}
+                    <div style={{ minWidth: '40%' }} />
                 </div>
             </div>
 
@@ -218,10 +225,32 @@ export default function TraditionalStudyMode({ deck, onBack, onUpdateCardStatus 
                                 </p>
                             </div>
 
-                            <div style={{ marginTop: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', alignItems: 'center' }}>
-                                <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>How well did you know this?</div>
+                            <div style={{ marginTop: '1rem', position: 'relative', display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center' }}>
+                                {/* Small Collapse Icon (left side aligned with Scale) */}
+                                <button 
+                                    onClick={handleHideAnswer}
+                                    title="Collapse Answer"
+                                    style={{
+                                        position: 'absolute',
+                                        left: '0',
+                                        bottom: '2.5rem',
+                                        background: 'transparent',
+                                        border: 'none',
+                                        color: 'var(--text-muted)',
+                                        cursor: 'pointer',
+                                        padding: '0.5rem',
+                                        minWidth: 'auto',
+                                        boxShadow: 'none',
+                                        opacity: 0.6
+                                    }}
+                                >
+                                    <span style={{ fontSize: '1.2rem', transform: 'rotate(0deg)', display: 'block' }}>&#x2242;</span>
+                                    <div style={{ fontSize: '0.6rem', marginTop: '-4px' }}>&#x2242;</div>
+                                </button>
+
+                                <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>How well did you know this?</div>
                                 
-                                <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', width: '100%' }}>
+                                <div style={{ display: 'flex', justifyContent: 'center', gap: '1.2rem', width: '100%' }}>
                                     {[
                                         { val: 1, label: 'Not at all', color: '#9d174d' },
                                         { val: 2, label: '', color: '#f97316' },
@@ -233,34 +262,27 @@ export default function TraditionalStudyMode({ deck, onBack, onUpdateCardStatus 
                                             <button 
                                                 onClick={() => handleRate(btn.val)}
                                                 style={{
-                                                    width: '50px',
-                                                    height: '50px',
+                                                    width: '44px',
+                                                    height: '44px',
                                                     borderRadius: '50%',
                                                     background: btn.color,
                                                     display: 'flex',
                                                     alignItems: 'center',
                                                     justifyContent: 'center',
-                                                    fontSize: '1.2rem',
+                                                    fontSize: '1.1rem',
                                                     fontWeight: 'bold',
                                                     padding: 0,
                                                     minWidth: 'auto',
-                                                    border: '2px solid rgba(255,255,255,0.1)'
+                                                    border: '2px solid rgba(255,255,255,0.1)',
+                                                    transition: 'transform 0.2s ease'
                                                 }}
+                                                className="confidence-btn"
                                             >
                                                 {btn.val}
                                             </button>
-                                            {btn.label && <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{btn.label}</span>}
+                                            {btn.label && <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{btn.label}</span>}
                                         </div>
                                     ))}
-                                </div>
-
-                                <div style={{ display: 'flex', width: '100%', gap: '1rem' }}>
-                                    <button onClick={handleHideAnswer} style={{ flex: 1, background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                                        Cancel / Return to Question
-                                    </button>
-                                    <button onClick={handleMarkUnseen} style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                                        Reset Progress
-                                    </button>
                                 </div>
                             </div>
                         </div>
