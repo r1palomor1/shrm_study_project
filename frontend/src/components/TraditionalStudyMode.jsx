@@ -4,9 +4,6 @@ export default function TraditionalStudyMode({ deck, onBack, onUpdateCardStatus 
     const [currentIndex, setCurrentIndex] = useState(deck.initialIndex || 0);
     const [isAnswerRevealed, setIsAnswerRevealed] = useState(false);
     const [showStats, setShowStats] = useState(false);
-    const [aiInsight, setAiInsight] = useState("");
-    const [isCoachLoading, setIsCoachLoading] = useState(false);
-
     const [statsViewMode, setStatsViewMode] = useState('circular'); // 'circular' or 'bar'
 
     const card = deck.cards[currentIndex];
@@ -69,31 +66,9 @@ export default function TraditionalStudyMode({ deck, onBack, onUpdateCardStatus 
         return sum + rating;
     }, 0);
     
+    // Mastery Calculations
     const masteryIndex = gradedCards.length > 0 ? (totalWeight / gradedCards.length).toFixed(1) : "0.0";
     const masteryPercent = Math.round((gradedCards.length / deck.cards.length) * 100);
-
-    // AI Coach Fetch Logic (Moved below initialization)
-    useEffect(() => {
-        if (showStats && !aiInsight) {
-            const fetchCoachInsight = async () => {
-                setIsCoachLoading(true);
-                try {
-                    const response = await fetch('/api/study-coach', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ masteryPercent, masteryIndex, counts })
-                    });
-                    const data = await response.json();
-                    if (data.insight) setAiInsight(data.insight);
-                } catch (err) {
-                    console.error("Coach fetch failed:", err);
-                } finally {
-                    setIsCoachLoading(false);
-                }
-            };
-            fetchCoachInsight();
-        }
-    }, [showStats, masteryPercent, masteryIndex, counts, aiInsight]);
 
 
 
