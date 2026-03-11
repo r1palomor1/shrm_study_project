@@ -310,8 +310,16 @@ export default function TraditionalStudyMode({ deck, onBack, onUpdateCardStatus 
                                 );
                             }
 
-                            // Dynamic Logic
-                            if (confidence >= 4.5) {
+                            const strugglingCount = counts['difficulty-1'] || 0;
+                            const growingCount = counts['difficulty-2'] || 0;
+
+                            // Dynamic Logic - Prioritize Struggling
+                            if (strugglingCount > 0) {
+                                status = "facing some obstacles";
+                                advice = `with ${strugglingCount} Struggling cards that need immediate review.`;
+                                highlight = "Struggling";
+                                highlightColor = '#9d174d';
+                            } else if (confidence >= 4.5) {
                                 status = "absolutely crushing it";
                                 advice = "your deck is almost entirely Perfect!";
                                 highlight = "Perfect";
@@ -321,9 +329,9 @@ export default function TraditionalStudyMode({ deck, onBack, onUpdateCardStatus 
                                 advice = "keep polishing those few Learning areas.";
                                 highlight = "Learning";
                                 highlightColor = '#eab308';
-                            } else if ((counts['difficulty-1'] || 0) + (counts['difficulty-2'] || 0) > totalGraded * 0.3) {
+                            } else if (strugglingCount + growingCount > totalGraded * 0.3) {
                                 status = "making steady progress";
-                                advice = "but you have a few Struggling or Growing areas that need attention.";
+                                advice = "but you have several areas that need attention.";
                                 highlight = "Struggling or Growing";
                                 highlightColor = '#f97316';
                             } else {

@@ -14,7 +14,7 @@ export default async function handler(req, res) {
 
         const prompt = `
         You are a supportive, professional SHRM Study Coach. 
-        Analyze the student's current progress and provide a highly personalized, encouraging one-sentence coaching insight.
+        Analyze the student's current progress and provide a highly personalized, tactical one-sentence coaching insight.
         
         Current Stats:
         - Completion: ${masteryPercent}%
@@ -26,12 +26,13 @@ export default async function handler(req, res) {
           * Growing (2): ${counts['difficulty-2'] || 0}
           * Struggling (1): ${counts['difficulty-1'] || 0}
 
-        Requirements:
-        1. Be conversational and human.
-        2. Specifically mention one of their strengths (e.g., their Mastered count) or their biggest opportunity (e.g., their Struggling count).
-        3. Do not use generic corporate speak.
-        4. Keep it to exactly ONE or TWO concise sentences.
-        5. Do not include any JSON or formatting, just the plain text.
+        Mandatory Instruction:
+        1. If the 'Struggling (1)' count is greater than 0, your advice MUST focus on these specific cards first. 
+        2. Be conversational and human.
+        3. Do not use generic corporate speak like "keep pushing forward."
+        4. Give a tactical tip (e.g., "Revisit the 7 struggling cards before the end of the day").
+        5. Keep it to exactly ONE concise sentence.
+        6. Do not include any JSON or formatting, just the plain text.
         `;
 
         const result = await model.generateContent(prompt);
@@ -40,6 +41,10 @@ export default async function handler(req, res) {
         return res.status(200).json({ insight: text });
     } catch (error) {
         console.error("Coach API Error:", error);
-        return res.status(500).json({ insight: "Keep pushing forward! Every card studied brings you closer to certification." });
+        const struggling = req.body.counts['difficulty-1'] || 0;
+        const msg = struggling > 0 
+            ? `Immediate Focus: Revisit those ${struggling} Struggling concepts before moving on to new material.`
+            : "Great consistency! Keep polishing those Growing cards to hit that 4.0 mastery target.";
+        return res.status(500).json({ insight: msg });
     }
 }
