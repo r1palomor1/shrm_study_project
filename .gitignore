@@ -8,3 +8,5 @@ backend/venv/
 backend/__pycache__/
 frontend/dist/
 .DS_Store
+.vercel
+.env*.local

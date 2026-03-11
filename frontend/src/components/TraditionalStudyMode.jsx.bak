@@ -69,7 +69,23 @@ export default function TraditionalStudyMode({ deck, onBack, onUpdateCardStatus 
     const masteredCount = (counts['difficulty-4'] || 0) + (counts['difficulty-5'] || 0);
     const masteryPercent = Math.round((masteredCount / deck.cards.length) * 100);
 
-
+    // Calculate conic gradient parts
+    const getGradient = () => {
+        const total = gradedCards.length || 1;
+        const p5 = ((counts['difficulty-5'] || 0) / total) * 100;
+        const p4 = ((counts['difficulty-4'] || 0) / total) * 100;
+        const p3 = ((counts['difficulty-3'] || 0) / total) * 100;
+        const p2 = ((counts['difficulty-2'] || 0) / total) * 100;
+        const p1 = ((counts['difficulty-1'] || 0) / total) * 100;
+        
+        return `conic-gradient(
+            #0ea5e9 0% ${p5}%, 
+            #84cc16 ${p5}% ${p5+p4}%, 
+            #eab308 ${p5+p4}% ${p5+p4+p3}%, 
+            #f97316 ${p5+p4+p3}% ${p5+p4+p3+p2}%, 
+            #9d174d ${p5+p4+p3+p2}% 100%
+        )`;
+    };
 
     const handleRate = (rating) => {
         if (onUpdateCardStatus) {
@@ -83,82 +99,76 @@ export default function TraditionalStudyMode({ deck, onBack, onUpdateCardStatus 
             };
             const newStatus = statusMap[rating];
             onUpdateCardStatus(card.id, newStatus);
+            // Update local card status for immediate UI feedback
+            card.status_traditional = newStatus;
         }
         handleNext(); 
     };
 
-
+    const handleMarkUnseen = () => {
+        if (onUpdateCardStatus) {
+            onUpdateCardStatus(card.id, 'unseen');
+            // Optimistically update local state so the button flips immediately
+            card.status_traditional = 'unseen';
+        }
+    };
 
     const handleHideAnswer = () => {
         setIsAnswerRevealed(false);
     };
 
     return (
-        <div style={{ maxWidth: '1000px', margin: '0 auto', width: '100%', paddingTop: '0.5rem' }}>
-            {/* Unified Top Header Row */}
-            <div style={{ 
-                display: 'flex', 
-                justifyContent: 'space-between', 
-                alignItems: 'center', 
-                marginBottom: '1rem',
-                borderBottom: '1px solid var(--border-color)',
-                paddingBottom: '0.8rem'
+        <div style={{ maxWidth: '1000px', margin: '0 auto', width: '100%' }}>
+            {/* Topic Header at Top */}
+            <div style={{
+                textAlign: 'center',
+                color: 'var(--secondary)',
+                textTransform: 'uppercase',
+                letterSpacing: '1px',
+                fontSize: '0.85rem',
+                fontWeight: '600',
+                marginBottom: '1rem'
             }}>
-                {/* Left: Exit */}
-                <button
-                    onClick={onBack}
-                    style={{
-                        background: 'transparent',
-                        border: '1px solid var(--border-color)',
-                        padding: '0.4rem 0.8rem',
-                        fontSize: '0.85rem',
-                        minWidth: 'auto'
-                    }}
-                >
-                    &larr; Exit
-                </button>
+                {card.topic}
+            </div>
 
-                {/* Center: Topic Title */}
-                <div style={{
-                    color: 'var(--secondary)',
-                    textTransform: 'uppercase',
-                    letterSpacing: '1px',
-                    fontSize: '0.75rem',
-                    fontWeight: '600',
-                    maxWidth: '40%',
-                    textAlign: 'center',
-                    lineHeight: '1.2'
-                }}>
-                    {card.topic}
-                </div>
-
-                {/* Right: Analytics + Count */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-                    <button 
-                        onClick={() => setShowStats(!showStats)}
+            {/* Top Navigation & Progress Ribbon */}
+            <div style={{ marginBottom: '1.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                    <button
+                        onClick={onBack}
                         style={{
-                            background: showStats ? 'var(--secondary)' : 'transparent',
+                            background: 'transparent',
                             border: '1px solid var(--border-color)',
-                            padding: '0.3rem 0.6rem',
-                            fontSize: '0.75rem',
-                            borderRadius: '20px',
-                            color: showStats ? 'black' : 'white',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            fontWeight: 'bold',
-                            minWidth: 'auto'
+                            boxShadow: 'none',
+                            padding: '0.5rem 1rem',
+                            fontSize: '0.9rem'
                         }}
                     >
-                        <span>{masteryPercent}%</span>
-                        <span style={{ opacity: 0.8 }}>📊</span>
-                        <span>{masteryIndex}</span>
+                        &larr; Exit
                     </button>
-                    <div style={{ color: 'white', fontWeight: 'bold', fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
-                        Card {currentIndex + 1} of {deck.cards.length}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                        <button 
+                            onClick={() => setShowStats(!showStats)}
+                            style={{
+                                background: showStats ? 'var(--secondary)' : 'transparent',
+                                border: '1px solid var(--border-color)',
+                                padding: '0.4rem 0.8rem',
+                                fontSize: '0.8rem',
+                                borderRadius: '20px',
+                                color: showStats ? 'black' : 'white',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '5px'
+                            }}
+                        >
+                            📊 {masteryPercent}%
+                        </button>
+                        <div style={{ color: 'white', fontWeight: 'bold' }}>
+                            Card {currentIndex + 1} of {deck.cards.length}
+                        </div>
                     </div>
                 </div>
-            </div>
 
                 {/* Mastery Stats Drawer (Option 3) */}
                 {/* Mastery Stats Drawer (Advanced Mockup Style) */}
@@ -204,65 +214,33 @@ export default function TraditionalStudyMode({ deck, onBack, onUpdateCardStatus 
                                 ))}
                             </div>
 
-                            {/* Donut Chart Component - MATHEMATICALLY PERFECT SVG RING */}
-                            <div style={{ position: 'relative', width: '130px', height: '130px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <svg width="130" height="130" viewBox="0 0 100 100" style={{ transform: 'rotate(-90deg)', overflow: 'visible' }}>
-                                    {(() => {
-                                        const total = gradedCards.length || 1;
-                                        const r = 40; // radius
-                                        const circ = 2 * Math.PI * r;
-                                        
-                                        // Cumulative percentages
-                                        let cumulative = 0;
-                                        const tiers = [
-                                            { k: 'difficulty-5', c: '#0ea5e9' },
-                                            { k: 'difficulty-4', c: '#84cc16' },
-                                            { k: 'difficulty-3', c: '#eab308' },
-                                            { k: 'difficulty-2', c: '#f97316' },
-                                            { k: 'difficulty-1', c: '#9d174d' }
-                                        ];
-
-                                        return tiers.map((tier) => {
-                                            const count = counts[tier.k] || 0;
-                                            const percentage = count / total;
-                                            const strokeDasharray = `${percentage * circ} ${circ}`;
-                                            const strokeDashoffset = -cumulative * circ;
-                                            cumulative += percentage;
-
-                                            return (
-                                                <circle
-                                                    key={tier.k}
-                                                    cx="50"
-                                                    cy="50"
-                                                    r={r}
-                                                    fill="transparent"
-                                                    stroke={tier.c}
-                                                    strokeWidth="10"
-                                                    strokeDasharray={strokeDasharray}
-                                                    strokeDashoffset={strokeDashoffset}
-                                                    style={{ transition: 'stroke-dashoffset 0.5s ease, stroke-dasharray 0.5s ease' }}
-                                                />
-                                            );
-                                        });
-                                    })()}
-                                </svg>
-                                
-                                {/* Inner Text - Absolute Centered */}
+                            {/* Donut Chart Component */}
+                            <div style={{ position: 'relative', width: '130px', height: '130px', flexShrink: 0, aspectRatio: '1/1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                 <div style={{ 
-                                    position: 'absolute',
-                                    top: '50%',
-                                    left: '50%',
-                                    transform: 'translate(-50%, -50%)',
+                                    width: '100%', 
+                                    height: '100%', 
+                                    borderRadius: '50%', 
+                                    background: getGradient(),
+                                    padding: '10px',
                                     display: 'flex',
-                                    flexDirection: 'column',
                                     alignItems: 'center',
-                                    justifyContent: 'center',
-                                    textAlign: 'center'
+                                    justifyContent: 'center'
                                 }}>
-                                    <div style={{ fontSize: '0.55rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Mastery</div>
-                                    <div style={{ fontSize: '1.6rem', fontWeight: '800', color: 'white', lineHeight: '1' }}>{masteryIndex}</div>
+                                    <div style={{ 
+                                        width: '100%', 
+                                        height: '100%', 
+                                        borderRadius: '50%', 
+                                        background: '#0f172a',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        justifyContent: 'center'
+                                    }}>
+                                        <div style={{ fontSize: '0.55rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Mastery</div>
+                                        <div style={{ fontSize: '1.6rem', fontWeight: '800', color: 'white', lineHeight: '1' }}>{masteryIndex}</div>
+                                    </div>
                                 </div>
-                                <div style={{ position: 'absolute', bottom: '-22px', width: '100%', textAlign: 'center', fontSize: '0.6rem', color: 'var(--text-muted)' }}>Breakdown Index</div>
+                                <div style={{ position: 'absolute', bottom: '-20px', width: '100%', textAlign: 'center', fontSize: '0.6rem', color: 'var(--text-muted)' }}>Breakdown Index</div>
                             </div>
                         </div>
 
@@ -293,7 +271,7 @@ export default function TraditionalStudyMode({ deck, onBack, onUpdateCardStatus 
                     display: 'flex', 
                     alignItems: 'center',
                     gap: '5px',
-                    padding: '0.2rem 0'
+                    padding: '0.5rem 0'
                 }}>
                     <button
                         onClick={() => handleScrollRibbon('left')}
@@ -359,16 +337,15 @@ export default function TraditionalStudyMode({ deck, onBack, onUpdateCardStatus 
                                         cursor: 'pointer',
                                         minWidth: '26px',
                                         flexShrink: 0,
-                                        transition: 'all 0.3s ease',
+                                        transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                                        transform: isCurrent ? 'scale(1.2)' : 'scale(1)',
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center',
                                         fontSize: isCurrent ? '0.85rem' : '0.65rem',
                                         color: isCurrent ? 'white' : 'rgba(255,255,255,0.7)',
                                         fontWeight: isCurrent ? '800' : '600',
-                                        textShadow: '0px 1px 2px rgba(0,0,0,0.6)',
-                                        backfaceVisibility: 'hidden',
-                                        WebkitFontSmoothing: 'subpixel-antialiased'
+                                        textShadow: '0px 1px 2px rgba(0,0,0,0.6)'
                                     }}
                                 >
                                     {idx + 1}
@@ -397,15 +374,15 @@ export default function TraditionalStudyMode({ deck, onBack, onUpdateCardStatus 
                         &rsaquo;
                     </button>
                 </div>
-            
+            </div>
+
             {/* Vertical Stack Container */}
             <div style={{
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '0',
-                minHeight: '400px',
-                position: 'relative',
-                marginTop: '0.5rem'
+                minHeight: '500px',
+                position: 'relative'
             }}>
                 {/* Question Side */}
                 <div className="glass-panel" style={{
@@ -418,22 +395,14 @@ export default function TraditionalStudyMode({ deck, onBack, onUpdateCardStatus 
                     borderBottomLeftRadius: isAnswerRevealed ? '0' : '12px',
                     borderBottomRightRadius: isAnswerRevealed ? '0' : '12px',
                     flex: '0 0 auto',
-                    minHeight: isAnswerRevealed ? '140px' : '400px'
+                    minHeight: isAnswerRevealed ? '200px' : '500px'
                 }}>
-                    <div style={{ 
-                        flex: 1, 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'center', 
-                        padding: isAnswerRevealed ? '0.5rem 1.5rem' : '1.5rem',
-                        transition: 'padding 0.2s ease'
-                    }}>
+                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
                         <h2 style={{ 
-                            fontSize: isAnswerRevealed ? '2.2rem' : '2.5rem', 
+                            fontSize: '2.5rem', 
                             textAlign: 'center', 
                             margin: 0, 
-                            fontWeight: '500',
-                            transition: 'font-size 0.2s'
+                            fontWeight: '500'
                         }}>
                             {card.question}
                         </h2>
@@ -518,9 +487,9 @@ export default function TraditionalStudyMode({ deck, onBack, onUpdateCardStatus 
                                     </svg>
                                 </button>
 
-                                <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '0.4rem' }}>How well did you know this?</div>
+                                <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>How well did you know this?</div>
                                 
-                                <div style={{ display: 'flex', justifyContent: 'center', gap: '1.2rem', width: '100%', marginBottom: '0.5rem' }}>
+                                <div style={{ display: 'flex', justifyContent: 'center', gap: '1.2rem', width: '100%' }}>
                                     {[
                                         { val: 1, label: 'Not at all', color: '#9d174d' },
                                         { val: 2, label: '', color: '#f97316' },
@@ -528,7 +497,7 @@ export default function TraditionalStudyMode({ deck, onBack, onUpdateCardStatus 
                                         { val: 4, label: '', color: '#84cc16' },
                                         { val: 5, label: 'Perfectly', color: '#0ea5e9' }
                                     ].map((btn) => (
-                                        <div key={btn.val} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem' }}>
+                                        <div key={btn.val} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
                                             <button 
                                                 onClick={() => handleRate(btn.val)}
                                                 style={{
@@ -544,9 +513,7 @@ export default function TraditionalStudyMode({ deck, onBack, onUpdateCardStatus 
                                                     padding: 0,
                                                     minWidth: 'auto',
                                                     border: '2px solid rgba(255,255,255,0.1)',
-                                                    transition: 'background 0.2s ease, box-shadow 0.2s ease',
-                                                    backfaceVisibility: 'hidden',
-                                                    WebkitFontSmoothing: 'subpixel-antialiased'
+                                                    transition: 'transform 0.2s ease'
                                                 }}
                                                 className="confidence-btn"
                                             >
@@ -563,18 +530,17 @@ export default function TraditionalStudyMode({ deck, onBack, onUpdateCardStatus 
             </div>
 
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2rem' }}>
                 <button
                     onClick={handlePrev}
                     disabled={currentIndex === 0}
                     style={{
-                        padding: '0.6rem 1.5rem',
+                        padding: '1rem 2rem',
                         background: 'transparent',
                         border: '1px solid var(--border-color)',
                         opacity: currentIndex === 0 ? 0.3 : 1,
                         cursor: currentIndex === 0 ? 'not-allowed' : 'pointer',
-                        color: 'white',
-                        fontSize: '0.9rem'
+                        color: 'white'
                     }}
                 >
                     &larr; Previous Card
@@ -582,11 +548,10 @@ export default function TraditionalStudyMode({ deck, onBack, onUpdateCardStatus 
                 <button
                     onClick={handleNext}
                     style={{
-                        padding: '0.6rem 1.5rem',
+                        padding: '1rem 2rem',
                         background: 'rgba(255,255,255,0.1)',
                         border: '1px solid var(--border-color)',
-                        color: 'white',
-                        fontSize: '0.9rem'
+                        color: 'white'
                     }}
                 >
                     {currentIndex < deck.cards.length - 1 ? 'Skip / Next \u2192' : 'Finish Deck'}
