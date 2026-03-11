@@ -167,8 +167,17 @@ function App() {
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', marginBottom: '2rem' }}>
               {decks.map(deck => {
                 const getStatus = (c) => studyMode === 'traditional' ? (c.status_traditional || c.status || 'unseen') : (c.status_test || c.status || 'unseen');
-                const completedCount = deck.cards.filter(c => getStatus(c) !== 'unseen').length;
-                const percent = deck.cards.length > 0 ? Math.round((completedCount / deck.cards.length) * 100) : 0;
+                const masteredCount = deck.cards.filter(c => getStatus(c) !== 'unseen').length;
+                const percent = deck.cards.length > 0 ? Math.round((masteredCount / deck.cards.length) * 100) : 0;
+
+                // Calculate Mastery Index (Average of graded cards)
+                const gradedForMastery = deck.cards.filter(c => getStatus(c) && getStatus(c) !== 'unseen');
+                const totalWeight = gradedForMastery.reduce((sum, c) => {
+                  const s = getStatus(c);
+                  const rating = parseInt(s.split('-')[1]) || 0;
+                  return sum + rating;
+                }, 0);
+                const avgScore = gradedForMastery.length > 0 ? (totalWeight / gradedForMastery.length).toFixed(1) : null;
 
                 return (
                   <div key={deck.title} className="glass-panel" style={{
@@ -176,14 +185,21 @@ function App() {
                     display: 'flex',
                     alignItems: 'center',
                     gap: '1rem',
-                    flex: '0 1 300px',
-                    minWidth: '250px',
+                    flex: '0 1 350px',
+                    minWidth: '280px',
                     margin: 0
                   }}>
                     <div style={{ flex: 1 }}>
-                      <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1.1rem' }}>{deck.title}</h3>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.6rem', marginBottom: '0.25rem' }}>
+                        <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{deck.title}</h3>
+                        {avgScore && (
+                          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 'bold' }}>
+                            (Confidence: {avgScore})
+                          </span>
+                        )}
+                      </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                        <span>{completedCount} / {deck.cards.length} completed</span>
+                        <span>{masteredCount} / {deck.cards.length} completed</span>
                         <span>{percent}%</span>
                       </div>
                       <div style={{ width: '100%', height: '4px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '2px', marginTop: '0.5rem', overflow: 'hidden' }}>
@@ -193,7 +209,7 @@ function App() {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                       <button
                         onClick={() => handleResetProgress(deck.title)}
-                        style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem', background: 'transparent', border: '1px solid var(--secondary)', color: 'var(--secondary)', minWidth: 'auto', boxShadow: 'none' }}>
+                        style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem', background: 'transparent', border: '1px solid #eab308', color: '#eab308', minWidth: 'auto', boxShadow: 'none' }}>
                         Reset
                       </button>
                       <button
