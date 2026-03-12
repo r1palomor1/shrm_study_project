@@ -16,7 +16,7 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
     // Check for missing distractor data on mount (Phase 8 Cold Start)
     useEffect(() => {
         const missing = deck.cards.filter(c => {
-            const vaultData = getDistractorFromVault(c.id);
+            const vaultData = getDistractorFromVault(c.id, deck.quizType);
             return !vaultData || vaultData.quizType !== deck.quizType;
         });
         
@@ -36,7 +36,7 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
     useEffect(() => {
         if (isProcessing) return;
 
-        const aiData = getDistractorFromVault(card.id);
+        const aiData = getDistractorFromVault(card.id, deck.quizType);
         
         if (aiData && aiData.distractors && aiData.quizType === deck.quizType) {
             const allOptions = [card.answer, ...aiData.distractors].sort(() => 0.5 - Math.random());
@@ -91,7 +91,7 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
         );
     }
 
-    const currentAiData = getDistractorFromVault(card.id);
+    const currentAiData = getDistractorFromVault(card.id, deck.quizType);
 
     return (
         <div style={{ maxWidth: '800px', margin: '0 auto', width: '100%' }}>

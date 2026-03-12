@@ -110,6 +110,8 @@ function App() {
 
 // ... inside App component ...
 
+  const [warmUpProgress, setWarmUpProgress] = useState(0);
+
   const handleBulkWarmUp = async () => {
     if (decks.length === 0) return;
     
@@ -136,15 +138,19 @@ function App() {
     if (!window.confirm(confirmMsg)) return;
 
     setIsWarmingUp(true);
+    setWarmUpProgress(0);
     try {
       await generateDistractorsBatch(missingCards, quizType, (progress) => {
-        // We could add a progress state here if we want a bar on the dashboard
-        console.log(`Warm-up progress: ${progress}%`);
+        setWarmUpProgress(progress);
       });
-      alert(`Warm-Up Complete! ${missingCards.length} items have been added to your local Distractor Vault.`);
+      // Small delay to let the user see 100%
+      setTimeout(() => {
+        setIsWarmingUp(false);
+        setWarmUpProgress(0);
+        alert(`Warm-Up Complete! ${missingCards.length} items have been added to your local Distractor Vault.`);
+      }, 500);
     } catch (err) {
       alert("Warm-Up failed: " + err.message);
-    } finally {
       setIsWarmingUp(false);
     }
   };
@@ -453,20 +459,41 @@ function App() {
 
               {studyMode === 'quiz' && (
                 <div style={{ marginTop: '1.5rem', textAlign: 'left' }} className="animate-fade-in">
-                   <button 
-                    onClick={handleBulkWarmUp}
-                    disabled={isWarmingUp}
-                    className="secondary"
-                    style={{ fontSize: '0.85rem', padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-                  >
-                    <span className="material-symbols-outlined" style={{ fontSize: '1.1rem' }}>
-                      {isWarmingUp ? 'sync' : 'bolt'}
-                    </span>
-                    {isWarmingUp ? 'Warming Up Deck...' : 'Bulk Warm-Up (Generate All)'}
-                  </button>
-                  <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                    Recommended: Pre-generate all distractors and rationales for a better experience.
-                  </p>
+                  {isWarmingUp ? (
+                    <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.8rem', fontSize: '0.85rem' }}>
+                        <span style={{ color: 'var(--secondary)', fontWeight: 'bold' }}>
+                          <span className="material-symbols-outlined" style={{ fontSize: '1.1rem', verticalAlign: 'middle', marginRight: '0.4rem' }}>sync</span>
+                          Generating Elite Content...
+                        </span>
+                        <span style={{ color: 'white' }}>{warmUpProgress}%</span>
+                      </div>
+                      <div style={{ width: '100%', height: '6px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
+                        <div style={{ 
+                          width: `${warmUpProgress}%`, 
+                          height: '100%', 
+                          backgroundColor: 'var(--secondary)', 
+                          transition: 'width 0.4s ease-out',
+                          boxShadow: '0 0 10px var(--secondary)'
+                        }} />
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ marginTop: '1rem' }}>
+                      <button 
+                        onClick={handleBulkWarmUp}
+                        className="secondary"
+                        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: decks.length === 0 ? 0.5 : 1 }}
+                        disabled={decks.length === 0}
+                      >
+                        <span className="material-symbols-outlined">bolt</span>
+                        Bulk Warm-Up (Generate All)
+                      </button>
+                      <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.5rem', marginLeft: '0.5rem' }}>
+                        Recommended: Pre-generate all distractors and rationales for a better experience.
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 

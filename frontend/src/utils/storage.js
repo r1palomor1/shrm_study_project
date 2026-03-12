@@ -8,7 +8,10 @@ const VAULT_KEY = 'shrm_distractor_vault';
 export function saveDistractorToVault(fingerprint, data) {
     try {
         const vault = loadVaultFromStorage();
-        vault[fingerprint] = {
+        // Use composite key to allow both modes for the same card
+        const key = `${fingerprint}:${data.quizType || 'intelligent'}`;
+        
+        vault[key] = {
             ...data,
             timestamp: new Date().toISOString()
         };
@@ -21,11 +24,15 @@ export function saveDistractorToVault(fingerprint, data) {
 }
 
 /**
- * Retrieves AI-generated data from the vault for a specific fingerprint.
+ * Retrieves AI-generated data from the vault for a specific fingerprint and mode.
  */
-export function getDistractorFromVault(fingerprint) {
+export function getDistractorFromVault(fingerprint, quizType = 'intelligent') {
     const vault = loadVaultFromStorage();
-    return vault[fingerprint] || null;
+    const key = `${fingerprint}:${quizType}`;
+    
+    // Fallback logic: check composite key first, then old fingerprint key if it matches the type
+    const data = vault[key] || (vault[fingerprint]?.quizType === quizType ? vault[fingerprint] : null);
+    return data;
 }
 
 export function loadVaultFromStorage() {

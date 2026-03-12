@@ -6,7 +6,7 @@ import { getDistractorFromVault, saveDistractorToVault } from './storage';
  */
 export async function getQuizDataForDeck(deck, requestedQuizType = 'intelligent') {
     const cardsWithData = deck.cards.map(card => {
-        const vaultData = getDistractorFromVault(card.id);
+        const vaultData = getDistractorFromVault(card.id, requestedQuizType);
         // We only count it as "having data" if it exists AND matches the requested type
         const isValid = vaultData && vaultData.quizType === requestedQuizType;
         return {
