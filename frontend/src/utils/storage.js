@@ -58,6 +58,8 @@ export function updateCardStatus(cardId, studyMode, newStatus, historyData = nul
                     deck.cards[cardIndex].status_traditional = newStatus;
                 } else if (studyMode === 'test') {
                     deck.cards[cardIndex].status_test = newStatus;
+                } else if (studyMode === 'quiz') {
+                    deck.cards[cardIndex].status_quiz = newStatus;
                 }
 
                 // Save permanent history if provided
@@ -68,6 +70,11 @@ export function updateCardStatus(cardId, studyMode, newStatus, historyData = nul
                             grade: newStatus,
                             percentage: historyData.percentage,
                             feedback: historyData.feedback,
+                            timestamp: new Date().toISOString()
+                        };
+                    } else if (studyMode === 'quiz') {
+                        deck.cards[cardIndex].history_quiz = {
+                            grade: newStatus,
                             timestamp: new Date().toISOString()
                         };
                     }

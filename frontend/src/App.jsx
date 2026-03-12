@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import DataImporter from './components/DataImporter';
 import FlashcardStudyMode from './components/FlashcardStudyMode';
 import TraditionalStudyMode from './components/TraditionalStudyMode';
+import QuizStudyMode from './components/QuizStudyMode';
 import { saveDeckToStorage, loadDecksFromStorage, deleteDeckFromStorage, updateCardStatus } from './utils/storage';
 import './index.css';
 
@@ -45,6 +46,7 @@ function App() {
             const newCard = { ...c };
             if (studyMode === 'traditional') newCard.status_traditional = 'unseen';
             if (studyMode === 'test') newCard.status_test = 'unseen';
+            if (studyMode === 'quiz') newCard.status_quiz = 'unseen';
             // Also reset legacy status so it doesn't fall back to it
             newCard.status = 'unseen'; 
             return newCard;
@@ -78,7 +80,12 @@ function App() {
       }
     }
 
-    const getStatus = (c) => studyMode === 'traditional' ? (c.status_traditional || c.status || 'unseen') : (c.status_test || c.status || 'unseen');
+    const getStatus = (c) => {
+      if (studyMode === 'traditional') return c.status_traditional || c.status || 'unseen';
+      if (studyMode === 'test') return c.status_test || c.status || 'unseen';
+      if (studyMode === 'quiz') return c.status_quiz || c.status || 'unseen';
+      return c.status || 'unseen';
+    };
     const seenCards = cardsToStudy.filter(c => getStatus(c) !== 'unseen');
     let unseenCards = cardsToStudy.filter(c => getStatus(c) === 'unseen');
 
@@ -131,9 +138,15 @@ function App() {
             onBack={() => setIsStudying(false)}
             onUpdateCardStatus={handleUpdateCardStatus}
           />
+        ) : studyMode === 'quiz' ? (
+          <QuizStudyMode
+            deck={activeStudyDeck}
+            onBack={() => setIsStudying(false)}
+            onUpdateCardStatus={handleUpdateCardStatus}
+          />
         ) : (
           <div style={{ textAlign: 'center', color: 'white' }}>
-            <h2>Quiz Mode Coming Soon!</h2>
+            <h2>Mode Not Supported</h2>
             <button onClick={() => setIsStudying(false)}>Back to Dashboard</button>
           </div>
         )}
@@ -165,8 +178,13 @@ function App() {
 
             {/* Capsules per deck */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', marginBottom: '2rem' }}>
-              {decks.map(deck => {
-                const getStatus = (c) => studyMode === 'traditional' ? (c.status_traditional || c.status || 'unseen') : (c.status_test || c.status || 'unseen');
+              {[...decks].sort((a, b) => a.title.localeCompare(b.title)).map(deck => {
+                const getStatus = (c) => {
+                  if (studyMode === 'traditional') return c.status_traditional || c.status || 'unseen';
+                  if (studyMode === 'test') return c.status_test || c.status || 'unseen';
+                  if (studyMode === 'quiz') return c.status_quiz || c.status || 'unseen';
+                  return c.status || 'unseen';
+                };
                 const masteredCount = deck.cards.filter(c => getStatus(c) !== 'unseen').length;
                 const percent = deck.cards.length > 0 ? Math.round((masteredCount / deck.cards.length) * 100) : 0;
 
@@ -239,9 +257,9 @@ function App() {
                       fontFamily: 'inherit', fontSize: '1rem'
                     }}
                   >
-                    <option value="traditional" style={{ backgroundColor: 'var(--bg-dark)' }}>Traditional (Self-Marking)</option>
                     <option value="test" style={{ backgroundColor: 'var(--bg-dark)' }}>AI Test Mode (Typing)</option>
-                    <option value="quiz" style={{ backgroundColor: 'var(--bg-dark)' }} disabled>Multiple Choice Quiz (Coming Soon)</option>
+                    <option value="quiz" style={{ backgroundColor: 'var(--bg-dark)' }}>Multiple Choice Quiz (Intelligent)</option>
+                    <option value="traditional" style={{ backgroundColor: 'var(--bg-dark)' }}>Traditional (Self-Marking)</option>
                   </select>
                 </div>
 
@@ -257,7 +275,7 @@ function App() {
                     }}
                   >
                     <option value="ALL" style={{ backgroundColor: 'var(--bg-dark)' }}>All Topics ({totalCards} cards)</option>
-                    {decks.map(d => (
+                    {[...decks].sort((a, b) => a.title.localeCompare(b.title)).map(d => (
                       <option key={d.title} value={d.title} style={{ backgroundColor: 'var(--bg-dark)' }}>{d.title} ({d.cards.length} cards)</option>
                     ))}
                   </select>
@@ -274,8 +292,8 @@ function App() {
                       fontFamily: 'inherit', fontSize: '1rem'
                     }}
                   >
-                    <option value="sequential" style={{ backgroundColor: 'var(--bg-dark)' }}>Sequential (In order)</option>
                     <option value="random" style={{ backgroundColor: 'var(--bg-dark)' }}>Randomized</option>
+                    <option value="sequential" style={{ backgroundColor: 'var(--bg-dark)' }}>Sequential (In order)</option>
                   </select>
                 </div>
               </div>
