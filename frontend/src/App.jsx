@@ -376,20 +376,30 @@ function App() {
                 </button>
               </div>
             </div>
+          </section>
+        )}
 
-            {/* Data Management */}
-            <div style={{ marginTop: '2rem', padding: '1.5rem', borderRadius: '12px', background: 'rgba(255,255,255,0.02)', border: '1px dotted rgba(255,255,255,0.1)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        {/* Data Management - Always Visible */}
+        <section className="glass-panel animate-fade-in" style={{ marginTop: '0' }}>
+            <div style={{ padding: '0.5rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
                 <div>
-                  <h4 style={{ margin: 0, color: 'white' }}>Data Migration & Backup</h4>
+                  <h4 style={{ margin: 0, color: 'white', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: '1.2rem', color: 'var(--secondary)' }}>cloud_sync</span>
+                    {decks.length > 0 ? 'Data Migration & Backup' : 'Restore from Backup'}
+                  </h4>
                   <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                    Export your progress and AI data for use on other devices.
+                    {decks.length > 0 
+                      ? 'Export your progress and AI data for use on other devices.' 
+                      : 'Have a backup file? Restore your entire study session here.'}
                   </p>
                 </div>
                 <div style={{ display: 'flex', gap: '1rem' }}>
-                  <button onClick={handleExport} className="secondary" style={{ fontSize: '0.85rem', padding: '0.5rem 1rem' }}>
-                    Export Backup
-                  </button>
+                  {decks.length > 0 && (
+                    <button onClick={handleExport} className="secondary" style={{ fontSize: '0.85rem', padding: '0.5rem 1rem' }}>
+                      Export Backup
+                    </button>
+                  )}
                   <label className="button secondary" style={{ fontSize: '0.85rem', padding: '0.5rem 1rem', display: 'inline-block', cursor: 'pointer', margin: 0 }}>
                     Restore Backup
                     <input 
@@ -403,9 +413,7 @@ function App() {
                 </div>
               </div>
             </div>
-
-          </section>
-        )}
+        </section>
       </main>
     </div>
   );
