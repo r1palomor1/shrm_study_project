@@ -69,7 +69,6 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
         if (currentIndex < deck.cards.length - 1) {
             setCurrentIndex(currentIndex + 1);
         } else {
-            alert("Quiz Complete!");
             onBack();
         }
     };

@@ -135,8 +135,8 @@ function App() {
     }
 
     const confirmMsg = `Found ${missingCards.length} items missing ${quizType} data. Pre-generating them now using Gemini 2.5? \n\n(This will happen in background batches)`;
-    if (!window.confirm(confirmMsg)) return;
-
+    // Remove confirm and just start (more premium flow)
+    
     setIsWarmingUp(true);
     setWarmUpProgress(0);
     try {
@@ -147,10 +147,10 @@ function App() {
       setTimeout(() => {
         setIsWarmingUp(false);
         setWarmUpProgress(0);
-        alert(`Warm-Up Complete! ${missingCards.length} items have been added to your local Distractor Vault.`);
-      }, 500);
+        // Alert removed for cleaner flow
+      }, 1000);
     } catch (err) {
-      alert("Warm-Up failed: " + err.message);
+      console.error("Warm-Up failed:", err);
       setIsWarmingUp(false);
     }
   };
