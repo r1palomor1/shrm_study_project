@@ -5,7 +5,11 @@ export default function TraditionalStudyMode({ deck, onBack, onUpdateCardStatus 
     const [isAnswerRevealed, setIsAnswerRevealed] = useState(false);
     const [showStats, setShowStats] = useState(false);
     const [statsViewMode, setStatsViewMode] = useState('circular'); // 'circular' or 'bar'
-
+    const [showPreview, setShowPreview] = useState(false);
+    const [previewFilter, setPreviewFilter] = useState(['1', '2', '3', '4', '5', 'unseen']); // Default all
+    const [tempPreviewFilter, setTempPreviewFilter] = useState(['1', '2', '3', '4', '5', 'unseen']);
+    const [showFilterMenu, setShowFilterMenu] = useState(false);
+    const [pendingScores, setPendingScores] = useState({}); // Tracking batch edits
     const card = deck.cards[currentIndex];
 
     // Reset revealed state whenever the card changes
@@ -107,19 +111,37 @@ export default function TraditionalStudyMode({ deck, onBack, onUpdateCardStatus 
                 borderBottom: '1px solid var(--border-color)',
                 paddingBottom: '0.8rem'
             }}>
-                {/* Left: Exit */}
-                <button
-                    onClick={onBack}
-                    style={{
-                        background: 'transparent',
-                        border: '1px solid var(--border-color)',
-                        padding: '0.4rem 0.8rem',
-                        fontSize: '0.85rem',
-                        minWidth: 'auto'
-                    }}
-                >
-                    &larr; Exit
-                </button>
+                {/* Left: Exit + Preview */}
+                <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+                    <button
+                        onClick={onBack}
+                        style={{
+                            background: 'transparent',
+                            border: '1px solid var(--border-color)',
+                            padding: '0.4rem 0.8rem',
+                            fontSize: '0.85rem',
+                            minWidth: 'auto'
+                        }}
+                    >
+                        &larr; Exit
+                    </button>
+                    <button
+                        onClick={() => setShowPreview(true)}
+                        title="Preview All Cards"
+                        style={{
+                            background: 'transparent',
+                            border: '1px solid var(--border-color)',
+                            padding: '0.4rem 0.8rem',
+                            fontSize: '0.85rem',
+                            minWidth: 'auto',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}
+                    >
+                        👁️ Preview
+                    </button>
+                </div>
 
                 {/* Center: Topic Title */}
                 <div style={{
@@ -485,7 +507,7 @@ export default function TraditionalStudyMode({ deck, onBack, onUpdateCardStatus 
                                                 cursor: 'pointer',
                                                 minWidth: '26px',
                                                 flexShrink: 0,
-                                                fontSize: isCurrent ? '0.85rem' : '0.65rem',
+                                                fontSize: '0.825rem',
                                                 color: 'white',
                                                 fontWeight: '800'
                                             }}
@@ -578,7 +600,7 @@ export default function TraditionalStudyMode({ deck, onBack, onUpdateCardStatus 
                                                         display: 'flex',
                                                         alignItems: 'center',
                                                         justifyContent: 'center',
-                                                        fontSize: '0.75rem',
+                                                        fontSize: '0.825rem',
                                                         color: 'white',
                                                         fontWeight: 'bold',
                                                         textShadow: '0 1px 2px rgba(0,0,0,0.4)',
@@ -595,7 +617,7 @@ export default function TraditionalStudyMode({ deck, onBack, onUpdateCardStatus 
                                 {/* Right: Remaining Cards Count */}
                                 <div style={{ 
                                     padding: '2px 8px', 
-                                    fontSize: '0.85rem',
+                                    fontSize: '1.1rem',
                                     color: 'var(--text-muted)',
                                     fontWeight: '500',
                                     minWidth: '35px',
@@ -814,6 +836,469 @@ export default function TraditionalStudyMode({ deck, onBack, onUpdateCardStatus 
                     {currentIndex < deck.cards.length - 1 ? 'Skip / Next \u2192' : 'Finish Deck'}
                 </button>
             </div>
+
+            {/* FULL SCREEN CARD PREVIEW MODAL */}
+            {showPreview && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: 'rgba(10, 11, 26, 0.98)',
+                    zIndex: 2000,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    animation: 'fadeIn 0.2s ease-out',
+                    color: 'white'
+                }}>
+                    <style>{`
+                        .preview-modal-content::-webkit-scrollbar { width: 8px; }
+                        .preview-modal-content::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); }
+                        .preview-modal-content::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+                        .preview-modal-content::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+                        .score-select option { background: #1a1b2e; color: white; }
+                    `}</style>
+                    {/* Header */}
+                    <div style={{
+                        padding: '1.2rem 2rem',
+                        borderBottom: '1px solid rgba(255,255,255,0.1)',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        background: 'rgba(255,255,255,0.02)'
+                    }}>
+                        <div>
+                            <h2 style={{ margin: 0, fontSize: '1.4rem', color: 'white' }}>
+                                {deck.title?.split(' (')[0] || 'Deck'} Preview
+                            </h2>
+                            <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                                Review questions, answers, and adjust scores for all {deck.cards.length} cards.
+                            </p>
+                        </div>
+                        
+                        {/* ACTION GROUP: Filter + Close Buttons closer together */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                            {/* Multi-select Dropdown Filter */}
+                            <div style={{ position: 'relative' }}>
+                                <button 
+                                    onClick={() => {
+                                        setTempPreviewFilter([...previewFilter]);
+                                        setShowFilterMenu(!showFilterMenu);
+                                    }}
+                                    style={{
+                                        background: 'rgba(255,255,255,0.05)',
+                                        border: '1px solid rgba(255,255,255,0.1)',
+                                        padding: '0.6rem 1.2rem',
+                                        borderRadius: '10px',
+                                        color: 'white',
+                                        fontSize: '0.85rem',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.8rem',
+                                        fontWeight: '600'
+                                    }}
+                                >
+                                    <span>Filter Cards ({previewFilter.length === 6 ? 'All' : `${previewFilter.length} Selected`})</span>
+                                    <span style={{ transform: showFilterMenu ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', fontSize: '0.7rem' }}>▼</span>
+                                </button>
+
+                                {showFilterMenu && (
+                                    <>
+                                        {/* Transparent click-away layer */}
+                                        <div 
+                                            onClick={() => setShowFilterMenu(false)}
+                                            style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 2050 }} 
+                                        />
+                                        <div style={{
+                                            position: 'absolute',
+                                            top: '110%',
+                                            right: 0,
+                                            width: '260px',
+                                            background: '#1a1b2e',
+                                            border: '1px solid rgba(255,255,255,0.1)',
+                                            borderRadius: '12px',
+                                            padding: '1.2rem',
+                                            boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
+                                            zIndex: 2100,
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: '1rem',
+                                            animation: 'fadeInUp 0.15s ease'
+                                        }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.8rem', marginBottom: '0.2rem' }}>
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); setTempPreviewFilter(['1', '2', '3', '4', '5', 'unseen']); }}
+                                                    style={{ background: 'transparent', border: 'none', color: 'var(--secondary)', fontSize: '0.7rem', fontWeight: 'bold', cursor: 'pointer' }}
+                                                >
+                                                    SELECT ALL
+                                                </button>
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); setTempPreviewFilter([]); }}
+                                                    style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: '0.7rem', fontWeight: 'bold', cursor: 'pointer' }}
+                                                >
+                                                    CLEAR ALL
+                                                </button>
+                                            </div>
+
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                                                {[
+                                                    { val: '1', l: 'Struggling (1)', c: '#9d174d' },
+                                                    { val: '2', l: 'Growing (2)', c: '#f97316' },
+                                                    { val: '3', l: 'Learning (3)', c: '#eab308' },
+                                                    { val: '4', l: 'Mastered (4)', c: '#84cc16' },
+                                                    { val: '5', l: 'Perfect (5)', c: '#0ea5e9' },
+                                                    { val: 'unseen', l: 'Unseen (?)', c: 'rgba(255,255,255,0.2)' }
+                                                ].map(f => {
+                                                    const count = deck.cards.filter(c => {
+                                                        const status = c.status_traditional || 'unseen';
+                                                        return status === 'unseen' ? f.val === 'unseen' : status.split('-')[1] === f.val;
+                                                    }).length;
+                                                    const isActive = tempPreviewFilter.includes(f.val);
+                                                    return (
+                                                        <div 
+                                                            key={f.val}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                if (isActive) setTempPreviewFilter(tempPreviewFilter.filter(x => x !== f.val));
+                                                                else setTempPreviewFilter([...tempPreviewFilter, f.val]);
+                                                            }}
+                                                            style={{
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                gap: '0.8rem',
+                                                                cursor: 'pointer',
+                                                                padding: '0.2rem 0',
+                                                                opacity: isActive ? 1 : 0.4
+                                                            }}
+                                                        >
+                                                            <div style={{
+                                                                width: '18px',
+                                                                height: '18px',
+                                                                borderRadius: '4px',
+                                                                border: '2px solid',
+                                                                borderColor: isActive ? f.c : 'rgba(255,255,255,0.2)',
+                                                                background: isActive ? f.c : 'transparent',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                fontSize: '0.8rem',
+                                                                color: 'white'
+                                                            }}>
+                                                                {isActive && '✓'}
+                                                            </div>
+                                                            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: f.c }} />
+                                                            <span style={{ fontSize: '0.9rem', color: 'white', flex: 1 }}>{f.l}</span>
+                                                            <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.9)', fontWeight: 'bold', marginLeft: '-0.3rem' }}>{count}</span>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+
+                                            <div style={{ display: 'flex', gap: '0.8rem', marginTop: '0.5rem', paddingTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); setShowFilterMenu(false); }}
+                                                    style={{ flex: 1, background: 'rgba(255,255,255,0.05)', color: 'white', border: 'none', padding: '0.5rem', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer' }}
+                                                >
+                                                    Cancel
+                                                </button>
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); setPreviewFilter([...tempPreviewFilter]); setShowFilterMenu(false); }}
+                                                    style={{ flex: 1, background: 'var(--secondary)', color: 'black', border: 'none', padding: '0.5rem', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer' }}
+                                                >
+                                                    Apply
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+
+                            <button 
+                                onClick={() => setShowPreview(false)}
+                                style={{
+                                    background: 'rgba(255,255,255,0.05)',
+                                    color: 'rgba(255,255,255,0.8)',
+                                    border: '1px solid rgba(255,255,255,0.15)',
+                                    padding: '0.6rem 1.4rem',
+                                    borderRadius: '10px',
+                                    fontWeight: 'bold',
+                                    fontSize: '0.85rem',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s'
+                                }}
+                                onMouseOver={(e) => {
+                                    e.currentTarget.style.background = 'rgba(255,255,255,0.1)';
+                                    e.currentTarget.style.color = 'white';
+                                }}
+                                onMouseOut={(e) => {
+                                    e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
+                                    e.currentTarget.style.color = 'rgba(255,255,255,0.8)';
+                                }}
+                            >
+                                Close Preview
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Scrollable List */}
+                    <div style={{ 
+                        flex: 1, 
+                        overflowY: 'auto', 
+                        padding: '2rem',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '1.5rem',
+                        paddingBottom: Object.keys(pendingScores).length > 0 ? '8rem' : '4rem' // Extra space for sticky footer
+                    }} className="custom-scrollbar preview-modal-content">
+                        {deck.cards.map((c, idx) => {
+                            const originalStatus = c.status_traditional || 'unseen';
+                            const scoreKey = originalStatus === 'unseen' ? 'unseen' : originalStatus.split('-')[1];
+                            
+                            // Filter logic STRICTLY uses original status to prevent cards from disappearing while editing
+                            if (!previewFilter.includes(scoreKey)) return null;
+
+                            // Display Logic uses pending score if available
+                            const displayStatus = pendingScores[c.id] || originalStatus;
+                            let dotColor = 'rgba(255,255,255,0.1)';
+                            if (displayStatus === 'difficulty-1') dotColor = '#9d174d';
+                            if (displayStatus === 'difficulty-2') dotColor = '#f97316';
+                            if (displayStatus === 'difficulty-3') dotColor = '#eab308';
+                            if (displayStatus === 'difficulty-4') dotColor = '#84cc16';
+                            if (displayStatus === 'difficulty-5') dotColor = '#0ea5e9';
+
+                            return (
+                                <div key={c.id} style={{
+                                    display: 'flex',
+                                    alignItems: 'stretch',
+                                    gap: '1rem',
+                                    minHeight: '120px',
+                                    transition: 'all 0.3s ease',
+                                    opacity: pendingScores[c.id] ? 1 : 0.8,
+                                    transform: pendingScores[c.id] ? 'scale(1.005)' : 'none'
+                                }}>
+                                    {/* Card Number & Progress Indicator */}
+                                    <div style={{
+                                        width: '40px',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        fontSize: '1.1rem',
+                                        color: 'var(--text-muted)',
+                                        fontWeight: 'bold'
+                                    }}>
+                                        {idx + 1}
+                                    </div>
+
+                                    {/* Main Card Content */}
+                                    <div style={{
+                                        flex: 1,
+                                        background: 'rgba(255,255,255,0.03)',
+                                        border: '1px solid rgba(255,255,255,0.08)',
+                                        borderRadius: '12px',
+                                        display: 'flex',
+                                        overflow: 'hidden',
+                                        borderLeft: `5px solid ${dotColor}`
+                                    }}>
+                                        {/* Question Area */}
+                                        <div style={{
+                                            padding: '1.2rem',
+                                            flex: 1,
+                                            borderRight: '1px solid rgba(255,255,255,0.06)',
+                                            position: 'relative'
+                                        }}>
+                                            <span style={{ 
+                                                position: 'absolute', top: '0.8rem', left: '0.8rem', 
+                                                fontSize: '1.2rem', fontWeight: '900', color: 'rgba(255,255,255,0.05)' 
+                                            }}>Q</span>
+                                            <div style={{ fontSize: '1rem', color: 'white', lineHeight: '1.5', marginTop: '0.5rem' }}>
+                                                {c.question}
+                                            </div>
+                                        </div>
+
+                                        {/* Answer Area */}
+                                        <div style={{
+                                            padding: '1.2rem',
+                                            flex: 1,
+                                            background: 'rgba(255,255,255,0.01)',
+                                            position: 'relative'
+                                        }}>
+                                            <span style={{ 
+                                                position: 'absolute', top: '0.8rem', left: '0.8rem', 
+                                                fontSize: '1.2rem', fontWeight: '900', color: 'rgba(255,255,255,0.05)' 
+                                            }}>A</span>
+                                            <div style={{ fontSize: '0.95rem', color: 'rgba(255,255,255,0.7)', lineHeight: '1.5', marginTop: '0.5rem' }}>
+                                                {c.answer}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Stylized Badge Selector */}
+                                    <div style={{
+                                        width: '130px',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'flex-end',
+                                        justifyContent: 'center',
+                                        gap: '0.4rem',
+                                        paddingRight: '1rem'
+                                    }}>
+                                        <div style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 'bold' }}>Score</div>
+                                        <div style={{ position: 'relative', width: '100%' }}>
+                                            <div style={{
+                                                padding: '0.5rem 0.8rem',
+                                                borderRadius: '8px',
+                                                background: 'rgba(255,255,255,0.03)',
+                                                border: `1px solid ${
+                                                    displayStatus === 'unseen' ? 'rgba(255,255,255,0.1)' :
+                                                    displayStatus === 'difficulty-1' ? '#9d174d' :
+                                                    displayStatus === 'difficulty-2' ? '#f97316' :
+                                                    displayStatus === 'difficulty-3' ? '#eab308' :
+                                                    displayStatus === 'difficulty-4' ? '#84cc16' :
+                                                    '#0ea5e9'
+                                                }`,
+                                                color: 'white',
+                                                fontSize: '0.85rem',
+                                                textAlign: 'center',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'space-between',
+                                                minWidth: '110px'
+                                            }}>
+                                                <span>{
+                                                    displayStatus === 'unseen' ? '--' :
+                                                    displayStatus === 'difficulty-1' ? '1 Struggling' :
+                                                    displayStatus === 'difficulty-2' ? '2 Growing' :
+                                                    displayStatus === 'difficulty-3' ? '3 Learning' :
+                                                    displayStatus === 'difficulty-4' ? '4 Mastered' :
+                                                    '5 Perfect'
+                                                }</span>
+                                                <span style={{ fontSize: '0.6rem', opacity: 0.5 }}>▼</span>
+                                            </div>
+                                            <select
+                                                value={displayStatus === 'unseen' ? '' : displayStatus.split('-')[1]}
+                                                onChange={(e) => {
+                                                    const val = e.target.value === '' ? 'unseen' : parseInt(e.target.value);
+                                                    if (val === 'unseen' || !isNaN(val)) {
+                                                        const statusMap = {
+                                                            1: 'difficulty-1',
+                                                            2: 'difficulty-2',
+                                                            3: 'difficulty-3',
+                                                            4: 'difficulty-4',
+                                                            5: 'difficulty-5',
+                                                            'unseen': 'unseen'
+                                                        };
+                                                        const newStatus = statusMap[val];
+                                                        
+                                                        if (newStatus === originalStatus) {
+                                                            const nextPending = { ...pendingScores };
+                                                            delete nextPending[c.id];
+                                                            setPendingScores(nextPending);
+                                                        } else {
+                                                            setPendingScores({
+                                                                ...pendingScores,
+                                                                [c.id]: newStatus
+                                                            });
+                                                        }
+                                                    }
+                                                }}
+                                                style={{
+                                                    position: 'absolute',
+                                                    top: 0,
+                                                    left: 0,
+                                                    width: '100%',
+                                                    height: '100%',
+                                                    opacity: 0,
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                <option value="">-- Clear Score</option>
+                                                <option value="1">1 Struggling</option>
+                                                <option value="2">2 Growing</option>
+                                                <option value="3">3 Learning</option>
+                                                <option value="4">4 Mastered</option>
+                                                <option value="5">5 Perfect</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+
+                    {/* STICKY BATCH ACTIONS FOOTER */}
+                    {Object.keys(pendingScores).length > 0 && (
+                        <div style={{
+                            position: 'fixed',
+                            bottom: '2.5rem',
+                            left: '50%',
+                            transform: 'translateX(-50%)',
+                            width: 'auto',
+                            minWidth: '400px',
+                            background: '#1a1b2e',
+                            border: '1px solid var(--secondary)',
+                            borderRadius: '16px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: '3rem',
+                            padding: '0.8rem 2.2rem',
+                            boxShadow: '0 20px 60px rgba(0,0,0,0.9)',
+                            zIndex: 3000,
+                            animation: 'fadeInUp 0.4s cubic-bezier(0.19, 1, 0.22, 1)'
+                        }}>
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                <span style={{ color: 'var(--secondary)', fontWeight: '900', fontSize: '1.1rem', letterSpacing: '0.5px' }}>
+                                    {Object.keys(pendingScores).length} Changes Ready
+                                </span>
+                                <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.75rem' }}>Review highlighted cards before saving</span>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '1rem' }}>
+                                <button 
+                                    onClick={() => setPendingScores({})}
+                                    style={{
+                                        background: 'rgba(255,255,255,0.05)',
+                                        color: 'rgba(255,255,255,0.8)',
+                                        border: '1px solid rgba(255,255,255,0.1)',
+                                        padding: '0.6rem 1.5rem',
+                                        borderRadius: '8px',
+                                        fontWeight: 'bold',
+                                        fontSize: '0.85rem',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Cancel
+                                </button>
+                                <button 
+                                    onClick={() => {
+                                        Object.entries(pendingScores).forEach(([id, newStatus]) => {
+                                            onUpdateCardStatus(id, newStatus);
+                                            const cardToSync = deck.cards.find(dc => dc.id === id);
+                                            if (cardToSync) cardToSync.status_traditional = newStatus;
+                                        });
+                                        setPendingScores({});
+                                    }}
+                                    style={{
+                                        background: 'var(--secondary)',
+                                        color: 'black',
+                                        border: 'none',
+                                        padding: '0.6rem 1.8rem',
+                                        borderRadius: '8px',
+                                        fontWeight: '900',
+                                        fontSize: '0.85rem',
+                                        cursor: 'pointer',
+                                        boxShadow: '0 0 15px var(--secondary-glow)'
+                                    }}
+                                >
+                                    Save & Apply
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 }
