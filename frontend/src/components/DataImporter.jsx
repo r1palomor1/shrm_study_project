@@ -30,7 +30,7 @@ export default function DataImporter({ onDeckLoaded }) {
                     onDeckLoaded(parsedDeck);
                 }
             } catch (err) {
-                console.error(err);
+                console.error("Parsing Error Details:", err);
                 setError('Error parsing the file data.');
             } finally {
                 setIsLoading(false);

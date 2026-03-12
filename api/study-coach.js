@@ -17,7 +17,7 @@ export default async function handler(req, res) {
 }
 
 async function handleGenerateDistractors(req, res) {
-    const { cards } = req.body;
+    const { cards, quizType = 'intelligent' } = req.body;
     
     if (!cards || !Array.isArray(cards)) {
         return res.status(400).json({ message: 'Invalid card data' });
@@ -25,41 +25,67 @@ async function handleGenerateDistractors(req, res) {
 
     try {
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-        // Using flash for speed; distractor generation is a specific tactical task well-suited for Flash
+        // Upgraded to 2.5 Flash for March 2026 reasoning power & 250 RPD generosity
         const model = genAI.getGenerativeModel({ 
-            model: "gemini-1.5-flash",
+            model: "gemini-2.5-flash",
             generationConfig: { responseMimeType: "application/json" }
         });
 
-        const prompt = `
-        You are an expert SHRM Content Designer specialized in the 2026 BASK (Body of Applied Skills and Knowledge).
-        Generate 3 high-quality distractors and a professional rationale for the following SHRM flashcards.
+        let promptSystemInstructions = "";
         
-        Rules for Distractors:
-        1. Difficulty: SHRM Senior Certified Professional (SHRM-SCP) level rigor.
-        2. Format: Must match the syntax, length, and tone of the correct answer.
-        3. Traps: Use "Tactical Traps" (right concept, wrong application) and "Consultative Gaps" (missing the leadership/strategic nuance).
-        4. Indistinguishability: A student should not be able to guess the answer based on grammar or pattern. Avoid negative phrasing (e.g., "None of the above") unless strictly necessary.
+        if (quizType === 'intelligent') {
+            promptSystemInstructions = `
+            You are an expert SHRM Content Designer (SHRM-SCP status).
+            TASK: Convert flashcards into SHRM Situational Judgment Items (SJI).
+            
+            STRUCTURE FOR EACH ITEM:
+            1. SCENARIO: A realistic 1-3 sentence workplace scenario involving an HR professional.
+            2. QUESTION: Ask what the HR professional should do FIRST or what the BEST action is.
+            3. CORRECT ANSWER: Must reflect the provided flashcard answer logic.
+            4. DISTRACTORS: Must be plausible but sub-optimal HR actions. Use these 4 Trap Patterns:
+               - Premature Escalation (e.g., written warning instead of verbal)
+               - Over-empathy (investigating personal issues before policy)
+               - Strategic but not Tactical (revising policy instead of acting)
+               - Delay/Observation (monitoring for another week)
+            5. RATIONALE: Explain why the correct answer is the SHRM-Best choice and why each distractor is a trap.
+            6. SHRM PRINCIPLE: Label the specific SHRM logic used (e.g., "Address at lowest level first").
+            `;
+        } else {
+            promptSystemInstructions = `
+            You are an expert SHRM Knowledge Designer.
+            TASK: Generate complex distractors for SHRM flashcard definitions.
+            
+            STRUCTURE FOR EACH ITEM:
+            1. QUESTION: Use the exact flashcard question text.
+            2. CORRECT ANSWER: Use the exact flashcard answer text.
+            3. DISTRACTORS: Generate 3 high-quality, professional HR terms or concepts that are plausible but technically incorrect definitions for this specific term. Avoid "easy" or "garbage" distractors.
+            4. RATIONALE: Briefly explain the distinction between the correct term and the distractors.
+            `;
+        }
 
-        Rules for Rationale:
-        1. Be concise (max 3 sentences) but strategic. 
-        2. Explain *why* the correct answer is the best choice according to SHRM 2026 standards.
-        3. Clarify the specific BASK Domain (People, Organization, or Workplace).
+        const prompt = `
+        ${promptSystemInstructions}
 
-        Official 2026 Behavioral Competencies (Tag the most relevant one from this list):
+        Official 2026 Behavioral Competencies (Tag the most relevant one):
         [Leadership & Navigation, Ethical Practice, Inclusive Mindset, Relationship Management, Communication, Business Acumen, Consultation, Analytical Aptitude]
 
+        Official 2026 BASK Domains: [People, Organization, Workplace, Competencies]
+
         Input Cards:
-        ${cards.map(c => `ID: ${c.id}\nQ: ${c.question}\nA: ${c.answer}`).join('\n---\n')}
+        ${cards.map(c => `ID: ${c.id}\nTopic: ${c.topic || 'General'}\nQ: ${c.question}\nA: ${c.answer}`).join('\n---\n')}
 
         Return a JSON object with a results array:
         {
             "results": [
                 {
                     "id": "original_id",
+                    "quizType": "${quizType}",
+                    "scenario": "Scenario text (null if simple mode)",
+                    "question": "The actual question text",
                     "distractors": ["Wrong 1", "Wrong 2", "Wrong 3"],
-                    "rationale": "Direct rationale explaining the best choice...",
-                    "tag_bask": "People | Organization | Workplace",
+                    "rationale": "High-fidelity feedback showing why correct is best and distractors are sub-optimal",
+                    "shrm_principle": "The core SHRM rule (null if simple mode)",
+                    "tag_bask": "Selected Domain",
                     "tag_behavior": "Selected Competency"
                 }
             ]

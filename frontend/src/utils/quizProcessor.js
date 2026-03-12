@@ -4,12 +4,14 @@ import { getDistractorFromVault, saveDistractorToVault } from './storage';
  * Orchestrates the retrieval and generation of AI distractors.
  * Checks the local vault first, then groups missing items for batch generation.
  */
-export async function getQuizDataForDeck(deck) {
+export async function getQuizDataForDeck(deck, requestedQuizType = 'intelligent') {
     const cardsWithData = deck.cards.map(card => {
         const vaultData = getDistractorFromVault(card.id);
+        // We only count it as "having data" if it exists AND matches the requested type
+        const isValid = vaultData && vaultData.quizType === requestedQuizType;
         return {
             ...card,
-            aiData: vaultData || null
+            aiData: isValid ? vaultData : null
         };
     });
 
@@ -26,12 +28,13 @@ export async function getQuizDataForDeck(deck) {
 /**
  * Calls the backend to generate distractors for a batch of cards.
  * @param {Array} cards - Objects with { question, answer }
+ * @param {String} quizType - 'simple' or 'intelligent'
+ * @param {Function} onProgress - Callback for progress tracking
  */
-export async function generateDistractorsBatch(cards, onProgress) {
-    const MAX_BATCH_SIZE = 5; // Gemini Flash can handle moderate context
+export async function generateDistractorsBatch(cards, quizType = 'intelligent', onProgress) {
+    const MAX_BATCH_SIZE = 5; // Optimal for Gemini 2.5 reasoning logic
     const results = [];
     
-    // Split into smaller batches to avoid timeout and token limits
     for (let i = 0; i < cards.length; i += MAX_BATCH_SIZE) {
         const batch = cards.slice(i, i + MAX_BATCH_SIZE);
         
@@ -41,7 +44,8 @@ export async function generateDistractorsBatch(cards, onProgress) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     mode: 'generate-distractors',
-                    cards: batch.map(c => ({ id: c.id, question: c.question, answer: c.answer }))
+                    quizType: quizType,
+                    cards: batch.map(c => ({ id: c.id, topic: c.topic, question: c.question, answer: c.answer }))
                 })
             });
 
@@ -49,12 +53,15 @@ export async function generateDistractorsBatch(cards, onProgress) {
 
             const data = await response.json();
             
-            // Save each result to the vault
             if (data.results) {
                 data.results.forEach(res => {
                     saveDistractorToVault(res.id, {
+                        quizType: quizType,
+                        scenario: res.scenario,
+                        question: res.question, // The refined question (SJI)
                         distractors: res.distractors,
                         rationale: res.rationale,
+                        shrm_principle: res.shrm_principle,
                         tag_bask: res.tag_bask,
                         tag_behavior: res.tag_behavior
                     });

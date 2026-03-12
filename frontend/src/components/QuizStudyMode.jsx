@@ -15,16 +15,20 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
 
     // Check for missing distractor data on mount (Phase 8 Cold Start)
     useEffect(() => {
-        const missing = deck.cards.filter(c => !getDistractorFromVault(c.id));
+        const missing = deck.cards.filter(c => {
+            const vaultData = getDistractorFromVault(c.id);
+            return !vaultData || vaultData.quizType !== deck.quizType;
+        });
+        
         if (missing.length > 0) {
             setMissingCount(missing.length);
             startBatchGeneration(missing);
         }
-    }, [deck.cards]);
+    }, [deck.cards, deck.quizType]);
 
     const startBatchGeneration = async (missingCards) => {
         setIsProcessing(true);
-        await generateDistractorsBatch(missingCards, (p) => setProgress(p));
+        await generateDistractorsBatch(missingCards, deck.quizType, (p) => setProgress(p));
         setIsProcessing(false);
     };
 
@@ -34,17 +38,17 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
 
         const aiData = getDistractorFromVault(card.id);
         
-        if (aiData && aiData.distractors) {
+        if (aiData && aiData.distractors && aiData.quizType === deck.quizType) {
             const allOptions = [card.answer, ...aiData.distractors].sort(() => 0.5 - Math.random());
             setOptions(allOptions);
         } else {
-            // Fallback for unexpected missing data (shouldn't happen with the processing step)
+            // Fallback for unexpected missing data
             setOptions([card.answer, "Loading...", "Loading...", "Loading..."]);
         }
         
         setSelectedOption(null);
         setIsAnswered(false);
-    }, [currentIndex, card, isProcessing]);
+    }, [currentIndex, card, isProcessing, deck.quizType]);
 
     const handleSelect = (option) => {
         if (isAnswered) return;
@@ -74,9 +78,9 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
         return (
             <div style={{ height: '60vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: '2rem' }}>
                 <div style={{ fontSize: '1.2rem', color: 'white', textAlign: 'center' }}>
-                    <h2 style={{ marginBottom: '0.5rem' }}>Preparing Intelligent Quiz</h2>
+                    <h2 style={{ marginBottom: '0.5rem' }}>Preparing {deck.quizType === 'intelligent' ? 'Intelligent' : 'Simple'} Quiz</h2>
                     <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                        Designing high-fidelity distractors and rationales for {missingCount} new items...
+                        Designing high-fidelity distractors and rationales using Gemini 2.5...
                     </p>
                 </div>
                 <div style={{ width: '100%', maxWidth: '400px', height: '8px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', overflow: 'hidden' }}>
@@ -87,6 +91,8 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
         );
     }
 
+    const currentAiData = getDistractorFromVault(card.id);
+
     return (
         <div style={{ maxWidth: '800px', margin: '0 auto', width: '100%' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem' }}>
@@ -95,10 +101,27 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
             </div>
 
             <div className="glass-panel">
-                <div style={{ color: 'var(--secondary)', marginBottom: '1rem', textAlign: 'center' }}>
-                    {card.topic}
+                <div style={{ color: 'var(--secondary)', marginBottom: '1rem', textAlign: 'center', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                    {deck.quizType === 'intelligent' ? 'Situational Judgment (SJI)' : 'Knowledge Recall'}
                 </div>
-                <h2 style={{ fontSize: '1.5rem', textAlign: 'center', marginBottom: '2rem' }}>{card.question}</h2>
+                
+                {deck.quizType === 'intelligent' && currentAiData?.scenario && (
+                    <div style={{ 
+                        padding: '1.2rem', 
+                        backgroundColor: 'rgba(255,255,255,0.03)', 
+                        borderRadius: '12px', 
+                        marginBottom: '1.5rem',
+                        borderLeft: '4px solid var(--primary)',
+                        lineHeight: '1.6'
+                    }}>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--primary)', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Workplace Scenario:</div>
+                        {currentAiData.scenario}
+                    </div>
+                )}
+
+                <h2 style={{ fontSize: '1.5rem', textAlign: 'center', marginBottom: '2rem', lineHeight: '1.4' }}>
+                    {deck.quizType === 'intelligent' ? (currentAiData?.question || card.question) : card.question}
+                </h2>
 
                 <div style={{ display: 'grid', gap: '1rem' }}>
                     {options.map((opt, i) => {
@@ -109,7 +132,7 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
                         let bg = 'rgba(255,255,255,0.05)';
                         
                         if (isAnswered) {
-                            if (isCorrect) {
+                         if (isCorrect) {
                                 border = '2px solid var(--secondary)';
                                 bg = 'rgba(16, 185, 129, 0.1)';
                             } else if (isSelected) {
@@ -161,15 +184,23 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
                                 backgroundColor: 'var(--bg-darker)',
                                 textAlign: 'left'
                             }}>
-                                <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--secondary)', marginBottom: '0.5rem', fontWeight: 'bold', display: 'flex', gap: '0.5rem' }}>
-                                    <span>{getDistractorFromVault(card.id)?.tag_bask || 'General'}</span>
+                                <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--secondary)', marginBottom: '0.8rem', fontWeight: 'bold', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                    <span className="badge">{currentAiData?.tag_bask || 'General'}</span>
                                     <span>•</span>
-                                    <span>{getDistractorFromVault(card.id)?.tag_behavior || 'Core Knowledge'}</span>
+                                    <span className="badge">{currentAiData?.tag_behavior || 'Core Knowledge'}</span>
+                                    {currentAiData?.shrm_principle && (
+                                        <>
+                                            <span>•</span>
+                                            <span style={{ color: 'var(--primary)', backgroundColor: 'rgba(99, 102, 241, 0.1)', padding: '2px 8px', borderRadius: '4px' }}>
+                                                {currentAiData.shrm_principle}
+                                            </span>
+                                        </>
+                                    )}
                                 </div>
                                 <strong style={{ color: 'white', display: 'block', marginBottom: '0.5rem' }}>Rationale:</strong> 
-                                <span style={{ fontSize: '0.95rem', lineHeight: '1.5', color: 'var(--text-muted)' }}>
-                                    {getDistractorFromVault(card.id)?.rationale || "No rationale available for this item."}
-                                </span>
+                                <div style={{ fontSize: '0.95rem', lineHeight: '1.5', color: 'var(--text-muted)', whiteSpace: 'pre-wrap' }}>
+                                    {currentAiData?.rationale || "No rationale available for this item."}
+                                </div>
                             </div>
                             <button onClick={handleNext} style={{ width: '100%' }}>
                                 {currentIndex < deck.cards.length - 1 ? 'Next Question →' : 'Finish Quiz'}

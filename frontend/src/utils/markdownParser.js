@@ -24,29 +24,32 @@ export function parseMarkdownToDeck(markdownText) {
 
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i].trim();
+        if (!line && !currentCard) continue;
 
-        // Parse Frontmatter
+        // Parse Frontmatter/Dividers
         if (line === '---') {
             if (!inFrontMatter && !hasReadFrontMatter) {
                 inFrontMatter = true;
+                continue;
             } else if (inFrontMatter) {
                 inFrontMatter = false;
                 hasReadFrontMatter = true;
-                // End of card divider
-                if (currentCard.question && currentCard.answer) {
+                continue;
+            } else {
+                // Topic divider
+                if (currentCard && currentCard.question && currentCard.answer) {
                     currentCard.id = generateFingerprint(currentCard.question, currentCard.answer);
                     deck.cards.push(currentCard);
+                    currentCard = null;
                 }
-                currentCard = null;
-            continue;
+                continue;
+            }
         }
 
         if (inFrontMatter) {
             if (line.toLowerCase().startsWith('deck:')) {
                 let parsedTitle = line.substring(5).trim();
-                // Strip "SHRM 2026"
                 parsedTitle = parsedTitle.replace(/SHRM 2026/i, '');
-                // Strip any leading spaces, hyphens, en-dashes, or em-dashes left over
                 parsedTitle = parsedTitle.replace(/^[\s\-\u2013\u2014]+/, '').trim();
                 deck.title = parsedTitle || 'Imported Deck';
             }
@@ -54,6 +57,7 @@ export function parseMarkdownToDeck(markdownText) {
         }
 
         // Parse Card Topic
+        if (line.startsWith('###')) {
             if (currentCard && currentCard.question && currentCard.answer) {
                 currentCard.id = generateFingerprint(currentCard.question, currentCard.answer);
                 deck.cards.push(currentCard);
@@ -64,7 +68,7 @@ export function parseMarkdownToDeck(markdownText) {
                 topic: line.replace('###', '').trim(),
                 question: '',
                 answer: '',
-                status: 'unseen' // unseen, red, yellow, green
+                status: 'unseen'
             };
             continue;
         }
@@ -76,7 +80,6 @@ export function parseMarkdownToDeck(markdownText) {
             } else if (line.startsWith('**A:**')) {
                 currentCard.answer = line.replace('**A:**', '').trim();
             } else if (line.length > 0) {
-                // Append multi-line text to whichever was last declared
                 if (currentCard.answer !== '') {
                     currentCard.answer += ' ' + line;
                 } else if (currentCard.question !== '') {
@@ -86,7 +89,7 @@ export function parseMarkdownToDeck(markdownText) {
         }
     }
 
-    // Push final card if file ends without a divider
+    // Push final card
     if (currentCard && currentCard.question && currentCard.answer) {
         currentCard.id = generateFingerprint(currentCard.question, currentCard.answer);
         deck.cards.push(currentCard);

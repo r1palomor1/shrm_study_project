@@ -12,6 +12,10 @@ import {
   exportAppData,
   importAppData
 } from './utils/storage';
+import { 
+  getQuizDataForDeck,
+  generateDistractorsBatch
+} from './utils/quizProcessor';
 import './index.css';
 
 function App() {
@@ -25,6 +29,8 @@ function App() {
   const [selectedDeckTitle, setSelectedDeckTitle] = useState('ALL');
   const [studyOrder, setStudyOrder] = useState('sequential'); // 'sequential' or 'random'
   const [studyMode, setStudyMode] = useState('traditional'); // 'test', 'traditional', 'quiz'
+  const [quizType, setQuizType] = useState('intelligent'); // 'simple' or 'intelligent'
+  const [isWarmingUp, setIsWarmingUp] = useState(false);
 
   useEffect(() => {
     const savedDecks = loadDecksFromStorage();
@@ -102,6 +108,47 @@ function App() {
     e.target.value = '';
   };
 
+// ... inside App component ...
+
+  const handleBulkWarmUp = async () => {
+    if (decks.length === 0) return;
+    
+    // 1. Identify Target Cards
+    let targetCards = [];
+    if (selectedDeckTitle === 'ALL') {
+      targetCards = decks.flatMap(d => d.cards);
+    } else {
+      const deck = decks.find(d => d.title === selectedDeckTitle);
+      if (deck) targetCards = deck.cards;
+    }
+
+    if (targetCards.length === 0) return;
+
+    // 2. Filter for MISSING data only (Incremental Logic)
+    const { missingCards } = await getQuizDataForDeck({ cards: targetCards }, quizType);
+    
+    if (missingCards.length === 0) {
+      alert(`All items in your vault for "${selectedDeckTitle}" already match the ${quizType} mode. No work needed!`);
+      return;
+    }
+
+    const confirmMsg = `Found ${missingCards.length} items missing ${quizType} data. Pre-generating them now using Gemini 2.5? \n\n(This will happen in background batches)`;
+    if (!window.confirm(confirmMsg)) return;
+
+    setIsWarmingUp(true);
+    try {
+      await generateDistractorsBatch(missingCards, quizType, (progress) => {
+        // We could add a progress state here if we want a bar on the dashboard
+        console.log(`Warm-up progress: ${progress}%`);
+      });
+      alert(`Warm-Up Complete! ${missingCards.length} items have been added to your local Distractor Vault.`);
+    } catch (err) {
+      alert("Warm-Up failed: " + err.message);
+    } finally {
+      setIsWarmingUp(false);
+    }
+  };
+
   const handleStartStudying = () => {
     if (decks.length === 0) return;
 
@@ -132,30 +179,46 @@ function App() {
     const seenCards = cardsToStudy.filter(c => getStatus(c) !== 'unseen');
     let unseenCards = cardsToStudy.filter(c => getStatus(c) === 'unseen');
 
+    let finalDeckCards = [];
+    let initialIndex = 0;
+    let isReviewMode = false;
+
     if (cardsToStudy.length > 0 && unseenCards.length === 0) {
-      alert("You have already completed all cards in this selection! Reset your progress to study them again.");
+      // Review Mode: All cards are seen, so study them all again from start
+      isReviewMode = true;
+      finalDeckCards = [...cardsToStudy];
+      initialIndex = 0;
+    } else {
+      // Normal Mode: Prioritize unseen cards
+      finalDeckCards = [...seenCards, ...unseenCards];
+      initialIndex = seenCards.length;
+    }
+
+    if (cardsToStudy.length === 0) {
+      alert("No cards found for this selection.");
       return;
     }
 
     if (studyOrder === 'random') {
-      // Fisher-Yates shuffle ONLY unseen cards
-      for (let i = unseenCards.length - 1; i > 0; i--) {
+      // If in review mode, shuffle everything. If normal, only shuffle unseen.
+      const shuffleBuffer = isReviewMode ? finalDeckCards : unseenCards;
+      for (let i = shuffleBuffer.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
-        [unseenCards[i], unseenCards[j]] = [unseenCards[j], unseenCards[i]];
+        [shuffleBuffer[i], shuffleBuffer[j]] = [shuffleBuffer[j], shuffleBuffer[i]];
       }
       studyTitle += ' (Randomized)';
     } else {
       studyTitle += ' (Sequential)';
     }
 
-    const finalDeckCards = [...seenCards, ...unseenCards];
-    const initialIndex = seenCards.length;
+    if (isReviewMode) studyTitle += ' [Review]';
 
     setActiveStudyDeck({
       title: studyTitle,
       cards: finalDeckCards,
       totalOriginalCards: totalOriginalCards,
-      initialIndex: initialIndex
+      initialIndex: initialIndex,
+      quizType: quizType
     });
     setIsStudying(true);
   };
@@ -368,7 +431,44 @@ function App() {
                     <option value="sequential" style={{ backgroundColor: 'var(--bg-dark)' }}>Sequential (In order)</option>
                   </select>
                 </div>
+
+                {studyMode === 'quiz' && (
+                  <div style={{ flex: 1, minWidth: '200px' }} className="animate-fade-in">
+                    <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Quiz Type:</label>
+                    <select
+                      value={quizType}
+                      onChange={(e) => setQuizType(e.target.value)}
+                      style={{
+                        width: '100%', padding: '0.75rem', borderRadius: '8px',
+                        backgroundColor: 'rgba(0,0,0,0.3)', color: 'white', border: '1px solid var(--border-color)',
+                        fontFamily: 'inherit', fontSize: '1rem'
+                      }}
+                    >
+                      <option value="simple" style={{ backgroundColor: 'var(--bg-dark)' }}>Simple (Knowledge Recall)</option>
+                      <option value="intelligent" style={{ backgroundColor: 'var(--bg-dark)' }}>Intelligent (SHRM Simulator)</option>
+                    </select>
+                  </div>
+                )}
               </div>
+
+              {studyMode === 'quiz' && (
+                <div style={{ marginTop: '1.5rem', textAlign: 'left' }} className="animate-fade-in">
+                   <button 
+                    onClick={handleBulkWarmUp}
+                    disabled={isWarmingUp}
+                    className="secondary"
+                    style={{ fontSize: '0.85rem', padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: '1.1rem' }}>
+                      {isWarmingUp ? 'sync' : 'bolt'}
+                    </span>
+                    {isWarmingUp ? 'Warming Up Deck...' : 'Bulk Warm-Up (Generate All)'}
+                  </button>
+                  <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    Recommended: Pre-generate all distractors and rationales for a better experience.
+                  </p>
+                </div>
+              )}
 
               <div style={{ marginTop: '2rem', textAlign: 'center' }}>
                 <button onClick={handleStartStudying} style={{ fontSize: '1.1rem', padding: '1rem 3rem' }}>
