@@ -1,3 +1,5 @@
+import { generateFingerprint } from './hashing';
+
 /**
  * Parses the agreed-upon Markdown format into a JavaScript object (Deck).
  * Expected format:
@@ -30,11 +32,12 @@ export function parseMarkdownToDeck(markdownText) {
             } else if (inFrontMatter) {
                 inFrontMatter = false;
                 hasReadFrontMatter = true;
-            } else if (currentCard) {
                 // End of card divider
-                deck.cards.push(currentCard);
+                if (currentCard.question && currentCard.answer) {
+                    currentCard.id = generateFingerprint(currentCard.question, currentCard.answer);
+                    deck.cards.push(currentCard);
+                }
                 currentCard = null;
-            }
             continue;
         }
 
@@ -51,11 +54,13 @@ export function parseMarkdownToDeck(markdownText) {
         }
 
         // Parse Card Topic
-        if (line.startsWith('###')) {
-            if (currentCard) deck.cards.push(currentCard); // Push previous if missing trailing divider
+            if (currentCard && currentCard.question && currentCard.answer) {
+                currentCard.id = generateFingerprint(currentCard.question, currentCard.answer);
+                deck.cards.push(currentCard);
+            }
 
             currentCard = {
-                id: crypto.randomUUID(),
+                id: null,
                 topic: line.replace('###', '').trim(),
                 question: '',
                 answer: '',
@@ -82,7 +87,8 @@ export function parseMarkdownToDeck(markdownText) {
     }
 
     // Push final card if file ends without a divider
-    if (currentCard && (currentCard.question || currentCard.answer)) {
+    if (currentCard && currentCard.question && currentCard.answer) {
+        currentCard.id = generateFingerprint(currentCard.question, currentCard.answer);
         deck.cards.push(currentCard);
     }
 

@@ -3,13 +3,23 @@ import DataImporter from './components/DataImporter';
 import FlashcardStudyMode from './components/FlashcardStudyMode';
 import TraditionalStudyMode from './components/TraditionalStudyMode';
 import QuizStudyMode from './components/QuizStudyMode';
-import { saveDeckToStorage, loadDecksFromStorage, deleteDeckFromStorage, updateCardStatus } from './utils/storage';
+import AnalyticsDashboard from './components/AnalyticsDashboard';
+import { 
+  saveDeckToStorage, 
+  loadDecksFromStorage, 
+  deleteDeckFromStorage, 
+  updateCardStatus,
+  exportAppData,
+  importAppData
+} from './utils/storage';
 import './index.css';
 
 function App() {
   const [decks, setDecks] = useState([]);
   const [isStudying, setIsStudying] = useState(false);
   const [activeStudyDeck, setActiveStudyDeck] = useState(null);
+  const [isViewingAnalytics, setIsViewingAnalytics] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
 
   // Study configuration
   const [selectedDeckTitle, setSelectedDeckTitle] = useState('ALL');
@@ -30,7 +40,12 @@ function App() {
   };
 
   const handleDeleteDeck = (title) => {
-    if (window.confirm(`Are you sure you want to delete "${title}"?`)) {
+    const confirmation = window.confirm(
+      `⚠️ WARNING: This will permanently remove "${title}" and ALL your associated study progress, scores, and mastery history from this device.\n\n` +
+      `Are you ABSOLUTELY sure you want to delete this topic?`
+    );
+    
+    if (confirmation) {
       deleteDeckFromStorage(title);
       setDecks(loadDecksFromStorage());
       // Reset selection if we deleted the selected deck
@@ -39,7 +54,11 @@ function App() {
   };
 
   const handleResetProgress = (title) => {
-    if (window.confirm(`Are you sure you want to reset your study progress for "${title}"?`)) {
+    const message = title === 'ALL' 
+      ? `⚠️ WARNING: This will permanently wipe ALL study progress, scores, and mastery history for EVERY topic.\n\nAre you sure you want to start over from scratch?`
+      : `⚠️ WARNING: This will permanently wipe all study progress, scores, and mastery history for "${title}".\n\nAre you sure you want to reset this topic?`;
+
+    if (window.confirm(message)) {
       const updatedDecks = decks.map(d => {
         if (title === 'ALL' || d.title === title) {
           d.cards = d.cards.map(c => {
@@ -57,6 +76,30 @@ function App() {
       });
       setDecks(loadDecksFromStorage());
     }
+  };
+
+  const handleExport = () => {
+    exportAppData();
+  };
+
+  const handleImport = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (window.confirm("Restoring from a backup will overwrite all current progress and data. Are you sure?")) {
+      setIsRestoring(true);
+      try {
+        await importAppData(file);
+        setDecks(loadDecksFromStorage());
+        alert("Restoration Complete!");
+      } catch (error) {
+        alert("Restoration Failed: " + error.message);
+      } finally {
+        setIsRestoring(false);
+      }
+    }
+    // Reset input
+    e.target.value = '';
   };
 
   const handleStartStudying = () => {
@@ -154,13 +197,42 @@ function App() {
     );
   }
 
+  if (isViewingAnalytics) {
+    return (
+      <div className="app-container animate-fade-in" style={{ paddingTop: '2rem' }}>
+        <AnalyticsDashboard 
+          decks={decks} 
+          onBack={() => setIsViewingAnalytics(false)} 
+        />
+      </div>
+    );
+  }
+
   const totalCards = decks.reduce((sum, deck) => sum + deck.cards.length, 0);
 
   return (
     <div className="app-container animate-fade-in">
       <header style={{ textAlign: 'center', marginBottom: '3rem' }}>
         <h1 className="text-gradient">SHRM 2026 Study App</h1>
-        <p style={{ color: 'var(--text-muted)' }}>Master the SHRM curriculum with intelligent tracking and importing.</p>
+        <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>Master the SHRM curriculum with intelligent tracking and importing.</p>
+        {decks.length > 0 && (
+          <button 
+            onClick={() => setIsViewingAnalytics(true)}
+            style={{ 
+              backgroundColor: 'transparent', 
+              border: '1px solid var(--secondary)', 
+              color: 'var(--secondary)',
+              padding: '0.6rem 1.2rem',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              fontSize: '0.9rem'
+            }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '1.2rem' }}>analytics</span>
+            View Performance Report
+          </button>
+        )}
       </header>
 
       <main style={{ display: 'grid', gap: '2rem', gridTemplateColumns: 'minmax(0, 1fr)' }}>
@@ -302,6 +374,33 @@ function App() {
                 <button onClick={handleStartStudying} style={{ fontSize: '1.1rem', padding: '1rem 3rem' }}>
                   Start Studying
                 </button>
+              </div>
+            </div>
+
+            {/* Data Management */}
+            <div style={{ marginTop: '2rem', padding: '1.5rem', borderRadius: '12px', background: 'rgba(255,255,255,0.02)', border: '1px dotted rgba(255,255,255,0.1)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <h4 style={{ margin: 0, color: 'white' }}>Data Migration & Backup</h4>
+                  <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                    Export your progress and AI data for use on other devices.
+                  </p>
+                </div>
+                <div style={{ display: 'flex', gap: '1rem' }}>
+                  <button onClick={handleExport} className="secondary" style={{ fontSize: '0.85rem', padding: '0.5rem 1rem' }}>
+                    Export Backup
+                  </button>
+                  <label className="button secondary" style={{ fontSize: '0.85rem', padding: '0.5rem 1rem', display: 'inline-block', cursor: 'pointer', margin: 0 }}>
+                    Restore Backup
+                    <input 
+                      type="file" 
+                      accept=".json" 
+                      onChange={handleImport} 
+                      style={{ display: 'none' }} 
+                      disabled={isRestoring}
+                    />
+                  </label>
+                </div>
               </div>
             </div>
 

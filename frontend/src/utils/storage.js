@@ -1,4 +1,98 @@
 const STORAGE_KEY = 'shrm_study_decks';
+const VAULT_KEY = 'shrm_distractor_vault';
+
+/**
+ * Saves AI-generated distractor data (distractors, rationale, and BASK tags) 
+ * to the local vault using the card's unique fingerprint.
+ */
+export function saveDistractorToVault(fingerprint, data) {
+    try {
+        const vault = loadVaultFromStorage();
+        vault[fingerprint] = {
+            ...data,
+            timestamp: new Date().toISOString()
+        };
+        localStorage.setItem(VAULT_KEY, JSON.stringify(vault));
+        return true;
+    } catch (error) {
+        console.error('Error saving to Distractor Vault:', error);
+        return false;
+    }
+}
+
+/**
+ * Retrieves AI-generated data from the vault for a specific fingerprint.
+ */
+export function getDistractorFromVault(fingerprint) {
+    const vault = loadVaultFromStorage();
+    return vault[fingerprint] || null;
+}
+
+export function loadVaultFromStorage() {
+    try {
+        const data = localStorage.getItem(VAULT_KEY);
+        return data ? JSON.parse(data) : {};
+    } catch (error) {
+        console.error('Error loading Distractor Vault:', error);
+        return {};
+    }
+}
+
+/**
+ * Creates a complete snapshot of the application state for backup.
+ */
+export function exportAppData() {
+    const decks = loadDecksFromStorage() || [];
+    const vault = loadVaultFromStorage() || {};
+    
+    const snapshot = {
+        version: '1.0',
+        timestamp: new Date().toISOString(),
+        decks: decks,
+        vault: vault
+    };
+
+    const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    
+    const date = new Date();
+    const ts = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}_${String(date.getHours()).padStart(2, '0')}${String(date.getMinutes()).padStart(2, '0')}`;
+    const filename = `SHRM_Backup_${ts}.json`;
+
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+}
+
+/**
+ * Restores the application state from a JSON snapshot.
+ */
+export async function importAppData(jsonFile) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const snapshot = JSON.parse(e.target.result);
+                
+                if (!snapshot.decks || !snapshot.vault) {
+                    throw new Error('Invalid backup file format');
+                }
+
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot.decks));
+                localStorage.setItem(VAULT_KEY, JSON.stringify(snapshot.vault));
+                resolve(true);
+            } catch (error) {
+                reject(error);
+            }
+        };
+        reader.onerror = () => reject(new Error('File reading error'));
+        reader.readAsText(jsonFile);
+    });
+}
 
 export function saveDeckToStorage(deck) {
     try {

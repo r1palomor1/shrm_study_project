@@ -1,28 +1,50 @@
 import { useState, useEffect } from 'react';
+import { getDistractorFromVault } from '../utils/storage';
+import { generateDistractorsBatch } from '../utils/quizProcessor';
 
 export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
     const [currentIndex, setCurrentIndex] = useState(deck.initialIndex || 0);
     const [options, setOptions] = useState([]);
     const [selectedOption, setSelectedOption] = useState(null);
     const [isAnswered, setIsAnswered] = useState(false);
+    const [isProcessing, setIsProcessing] = useState(false);
+    const [progress, setProgress] = useState(0);
+    const [missingCount, setMissingCount] = useState(0);
     
     const card = deck.cards[currentIndex];
 
-    // Placeholder: This is where Phase 8's "Intelligent Distractor" logic will live
+    // Check for missing distractor data on mount (Phase 8 Cold Start)
     useEffect(() => {
-        const correct = card.answer;
-        // Selection logic for 3 contextually similar distractors will go here
-        const distractors = deck.cards
-            .filter(c => c.id !== card.id && c.topic === card.topic)
-            .map(c => c.answer)
-            .sort(() => 0.5 - Math.random())
-            .slice(0, 3);
-            
-        const allOptions = [correct, ...distractors].sort(() => 0.5 - Math.random());
-        setOptions(allOptions);
+        const missing = deck.cards.filter(c => !getDistractorFromVault(c.id));
+        if (missing.length > 0) {
+            setMissingCount(missing.length);
+            startBatchGeneration(missing);
+        }
+    }, [deck.cards]);
+
+    const startBatchGeneration = async (missingCards) => {
+        setIsProcessing(true);
+        await generateDistractorsBatch(missingCards, (p) => setProgress(p));
+        setIsProcessing(false);
+    };
+
+    // Load options for current card
+    useEffect(() => {
+        if (isProcessing) return;
+
+        const aiData = getDistractorFromVault(card.id);
+        
+        if (aiData && aiData.distractors) {
+            const allOptions = [card.answer, ...aiData.distractors].sort(() => 0.5 - Math.random());
+            setOptions(allOptions);
+        } else {
+            // Fallback for unexpected missing data (shouldn't happen with the processing step)
+            setOptions([card.answer, "Loading...", "Loading...", "Loading..."]);
+        }
+        
         setSelectedOption(null);
         setIsAnswered(false);
-    }, [currentIndex, card, deck.cards]);
+    }, [currentIndex, card, isProcessing]);
 
     const handleSelect = (option) => {
         if (isAnswered) return;
@@ -47,6 +69,23 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
             onBack();
         }
     };
+
+    if (isProcessing) {
+        return (
+            <div style={{ height: '60vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: '2rem' }}>
+                <div style={{ fontSize: '1.2rem', color: 'white', textAlign: 'center' }}>
+                    <h2 style={{ marginBottom: '0.5rem' }}>Preparing Intelligent Quiz</h2>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                        Designing high-fidelity distractors and rationales for {missingCount} new items...
+                    </p>
+                </div>
+                <div style={{ width: '100%', maxWidth: '400px', height: '8px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', overflow: 'hidden' }}>
+                    <div style={{ width: `${progress}%`, height: '100%', background: 'var(--secondary)', transition: 'width 0.3s ease' }}></div>
+                </div>
+                <div style={{ color: 'var(--secondary)', fontSize: '1rem', fontWeight: 'bold' }}>{progress}%</div>
+            </div>
+        );
+    }
 
     return (
         <div style={{ maxWidth: '800px', margin: '0 auto', width: '100%' }}>
@@ -109,13 +148,28 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
 
                 <div style={{ marginTop: '2.5rem', textAlign: 'center' }}>
                     {!isAnswered ? (
-                        <button onClick={handleSubmit} disabled={!selectedOption} style={{ width: '100%' }}>
+                        <button onClick={handleSubmit} disabled={!selectedOption || options.includes('Loading...')} style={{ width: '100%' }}>
                             Submit Selection
                         </button>
                     ) : (
                         <div className="animate-fade-in">
-                            <div style={{ padding: '1rem', marginBottom: '1.5rem', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', fontStyle: 'italic', fontSize: '0.9rem' }}>
-                                <strong>Rationale:</strong> This is a Knowledge Item from the {card.topic} domain.
+                            <div style={{ 
+                                padding: '1.2rem', 
+                                marginBottom: '1.5rem', 
+                                border: '1px solid rgba(255,255,255,0.1)', 
+                                borderRadius: '12px', 
+                                backgroundColor: 'var(--bg-darker)',
+                                textAlign: 'left'
+                            }}>
+                                <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--secondary)', marginBottom: '0.5rem', fontWeight: 'bold', display: 'flex', gap: '0.5rem' }}>
+                                    <span>{getDistractorFromVault(card.id)?.tag_bask || 'General'}</span>
+                                    <span>•</span>
+                                    <span>{getDistractorFromVault(card.id)?.tag_behavior || 'Core Knowledge'}</span>
+                                </div>
+                                <strong style={{ color: 'white', display: 'block', marginBottom: '0.5rem' }}>Rationale:</strong> 
+                                <span style={{ fontSize: '0.95rem', lineHeight: '1.5', color: 'var(--text-muted)' }}>
+                                    {getDistractorFromVault(card.id)?.rationale || "No rationale available for this item."}
+                                </span>
                             </div>
                             <button onClick={handleNext} style={{ width: '100%' }}>
                                 {currentIndex < deck.cards.length - 1 ? 'Next Question →' : 'Finish Quiz'}
