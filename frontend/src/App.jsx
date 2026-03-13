@@ -28,7 +28,7 @@ function App() {
   // Study configuration
   const [selectedDeckTitle, setSelectedDeckTitle] = useState('ALL');
   const [studyOrder, setStudyOrder] = useState('sequential'); // 'sequential' or 'random'
-  const [studyMode, setStudyMode] = useState('traditional'); // 'test', 'traditional', 'quiz'
+  const [studyMode, setStudyMode] = useState('quiz'); // 'traditional', 'quiz'
   const [quizType, setQuizType] = useState('intelligent'); // 'simple' or 'intelligent'
   const [isWarmingUp, setIsWarmingUp] = useState(false);
 
@@ -398,7 +398,7 @@ function App() {
                       fontFamily: 'inherit', fontSize: '1rem'
                     }}
                   >
-                    <option value="test" style={{ backgroundColor: 'var(--bg-dark)' }}>AI Test Mode (Typing)</option>
+                    {/* <option value="test" style={{ backgroundColor: 'var(--bg-dark)' }}>AI Test Mode (Typing)</option> */}
                     <option value="quiz" style={{ backgroundColor: 'var(--bg-dark)' }}>Multiple Choice Quiz (Intelligent)</option>
                     <option value="traditional" style={{ backgroundColor: 'var(--bg-dark)' }}>Traditional (Self-Marking)</option>
                   </select>

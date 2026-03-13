@@ -125,6 +125,20 @@ button:active {
   animation: fadeIn 0.8s ease-out forwards;
 }
 
+.badge {
+  padding: 0.3rem 0.8rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;

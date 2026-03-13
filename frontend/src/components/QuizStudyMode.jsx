@@ -9,7 +9,8 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
     const [isAnswered, setIsAnswered] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
     const [progress, setProgress] = useState(0);
-    const [missingCount, setMissingCount] = useState(0);
+    const [showPreview, setShowPreview] = useState(false);
+    const [previewFilter, setPreviewFilter] = useState(['correct', 'incorrect', 'unseen']);
     
     const card = deck.cards[currentIndex];
 
@@ -21,7 +22,6 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
         });
         
         if (missing.length > 0) {
-            setMissingCount(missing.length);
             startBatchGeneration(missing);
         }
     }, [deck.cards, deck.quizType]);
@@ -61,6 +61,7 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
         
         const isCorrect = selectedOption === card.answer;
         if (onUpdateCardStatus) {
+            // Mapping: Correct = difficulty-5, Incorrect = difficulty-1
             onUpdateCardStatus(card.id, isCorrect ? 'difficulty-5' : 'difficulty-1');
         }
     };
@@ -71,6 +72,21 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
         } else {
             onBack();
         }
+    };
+
+    const handlePrevious = () => {
+        if (currentIndex > 0) {
+            setCurrentIndex(currentIndex - 1);
+            setIsAnswered(false);
+            setSelectedOption(null);
+        }
+    };
+
+    const getQuizStatus = (c) => {
+        const s = c.status_quiz || 'unseen';
+        if (s === 'difficulty-5') return 'correct';
+        if (s === 'difficulty-1') return 'incorrect';
+        return 'unseen';
     };
 
     if (isProcessing) {
@@ -94,14 +110,50 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
 
     return (
         <div style={{ maxWidth: '800px', margin: '0 auto', width: '100%' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem' }}>
-                <button onClick={onBack} className="secondary">Exit Quiz</button>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+                    <button 
+                        onClick={onBack} 
+                        style={{
+                            background: 'transparent',
+                            border: '1px solid var(--border-color)',
+                            padding: '0.4rem 0.8rem',
+                            fontSize: '0.85rem',
+                            minWidth: 'auto',
+                            boxShadow: 'none'
+                        }}
+                    >
+                        &larr; Exit
+                    </button>
+                    {(deck.quizType?.toLowerCase() !== 'intelligent') && (
+                        <button 
+                            onClick={() => setShowPreview(true)} 
+                            id="quiz-preview-btn-v5"
+                            style={{ 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                gap: '0.4rem', 
+                                background: 'transparent',
+                                border: '1px solid var(--border-color)',
+                                padding: '0.4rem 0.8rem',
+                                fontSize: '0.85rem',
+                                minWidth: 'auto',
+                                boxShadow: 'none'
+                            }}
+                        >
+                            <span className="material-symbols-outlined" style={{ fontSize: '1.2rem' }}>visibility</span>
+                            Preview
+                        </button>
+                    )}
+                </div>
                 <div style={{ fontWeight: 'bold' }}>Question {currentIndex + 1} of {deck.cards.length}</div>
             </div>
 
             <div className="glass-panel">
                 <div style={{ color: 'var(--secondary)', marginBottom: '1rem', textAlign: 'center', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '1px' }}>
                     {deck.quizType === 'intelligent' ? 'Situational Judgment (SJI)' : 'Knowledge Recall'}
+                    {/* SYSTEM MARKER Phase 11.7 v5 Styled Force */}
+                    <div style={{ position: 'absolute', top: '10px', right: '10px', fontSize: '8px', color: 'rgba(255,255,255,0.2)' }}>SYNC_FORCE_V5</div>
                 </div>
                 
                 {deck.quizType === 'intelligent' && currentAiData?.scenario && (
@@ -118,7 +170,7 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
                     </div>
                 )}
 
-                <h2 style={{ fontSize: '1.5rem', textAlign: 'center', marginBottom: '2rem', lineHeight: '1.4' }}>
+                <h2 style={{ fontSize: '1.4rem', textAlign: 'center', marginBottom: '2rem', lineHeight: '1.4' }}>
                     {deck.quizType === 'intelligent' ? (currentAiData?.question || card.question) : card.question}
                 </h2>
 
@@ -131,7 +183,7 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
                         let bg = 'rgba(255,255,255,0.05)';
                         
                         if (isAnswered) {
-                         if (isCorrect) {
+                            if (isCorrect) {
                                 border = '2px solid var(--secondary)';
                                 bg = 'rgba(16, 185, 129, 0.1)';
                             } else if (isSelected) {
@@ -148,7 +200,7 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
                                 key={i}
                                 onClick={() => handleSelect(opt)}
                                 style={{
-                                    padding: '1.2rem',
+                                    padding: '1rem',
                                     borderRadius: '12px',
                                     border,
                                     background: bg,
@@ -156,7 +208,8 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
                                     transition: 'all 0.2s',
                                     display: 'flex',
                                     alignItems: 'center',
-                                    gap: '1rem'
+                                    gap: '1rem',
+                                    fontSize: '0.95rem'
                                 }}
                             >
                                 <span style={{ fontWeight: 'bold', color: isSelected ? 'var(--primary)' : 'white' }}>
@@ -168,11 +221,37 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
                     })}
                 </div>
 
-                <div style={{ marginTop: '2.5rem', textAlign: 'center' }}>
+                <div style={{ marginTop: '2.5rem' }}>
                     {!isAnswered ? (
-                        <button onClick={handleSubmit} disabled={!selectedOption || options.includes('Loading...')} style={{ width: '100%' }}>
-                            Submit Selection
-                        </button>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
+                            <button 
+                                onClick={handlePrevious} 
+                                disabled={currentIndex === 0 || options.includes('Loading...')}
+                                style={{ 
+                                    background: 'transparent',
+                                    border: '1px solid var(--border-color)',
+                                    padding: '0.4rem 1.2rem',
+                                    fontSize: '0.85rem',
+                                    minWidth: '120px',
+                                    boxShadow: 'none',
+                                    color: 'white'
+                                }}
+                            >
+                                &larr; Previous
+                            </button>
+                            <button 
+                                onClick={handleSubmit} 
+                                disabled={!selectedOption || options.includes('Loading...')} 
+                                style={{ 
+                                    flex: 1,
+                                    padding: '0.8rem 1.5rem',
+                                    fontSize: '1rem',
+                                    fontWeight: 'bold'
+                                }}
+                            >
+                                Submit Selection
+                            </button>
+                        </div>
                     ) : (
                         <div className="animate-fade-in">
                             <div style={{ 
@@ -197,17 +276,137 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
                                     )}
                                 </div>
                                 <strong style={{ color: 'white', display: 'block', marginBottom: '0.5rem' }}>Rationale:</strong> 
-                                <div style={{ fontSize: '0.95rem', lineHeight: '1.5', color: 'var(--text-muted)', whiteSpace: 'pre-wrap' }}>
+                                <div style={{ fontSize: '0.9rem', lineHeight: '1.5', color: 'var(--text-muted)', whiteSpace: 'pre-wrap' }}>
                                     {currentAiData?.rationale || "No rationale available for this item."}
                                 </div>
                             </div>
-                            <button onClick={handleNext} style={{ width: '100%' }}>
-                                {currentIndex < deck.cards.length - 1 ? 'Next Question →' : 'Finish Quiz'}
-                            </button>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
+                                <button 
+                                    onClick={handlePrevious} 
+                                    style={{ 
+                                        background: 'transparent',
+                                        border: '1px solid var(--border-color)',
+                                        padding: '0.4rem 1.2rem',
+                                        fontSize: '0.85rem',
+                                        minWidth: '120px',
+                                        boxShadow: 'none',
+                                        color: 'white'
+                                    }}
+                                >
+                                    &larr; Previous
+                                </button>
+                                <button 
+                                    onClick={handleNext} 
+                                    style={{ 
+                                        flex: 1,
+                                        padding: '0.8rem 1.5rem',
+                                        fontSize: '1rem',
+                                        fontWeight: 'bold'
+                                    }}
+                                >
+                                    {currentIndex < deck.cards.length - 1 ? 'Next Question \u2192' : 'Finish Quiz'}
+                                </button>
+                            </div>
                         </div>
                     )}
                 </div>
             </div>
+
+            {/* SIMPLE QUIZ PREVIEW MODAL */}
+            {showPreview && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    background: '#0a0b1e', zIndex: 2000, display: 'flex', flexDirection: 'column',
+                    animation: 'fadeIn 0.2s ease-out', color: 'white'
+                }}>
+                    <div style={{
+                        padding: '1rem 1.2rem', borderBottom: '1px solid rgba(255,255,255,0.1)',
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                        background: '#1a1b2e', position: 'sticky', top: 0
+                    }}>
+                        <div>
+                            <h2 style={{ margin: 0, fontSize: '1.4rem' }}>{deck.title} Preview (Simple)</h2>
+                            <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                                Review your quiz results for all {deck.cards.length} cards.
+                            </p>
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', gap: '0.4rem', backgroundColor: 'rgba(255,255,255,0.05)', padding: '4px', borderRadius: '8px' }}>
+                                {[
+                                    { val: 'correct', label: 'Correct', color: 'var(--secondary)' },
+                                    { val: 'incorrect', label: 'Incorrect', color: '#ef4444' },
+                                    { val: 'unseen', label: 'Unseen', color: 'rgba(255,255,255,0.4)' }
+                                ].map(f => (
+                                    <button
+                                        key={f.val}
+                                        onClick={() => {
+                                            if (previewFilter.includes(f.val)) {
+                                                setPreviewFilter(previewFilter.filter(x => x !== f.val));
+                                            } else {
+                                                setPreviewFilter([...previewFilter, f.val]);
+                                            }
+                                        }}
+                                        style={{
+                                            padding: '4px 10px', fontSize: '0.75rem', borderRadius: '6px',
+                                            border: 'none', cursor: 'pointer',
+                                            background: previewFilter.includes(f.val) ? f.color : 'transparent',
+                                            color: previewFilter.includes(f.val) ? (f.val === 'unseen' ? 'white' : 'black') : 'rgba(255,255,255,0.4)',
+                                            fontWeight: 'bold', transition: 'all 0.2s'
+                                        }}
+                                    >
+                                        {f.label}
+                                    </button>
+                                ))}
+                            </div>
+                            <button 
+                                onClick={() => setShowPreview(false)} 
+                                style={{
+                                    background: 'transparent',
+                                    border: '1px solid var(--border-color)',
+                                    padding: '0.4rem 0.8rem',
+                                    fontSize: '0.85rem',
+                                    minWidth: 'auto',
+                                    boxShadow: 'none'
+                                }}
+                            >
+                                Close Preview
+                            </button>
+                        </div>
+                    </div>
+
+                    <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }} className="custom-scrollbar">
+                        {deck.cards.map((c, idx) => {
+                            const status = getQuizStatus(c);
+                            if (!previewFilter.includes(status)) return null;
+
+                            return (
+                                <div key={c.id} style={{
+                                    display: 'flex', gap: '1rem', padding: '1.2rem',
+                                    background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
+                                    borderRadius: '12px', borderLeft: `5px solid ${status === 'correct' ? 'var(--secondary)' : status === 'incorrect' ? '#ef4444' : 'rgba(255,255,255,0.1)'}`
+                                }}>
+                                    <div style={{ color: 'var(--text-muted)', fontWeight: 'bold' }}>{idx + 1}</div>
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ marginBottom: '0.5rem', fontSize: '1.1rem', fontWeight: '500' }}>{c.question}</div>
+                                        <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                                            <span style={{ color: 'var(--secondary)', fontWeight: 'bold' }}>Answer: </span>
+                                            {c.answer}
+                                        </div>
+                                    </div>
+                                    <div style={{ minWidth: '100px', textAlign: 'right' }}>
+                                        <span style={{ 
+                                            fontSize: '0.7rem', fontWeight: 'bold', textTransform: 'uppercase',
+                                            color: status === 'correct' ? 'var(--secondary)' : status === 'incorrect' ? '#ef4444' : 'rgba(255,255,255,0.2)'
+                                        }}>
+                                            {status}
+                                        </span>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

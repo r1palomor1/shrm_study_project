@@ -113,60 +113,78 @@ export function getWeightedMastery(status) {
  */
 export function calculateBASKAnalytics(decks, vault) {
     const domains = {
-        'People': { total: 0, score: 0 },
-        'Organization': { total: 0, score: 0 },
-        'Workplace': { total: 0, score: 0 },
-        'Behavioral Competencies': { total: 0, score: 0 }
+        'People': { total: 0, score: 0, links: {} },
+        'Organization': { total: 0, score: 0, links: {} },
+        'Workplace': { total: 0, score: 0, links: {} },
+        'Behavioral Competencies': { total: 0, score: 0, links: {} }
     };
 
-    const competencies = {
-        'Leadership & Navigation': { total: 0, score: 0 },
-        'Ethical Practice': { total: 0, score: 0 },
-        'Inclusive Mindset': { total: 0, score: 0 },
-        'Relationship Management': { total: 0, score: 0 },
-        'Communication': { total: 0, score: 0 },
-        'Business Acumen': { total: 0, score: 0 },
-        'Consultation': { total: 0, score: 0 },
-        'Analytical Aptitude': { total: 0, score: 0 }
+    const clusters = {
+        'Leadership': { total: 0, score: 0, name: 'Leadership Cluster', items: ['Leadership & Navigation', 'Ethical Practice'] },
+        'Interpersonal': { total: 0, score: 0, name: 'Interpersonal Cluster', items: ['Relationship Management', 'Communication', 'Inclusive Mindset'] },
+        'Business': { total: 0, score: 0, name: 'Business Cluster', items: ['Business Acumen', 'Consultation', 'Analytical Aptitude'] }
     };
+
+    const uniqueQuestions = new Set();
+    let totalCerts = 0; // For future Phase 12
 
     decks.forEach(deck => {
         deck.cards.forEach(card => {
-            const aiData = vault[card.id];
+            const aiData = vault[card.id] || vault[`${card.id}:intelligent`] || vault[`${card.id}:simple`];
             if (!aiData) return;
 
-            const mastery = getWeightedMastery(card.status_traditional || card.status_test || card.status_quiz || card.status);
+            uniqueQuestions.add(card.id);
+            const status = card.status_traditional || card.status_test || card.status_quiz || card.status;
+            const mastery = getWeightedMastery(status);
             
             // Map Domain (BASK Domain)
             const domainKey = (aiData.tag_bask || '').split('|')[0].trim();
             if (domains[domainKey]) {
                 domains[domainKey].total++;
                 domains[domainKey].score += (mastery / 4);
+                
+                // Track behavioral links
+                const behavior = aiData.tag_behavior;
+                if (behavior) {
+                    domains[domainKey].links[behavior] = (domains[domainKey].links[behavior] || 0) + 1;
+                }
             }
 
-            // Map Competency (Behavioral)
+            // Map Cluster
             const compKey = aiData.tag_behavior;
-            if (competencies[compKey]) {
-                competencies[compKey].total++;
-                competencies[compKey].score += (mastery / 4);
-                
-                // Also aggregate to the top-level "Behavioral Competencies" domain
+            Object.keys(clusters).forEach(clusterKey => {
+                if (clusters[clusterKey].items.includes(compKey)) {
+                    clusters[clusterKey].total++;
+                    clusters[clusterKey].score += (mastery / 4);
+                }
+            });
+            
+            // Always aggregate to top-level Behavioral domain
+            if (compKey) {
                 domains['Behavioral Competencies'].total++;
                 domains['Behavioral Competencies'].score += (mastery / 4);
             }
         });
     });
 
+    const getPrimaryLink = (links) => {
+        if (!links || Object.keys(links).length === 0) return null;
+        return Object.entries(links).sort((a, b) => b[1] - a[1])[0][0];
+    };
+
     return {
-        domainStats: Object.keys(domains).map(key => ({
+        totalUnique: uniqueQuestions.size,
+        domainStats: Object.keys(domains).filter(k => k !== 'Behavioral Competencies').map(key => ({
             name: key,
             percent: domains[key].total > 0 ? Math.round((domains[key].score / domains[key].total) * 100) : 0,
-            count: domains[key].total
+            count: domains[key].total,
+            primaryLink: getPrimaryLink(domains[key].links)
         })),
-        competencyStats: Object.keys(competencies).map(key => ({
-            name: key,
-            percent: competencies[key].total > 0 ? Math.round((competencies[key].score / competencies[key].total) * 100) : 0,
-            count: competencies[key].total
-        }))
+        clusterStats: Object.keys(clusters).map(key => ({
+            name: clusters[key].name,
+            percent: clusters[key].total > 0 ? Math.round((clusters[key].score / clusters[key].total) * 100) : 0,
+            count: clusters[key].total
+        })),
+        behavioralTotal: domains['Behavioral Competencies']
     };
 }
