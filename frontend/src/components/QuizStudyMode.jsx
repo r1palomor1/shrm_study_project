@@ -26,9 +26,36 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
         }
     }, [deck.cards, deck.quizType]);
 
+    const [quizError, setQuizError] = useState(null);
+
     const startBatchGeneration = async (missingCards) => {
         setIsProcessing(true);
-        await generateDistractorsBatch(missingCards, deck.quizType, (p) => setProgress(p));
+        setQuizError(null);
+        
+        let cardsLeft = [...missingCards];
+        while (cardsLeft.length > 0) {
+            let rateLimited = false;
+            await generateDistractorsBatch(cardsLeft, deck.quizType, (p, error) => {
+                setProgress(p);
+                if (error === 'RATE_LIMIT') rateLimited = true;
+            });
+
+            if (rateLimited) {
+                setQuizError('15 RPM Limit reached. Auto-resuming in 60s...');
+                await new Promise(r => setTimeout(r, 60000));
+                setQuizError(null);
+                
+                // Refresh missing list
+                const missing = deck.cards.filter(c => {
+                    const vaultData = getDistractorFromVault(c.id, deck.quizType);
+                    return !vaultData || vaultData.quizType !== deck.quizType;
+                });
+                cardsLeft = missing;
+            } else {
+                break;
+            }
+        }
+        
         setIsProcessing(false);
     };
 
@@ -39,8 +66,8 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
         const aiData = getDistractorFromVault(card.id, deck.quizType);
         
         if (aiData && aiData.distractors && aiData.quizType === deck.quizType) {
-            const allOptions = [card.answer, ...aiData.distractors].sort(() => 0.5 - Math.random());
-            setOptions(allOptions);
+            const allOptions = [card.answer, ...aiData.distractors.slice(0, 3)].sort(() => 0.5 - Math.random());
+            setOptions(allOptions.slice(0, 4));
         } else {
             // Fallback for unexpected missing data
             setOptions([card.answer, "Loading...", "Loading...", "Loading..."]);
@@ -93,15 +120,23 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
         return (
             <div style={{ height: '60vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: '2rem' }}>
                 <div style={{ fontSize: '1.2rem', color: 'white', textAlign: 'center' }}>
-                    <h2 style={{ marginBottom: '0.5rem' }}>Preparing {deck.quizType === 'intelligent' ? 'Intelligent' : 'Simple'} Quiz</h2>
+                    <h2 style={{ marginBottom: '0.5rem', color: quizError ? '#fbbf24' : 'white' }}>
+                        {quizError ? 'Gemini is Resting...' : `Preparing ${deck.quizType === 'intelligent' ? 'Intelligent' : 'Simple'} Quiz`}
+                    </h2>
                     <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                        Designing high-fidelity distractors and rationales using Gemini 2.5...
+                        {quizError || 'Designing high-fidelity distractors and rationales using Gemini 2.5...'}
                     </p>
                 </div>
                 <div style={{ width: '100%', maxWidth: '400px', height: '8px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', overflow: 'hidden' }}>
-                    <div style={{ width: `${progress}%`, height: '100%', background: 'var(--secondary)', transition: 'width 0.3s ease' }}></div>
+                    <div style={{ 
+                        width: `${progress}%`, 
+                        height: '100%', 
+                        background: quizError ? '#fbbf24' : 'var(--secondary)', 
+                        transition: 'width 0.3s ease',
+                        boxShadow: quizError ? '0 0 10px #fbbf24' : 'none'
+                    }}></div>
                 </div>
-                <div style={{ color: 'var(--secondary)', fontSize: '1rem', fontWeight: 'bold' }}>{progress}%</div>
+                <div style={{ color: quizError ? '#fbbf24' : 'var(--secondary)', fontSize: '1rem', fontWeight: 'bold' }}>{progress}%</div>
             </div>
         );
     }
@@ -109,7 +144,7 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
     const currentAiData = getDistractorFromVault(card.id, deck.quizType);
 
     return (
-        <div style={{ maxWidth: '800px', margin: '0 auto', width: '100%' }}>
+        <div style={{ maxWidth: '850px', margin: '0 auto', width: '100%', minHeight: 'calc(100vh - 6rem)', display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
                 <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
                     <button 
@@ -117,10 +152,10 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
                         style={{
                             background: 'transparent',
                             border: '1px solid var(--border-color)',
-                            padding: '0.4rem 0.8rem',
-                            fontSize: '0.85rem',
+                            padding: '0.6rem 1.5rem',
+                            fontSize: '0.9rem',
                             minWidth: 'auto',
-                            boxShadow: 'none'
+                            color: 'white'
                         }}
                     >
                         &larr; Exit
@@ -130,186 +165,163 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
                             onClick={() => setShowPreview(true)} 
                             id="quiz-preview-btn-v5"
                             style={{ 
-                                display: 'flex', 
-                                alignItems: 'center', 
-                                gap: '0.4rem', 
                                 background: 'transparent',
                                 border: '1px solid var(--border-color)',
-                                padding: '0.4rem 0.8rem',
-                                fontSize: '0.85rem',
+                                padding: '0.6rem 1.5rem',
+                                fontSize: '0.9rem',
                                 minWidth: 'auto',
-                                boxShadow: 'none'
+                                color: 'white',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.4rem'
                             }}
                         >
-                            <span className="material-symbols-outlined" style={{ fontSize: '1.2rem' }}>visibility</span>
-                            Preview
+                            👁️ Preview
                         </button>
                     )}
                 </div>
                 <div style={{ fontWeight: 'bold' }}>Question {currentIndex + 1} of {deck.cards.length}</div>
             </div>
 
-            <div className="glass-panel">
-                <div style={{ color: 'var(--secondary)', marginBottom: '1rem', textAlign: 'center', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                    {deck.quizType === 'intelligent' ? 'Situational Judgment (SJI)' : 'Knowledge Recall'}
-                    {/* SYSTEM MARKER Phase 11.7 v5 Styled Force */}
-                    <div style={{ position: 'absolute', top: '10px', right: '10px', fontSize: '8px', color: 'rgba(255,255,255,0.2)' }}>SYNC_FORCE_V5</div>
-                </div>
-                
-                {deck.quizType === 'intelligent' && currentAiData?.scenario && (
-                    <div style={{ 
-                        padding: '1.2rem', 
-                        backgroundColor: 'rgba(255,255,255,0.03)', 
-                        borderRadius: '12px', 
-                        marginBottom: '1.5rem',
-                        borderLeft: '4px solid var(--primary)',
-                        lineHeight: '1.6'
-                    }}>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--primary)', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Workplace Scenario:</div>
-                        {currentAiData.scenario}
+                <div className="glass-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                    <div style={{ color: 'var(--secondary)', marginBottom: '1.5rem', textAlign: 'center', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                        {deck.quizType === 'intelligent' ? 'Situational Judgment (SJI)' : 'Knowledge Recall'}
+                        {/* SYSTEM MARKER Phase 11.7 v5 Styled Force */}
+                        <div style={{ position: 'absolute', top: '10px', right: '10px', fontSize: '8px', color: 'rgba(255,255,255,0.2)' }}>SYNC_FORCE_V5</div>
                     </div>
-                )}
-
-                <h2 style={{ fontSize: '1.4rem', textAlign: 'center', marginBottom: '2rem', lineHeight: '1.4' }}>
-                    {deck.quizType === 'intelligent' ? (currentAiData?.question || card.question) : card.question}
-                </h2>
-
-                <div style={{ display: 'grid', gap: '1rem' }}>
-                    {options.map((opt, i) => {
-                        const isCorrect = opt === card.answer;
-                        const isSelected = selectedOption === opt;
-                        
-                        let border = '1px solid var(--border-color)';
-                        let bg = 'rgba(255,255,255,0.05)';
-                        
-                        if (isAnswered) {
-                            if (isCorrect) {
-                                border = '2px solid var(--secondary)';
-                                bg = 'rgba(16, 185, 129, 0.1)';
-                            } else if (isSelected) {
-                                border = '2px solid #ef4444';
-                                bg = 'rgba(239, 68, 68, 0.1)';
-                            }
-                        } else if (isSelected) {
-                            border = '2px solid var(--primary)';
-                            bg = 'rgba(99, 102, 241, 0.1)';
-                        }
-
-                        return (
-                            <div 
-                                key={i}
-                                onClick={() => handleSelect(opt)}
-                                style={{
-                                    padding: '1rem',
-                                    borderRadius: '12px',
-                                    border,
-                                    background: bg,
-                                    cursor: isAnswered ? 'default' : 'pointer',
-                                    transition: 'all 0.2s',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '1rem',
-                                    fontSize: '0.95rem'
-                                }}
-                            >
-                                <span style={{ fontWeight: 'bold', color: isSelected ? 'var(--primary)' : 'white' }}>
-                                    {String.fromCharCode(65 + i)}
-                                </span>
-                                <span>{opt}</span>
-                            </div>
-                        );
-                    })}
-                </div>
-
-                <div style={{ marginTop: '2.5rem' }}>
-                    {!isAnswered ? (
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
-                            <button 
-                                onClick={handlePrevious} 
-                                disabled={currentIndex === 0 || options.includes('Loading...')}
-                                style={{ 
-                                    background: 'transparent',
-                                    border: '1px solid var(--border-color)',
-                                    padding: '0.4rem 1.2rem',
-                                    fontSize: '0.85rem',
-                                    minWidth: '120px',
-                                    boxShadow: 'none',
-                                    color: 'white'
-                                }}
-                            >
-                                &larr; Previous
-                            </button>
-                            <button 
-                                onClick={handleSubmit} 
-                                disabled={!selectedOption || options.includes('Loading...')} 
-                                style={{ 
-                                    flex: 1,
-                                    padding: '0.8rem 1.5rem',
-                                    fontSize: '1rem',
-                                    fontWeight: 'bold'
-                                }}
-                            >
-                                Submit Selection
-                            </button>
-                        </div>
-                    ) : (
-                        <div className="animate-fade-in">
-                            <div style={{ 
-                                padding: '1.2rem', 
-                                marginBottom: '1.5rem', 
-                                border: '1px solid rgba(255,255,255,0.1)', 
-                                borderRadius: '12px', 
-                                backgroundColor: 'var(--bg-darker)',
-                                textAlign: 'left'
-                            }}>
-                                <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--secondary)', marginBottom: '0.8rem', fontWeight: 'bold', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                                    <span className="badge">{currentAiData?.tag_bask || 'General'}</span>
-                                    <span>•</span>
-                                    <span className="badge">{currentAiData?.tag_behavior || 'Core Knowledge'}</span>
-                                    {currentAiData?.shrm_principle && (
-                                        <>
-                                            <span>•</span>
-                                            <span style={{ color: 'var(--primary)', backgroundColor: 'rgba(99, 102, 241, 0.1)', padding: '2px 8px', borderRadius: '4px' }}>
-                                                {currentAiData.shrm_principle}
-                                            </span>
-                                        </>
-                                    )}
-                                </div>
-                                <strong style={{ color: 'white', display: 'block', marginBottom: '0.5rem' }}>Rationale:</strong> 
-                                <div style={{ fontSize: '0.9rem', lineHeight: '1.5', color: 'var(--text-muted)', whiteSpace: 'pre-wrap' }}>
-                                    {currentAiData?.rationale || "No rationale available for this item."}
-                                </div>
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
-                                <button 
-                                    onClick={handlePrevious} 
-                                    style={{ 
-                                        background: 'transparent',
-                                        border: '1px solid var(--border-color)',
-                                        padding: '0.4rem 1.2rem',
-                                        fontSize: '0.85rem',
-                                        minWidth: '120px',
-                                        boxShadow: 'none',
-                                        color: 'white'
-                                    }}
-                                >
-                                    &larr; Previous
-                                </button>
-                                <button 
-                                    onClick={handleNext} 
-                                    style={{ 
-                                        flex: 1,
-                                        padding: '0.8rem 1.5rem',
-                                        fontSize: '1rem',
-                                        fontWeight: 'bold'
-                                    }}
-                                >
-                                    {currentIndex < deck.cards.length - 1 ? 'Next Question \u2192' : 'Finish Quiz'}
-                                </button>
-                            </div>
+                    
+                    {deck.quizType === 'intelligent' && currentAiData?.scenario && (
+                        <div style={{ 
+                            padding: '1.5rem', 
+                            backgroundColor: 'rgba(255,255,255,0.03)', 
+                            borderRadius: '12px', 
+                            marginBottom: '2rem',
+                            borderLeft: '5px solid var(--primary)',
+                            lineHeight: '1.6',
+                            fontSize: '1rem'
+                        }}>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--primary)', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Workplace Scenario:</div>
+                            {currentAiData.scenario}
                         </div>
                     )}
+
+                    <h2 style={{ fontSize: '1.6rem', textAlign: 'center', marginBottom: '2.5rem', lineHeight: '1.4' }}>
+                        {deck.quizType === 'intelligent' ? (currentAiData?.question || card.question) : card.question}
+                    </h2>
+
+                    <div style={{ display: 'grid', gap: '1.2rem' }}>
+                        {options.map((opt, i) => {
+                            const isCorrect = opt === card.answer;
+                            const isSelected = selectedOption === opt;
+                            
+                            let border = '1px solid var(--border-color)';
+                            let bg = 'rgba(255,255,255,0.05)';
+                            
+                            if (isAnswered) {
+                                if (isCorrect) {
+                                    border = '2px solid var(--secondary)';
+                                    bg = 'rgba(16, 185, 129, 0.1)';
+                                } else if (isSelected) {
+                                    border = '2px solid #ef4444';
+                                    bg = 'rgba(239, 68, 68, 0.1)';
+                                }
+                            } else if (isSelected) {
+                                border = '2px solid var(--primary)';
+                                bg = 'rgba(99, 102, 241, 0.1)';
+                            }
+
+                            return (
+                                <div 
+                                    key={i}
+                                    onClick={() => handleSelect(opt)}
+                                    style={{
+                                        padding: '1.2rem',
+                                        borderRadius: '12px',
+                                        border,
+                                        background: bg,
+                                        cursor: isAnswered ? 'default' : 'pointer',
+                                        transition: 'all 0.2s',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '1.2rem',
+                                        fontSize: '1rem'
+                                    }}
+                                >
+                                    <span style={{ fontWeight: 'bold', color: isSelected ? 'var(--primary)' : 'white' }}>
+                                        {String.fromCharCode(65 + i)}
+                                    </span>
+                                    <span>{opt}</span>
+                                </div>
+                            );
+                        })}
+                    </div>
                 </div>
+
+            <div style={{ marginTop: '3rem', marginBottom: '2rem' }}>
+                {!isAnswered ? (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
+                        <button 
+                            onClick={handlePrevious} 
+                            disabled={currentIndex === 0 || options.includes('Loading...')}
+                            style={{ 
+                                padding: '0.6rem 1.5rem',
+                                background: 'transparent',
+                                border: '1px solid var(--border-color)',
+                                opacity: (currentIndex === 0 || options.includes('Loading...')) ? 0.3 : 1,
+                                cursor: (currentIndex === 0 || options.includes('Loading...')) ? 'not-allowed' : 'pointer',
+                                color: 'white',
+                                fontSize: '0.9rem'
+                            }}
+                        >
+                            &larr; Previous Question
+                        </button>
+                        <button 
+                            onClick={handleSubmit} 
+                            disabled={!selectedOption || options.includes('Loading...')} 
+                            style={{ 
+                                padding: '0.6rem 1.5rem',
+                                background: 'transparent',
+                                border: '1px solid var(--border-color)',
+                                opacity: (!selectedOption || options.includes('Loading...')) ? 0.3 : 1,
+                                cursor: (!selectedOption || options.includes('Loading...')) ? 'not-allowed' : 'pointer',
+                                color: 'white',
+                                fontSize: '0.9rem'
+                            }}
+                        >
+                            Submit Selection
+                        </button>
+                    </div>
+                ) : (
+                    <div className="animate-fade-in" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
+                        <button 
+                            onClick={handlePrevious} 
+                            disabled={currentIndex === 0}
+                            style={{ 
+                                padding: '0.6rem 1.5rem',
+                                background: 'transparent',
+                                border: '1px solid var(--border-color)',
+                                opacity: currentIndex === 0 ? 0.3 : 1,
+                                cursor: currentIndex === 0 ? 'not-allowed' : 'pointer',
+                                color: 'white',
+                                fontSize: '0.9rem'
+                            }}
+                        >
+                            &larr; Previous Question
+                        </button>
+                        <button 
+                            onClick={handleNext} 
+                            style={{ 
+                                padding: '0.6rem 1.5rem',
+                                background: 'transparent',
+                                border: '1px solid var(--border-color)',
+                                color: 'white',
+                                fontSize: '0.9rem'
+                            }}
+                        >
+                            {currentIndex < deck.cards.length - 1 ? 'Next Question \u2192' : 'Finish Quiz'}
+                        </button>
+                    </div>
+                )}
             </div>
 
             {/* SIMPLE QUIZ PREVIEW MODAL */}
@@ -363,10 +375,10 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
                                 style={{
                                     background: 'transparent',
                                     border: '1px solid var(--border-color)',
-                                    padding: '0.4rem 0.8rem',
-                                    fontSize: '0.85rem',
+                                    padding: '0.6rem 1.5rem',
+                                    fontSize: '0.9rem',
                                     minWidth: 'auto',
-                                    boxShadow: 'none'
+                                    color: 'white'
                                 }}
                             >
                                 Close Preview

@@ -10,7 +10,8 @@ import {
   deleteDeckFromStorage, 
   updateCardStatus,
   exportAppData,
-  importAppData
+  importAppData,
+  clearAiVault
 } from './utils/storage';
 import { 
   getQuizDataForDeck,
@@ -107,13 +108,25 @@ function App() {
     // Reset input
     e.target.value = '';
   };
+  
+  const handleNukeAiData = () => {
+    if (window.confirm("⚠️ WARNING: This will permanently delete ALL generated questions, rationales, and distractors across all decks.\n\nYou will have to re-fetch/re-warm everything. Are you sure?")) {
+      if (clearAiVault()) {
+        alert("AI Vault Nuked Successfully.");
+        // We don't necessarily need to reload decks, but a state refresh helps
+        setDecks(loadDecksFromStorage());
+      }
+    }
+  };
 
 // ... inside App component ...
 
   const [warmUpProgress, setWarmUpProgress] = useState(0);
+  const [warmUpError, setWarmUpError] = useState(null);
 
   const handleBulkWarmUp = async () => {
     if (decks.length === 0) return;
+    setWarmUpError(null);
     
     // 1. Identify Target Cards
     let targetCards = [];
@@ -126,33 +139,67 @@ function App() {
 
     if (targetCards.length === 0) return;
 
-    // 2. Filter for MISSING data only (Incremental Logic)
-    const { missingCards } = await getQuizDataForDeck({ cards: targetCards }, quizType);
-    
-    if (missingCards.length === 0) {
-      alert(`All items in your vault for "${selectedDeckTitle}" already match the ${quizType} mode. No work needed!`);
-      return;
-    }
-
-    const confirmMsg = `Found ${missingCards.length} items missing ${quizType} data. Pre-generating them now using Gemini 2.5? \n\n(This will happen in background batches)`;
-    // Remove confirm and just start (more premium flow)
-    
+    // 2. Execution Logic (Dual Mode)
     setIsWarmingUp(true);
     setWarmUpProgress(0);
-    try {
-      await generateDistractorsBatch(missingCards, quizType, (progress) => {
-        setWarmUpProgress(progress);
-      });
-      // Small delay to let the user see 100%
-      setTimeout(() => {
-        setIsWarmingUp(false);
-        setWarmUpProgress(0);
-        // Alert removed for cleaner flow
-      }, 1000);
-    } catch (err) {
-      console.error("Warm-Up failed:", err);
-      setIsWarmingUp(false);
-    }
+    const runWarming = async () => {
+      try {
+        // MODE 1: Intelligent (Simulator)
+        let { missingCards: missingIntel } = await getQuizDataForDeck({ cards: targetCards }, 'intelligent');
+        while (missingIntel.length > 0) {
+          let rateLimited = false;
+          await generateDistractorsBatch(missingIntel, 'intelligent', (p, error) => {
+            setWarmUpProgress(Math.round(p * 0.5)); 
+            if (error === 'RATE_LIMIT') rateLimited = true;
+          });
+
+          if (rateLimited) {
+            setWarmUpError('Gemini 15 RPM limit reached. Auto-resuming in 60s...');
+            await new Promise(r => setTimeout(r, 60000));
+            setWarmUpError(null);
+            // Refresh missing list
+            const updated = await getQuizDataForDeck({ cards: targetCards }, 'intelligent');
+            missingIntel = updated.missingCards;
+          } else {
+            break; 
+          }
+        }
+
+        // MODE 2: Simple (Recall)
+        let { missingCards: missingSimple } = await getQuizDataForDeck({ cards: targetCards }, 'simple');
+        while (missingSimple.length > 0) {
+          let rateLimited = false;
+          await generateDistractorsBatch(missingSimple, 'simple', (p, error) => {
+            setWarmUpProgress(50 + Math.round(p * 0.5));
+            if (error === 'RATE_LIMIT') rateLimited = true;
+          });
+
+          if (rateLimited) {
+            setWarmUpError('Gemini 15 RPM limit reached. Auto-resuming in 60s...');
+            await new Promise(r => setTimeout(r, 60000));
+            setWarmUpError(null);
+            // Refresh missing list
+            const updated = await getQuizDataForDeck({ cards: targetCards }, 'simple');
+            missingSimple = updated.missingCards;
+          } else {
+            break;
+          }
+        }
+
+        if (!warmUpError) {
+          setWarmUpProgress(100);
+          setTimeout(() => {
+            setIsWarmingUp(false);
+            setWarmUpProgress(0);
+          }, 1500);
+        }
+      } catch (err) {
+        console.error("Warm-Up failed:", err);
+        setWarmUpError("System Error. Please try again.");
+      }
+    };
+
+    runWarming();
   };
 
   const handleStartStudying = () => {
@@ -462,19 +509,26 @@ function App() {
                   {isWarmingUp ? (
                     <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.8rem', fontSize: '0.85rem' }}>
-                        <span style={{ color: 'var(--secondary)', fontWeight: 'bold' }}>
-                          <span className="material-symbols-outlined" style={{ fontSize: '1.1rem', verticalAlign: 'middle', marginRight: '0.4rem' }}>sync</span>
-                          Generating Elite Content...
-                        </span>
-                        <span style={{ color: 'white' }}>{warmUpProgress}%</span>
+                          {warmUpError ? (
+                            <span style={{ color: '#fbbf24', fontWeight: 'bold' }}>
+                              <span className="material-symbols-outlined" style={{ fontSize: '1.1rem', verticalAlign: 'middle', marginRight: '0.4rem' }}>warning</span>
+                              {warmUpError}
+                            </span>
+                          ) : (
+                            <span style={{ color: 'var(--secondary)', fontWeight: 'bold' }}>
+                              <span className="material-symbols-outlined" style={{ fontSize: '1.1rem', verticalAlign: 'middle', marginRight: '0.4rem' }}>sync</span>
+                              Generating Elite Content...
+                            </span>
+                          )}
+                        {warmUpProgress}%
                       </div>
                       <div style={{ width: '100%', height: '6px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
                         <div style={{ 
                           width: `${warmUpProgress}%`, 
                           height: '100%', 
-                          backgroundColor: 'var(--secondary)', 
+                          backgroundColor: warmUpError ? '#fbbf24' : 'var(--secondary)', 
                           transition: 'width 0.4s ease-out',
-                          boxShadow: '0 0 10px var(--secondary)'
+                          boxShadow: warmUpError ? '0 0 10px #fbbf24' : '0 0 10px var(--secondary)'
                         }} />
                       </div>
                     </div>
@@ -522,11 +576,12 @@ function App() {
                   </p>
                 </div>
                 <div style={{ display: 'flex', gap: '1rem' }}>
-                  {decks.length > 0 && (
                     <button onClick={handleExport} className="secondary" style={{ fontSize: '0.85rem', padding: '0.5rem 1rem' }}>
                       Export Backup
                     </button>
-                  )}
+                    <button onClick={handleNukeAiData} style={{ fontSize: '0.85rem', padding: '0.5rem 1rem', background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', boxShadow: 'none' }}>
+                      Nuke AI Data
+                    </button>
                   <label className="button secondary" style={{ fontSize: '0.85rem', padding: '0.5rem 1rem', display: 'inline-block', cursor: 'pointer', margin: 0 }}>
                     Restore Backup
                     <input 

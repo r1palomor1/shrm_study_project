@@ -27,14 +27,14 @@ export async function getQuizDataForDeck(deck, requestedQuizType = 'intelligent'
 
 /**
  * Calls the backend to generate distractors for a batch of cards.
- * @param {Array} cards - Objects with { question, answer }
- * @param {String} quizType - 'simple' or 'intelligent'
- * @param {Function} onProgress - Callback for progress tracking
+ * Now supports dual-mode generation and actual success tracking.
  */
 export async function generateDistractorsBatch(cards, quizType = 'intelligent', onProgress) {
-    const MAX_BATCH_SIZE = 5; // Optimal for Gemini 2.5 reasoning logic
-    const results = [];
+    const MAX_BATCH_SIZE = 5; 
+    let successfulCount = 0;
+    const totalRequests = cards.length;
     
+    // We process in batches to respect the Gemini reasoning window (5 items is the sweet spot)
     for (let i = 0; i < cards.length; i += MAX_BATCH_SIZE) {
         const batch = cards.slice(i, i + MAX_BATCH_SIZE);
         
@@ -49,7 +49,10 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
                 })
             });
 
-            if (!response.ok) throw new Error('API Request Failed');
+            if (response.status === 429) {
+                throw new Error('RATE_LIMIT');
+            }
+            if (!response.ok) throw new Error('API_ERROR');
 
             const data = await response.json();
             
@@ -58,24 +61,30 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
                     saveDistractorToVault(res.id, {
                         quizType: quizType,
                         scenario: res.scenario,
-                        question: res.question, // The refined question (SJI)
+                        question: res.question,
                         distractors: res.distractors,
                         rationale: res.rationale,
                         shrm_principle: res.shrm_principle,
                         tag_bask: res.tag_bask,
                         tag_behavior: res.tag_behavior
                     });
-                    results.push(res);
                 });
+                successfulCount += data.results.length;
             }
 
-            if (onProgress) onProgress(Math.min(100, Math.round(((i + batch.length) / cards.length) * 100)));
+            // Report ACTUAL progress based on successful vault commits
+            if (onProgress) {
+                const percent = Math.round((successfulCount / totalRequests) * 100);
+                onProgress(percent, null);
+            }
 
         } catch (error) {
             console.error('Batch Generation Error:', error);
-            // We could implement a retry here or just skip and let individual questions fail later
+            if (onProgress) {
+                onProgress(Math.round((successfulCount / totalRequests) * 100), error.message);
+            }
+            // If rate limited, we stop this specific run so the user knows to wait
+            if (error.message === 'RATE_LIMIT') break;
         }
     }
-
-    return results;
 }

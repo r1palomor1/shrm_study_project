@@ -148,6 +148,16 @@ export function clearAllDecksFromStorage() {
     }
 }
 
+export function clearAiVault() {
+    try {
+        localStorage.removeItem(VAULT_KEY);
+        return true;
+    } catch (error) {
+        console.error('Error clearing AI Vault:', error);
+        return false;
+    }
+}
+
 export function updateCardStatus(cardId, studyMode, newStatus, historyData = null) {
     const decks = loadDecksFromStorage();
     if (decks && decks.length > 0) {

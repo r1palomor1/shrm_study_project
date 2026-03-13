@@ -82,7 +82,7 @@ async function handleGenerateDistractors(req, res) {
                     "quizType": "${quizType}",
                     "scenario": "Scenario text (null if simple mode)",
                     "question": "The actual question text",
-                    "distractors": ["Wrong 1", "Wrong 2", "Wrong 3"],
+                    "distractors": ["Strictly 3 professional HR distractors here"],
                     "rationale": "High-fidelity feedback showing why correct is best and distractors are sub-optimal",
                     "shrm_principle": "The core SHRM rule (null if simple mode)",
                     "tag_bask": "Selected Domain",
