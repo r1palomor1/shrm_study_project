@@ -41,8 +41,8 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
             });
 
             if (rateLimited) {
-                setQuizError('15 RPM Limit reached. Auto-resuming in 60s...');
-                await new Promise(r => setTimeout(r, 60000));
+                setQuizError('Limit reached. Switching to Fallback Engine...');
+                await new Promise(r => setTimeout(r, 2000));
                 setQuizError(null);
                 
                 // Refresh missing list

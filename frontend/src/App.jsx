@@ -154,8 +154,8 @@ function App() {
           });
 
           if (rateLimited) {
-            setWarmUpError('Gemini 15 RPM limit reached. Auto-resuming in 60s...');
-            await new Promise(r => setTimeout(r, 60000));
+            setWarmUpError('Daily Limit detected. Switching to Fallback Engine...');
+            await new Promise(r => setTimeout(r, 2000));
             setWarmUpError(null);
             // Refresh missing list
             const updated = await getQuizDataForDeck({ cards: targetCards }, 'intelligent');
@@ -175,8 +175,8 @@ function App() {
           });
 
           if (rateLimited) {
-            setWarmUpError('Gemini 15 RPM limit reached. Auto-resuming in 60s...');
-            await new Promise(r => setTimeout(r, 60000));
+            setWarmUpError('Daily Limit detected. Switching to Fallback Engine...');
+            await new Promise(r => setTimeout(r, 2000));
             setWarmUpError(null);
             // Refresh missing list
             const updated = await getQuizDataForDeck({ cards: targetCards }, 'simple');
