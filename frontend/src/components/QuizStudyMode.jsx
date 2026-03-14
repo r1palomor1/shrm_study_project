@@ -158,7 +158,7 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
 
     return (
         <div style={{ maxWidth: '850px', margin: '0 auto', width: '100%', minHeight: 'calc(100vh - 6rem)', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', position: 'relative', zIndex: 10 }}>
                 <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
                     <button 
                         onClick={onBack} 
@@ -363,7 +363,7 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
                     <div style={{
                         padding: '1rem 1.2rem', borderBottom: '1px solid rgba(255,255,255,0.1)',
                         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                        background: '#1a1b2e', position: 'sticky', top: 0
+                        background: '#1a1b2e', position: 'sticky', top: 0, zIndex: 10
                     }}>
                         <div>
                             <h2 style={{ margin: 0, fontSize: '1.4rem' }}>{deck.title?.split(' (')[0] || 'Deck'} Preview</h2>
@@ -372,7 +372,7 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
                             </p>
                         </div>
                         <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
-                            {/* Multi-select Dropdown Filter */}
+                            {/* REFACTORED DROPDOWN FILTER */}
                             <div style={{ position: 'relative' }}>
                                 <button 
                                     onClick={() => {
@@ -405,15 +405,17 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
                                         />
                                         <div style={{
                                             position: 'absolute',
-                                            top: '120%', // Added more offset
+                                            top: '110%',
                                             right: 0,
-                                            width: '260px', // Wider to match traditional
-                                            background: '#1a1b2e',
-                                            border: '1px solid rgba(255,255,255,0.15)',
+                                            width: '260px',
+                                            background: '#1a1b2e !important',
+                                            opacity: '1 !important',
+                                            border: '1px solid rgba(255,255,255,0.2)',
                                             borderRadius: '12px',
                                             padding: '1.2rem',
                                             boxShadow: '0 10px 40px rgba(0,0,0,0.8)',
-                                            zIndex: 5000, // Absolute priority
+                                            zIndex: 2100,
+                                            pointerEvents: 'auto !important',
                                             display: 'flex',
                                             flexDirection: 'column',
                                             gap: '1rem',
@@ -436,9 +438,9 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
 
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
                                                 {[
-                                                    { val: 'correct', label: 'Correct', color: 'var(--secondary)' },
-                                                    { val: 'incorrect', label: 'Incorrect', color: '#ef4444' },
-                                                    { val: 'unseen', label: 'Unseen', color: 'rgba(255,255,255,0.4)' }
+                                                    { val: 'correct', l: 'Correct', c: 'var(--secondary)' },
+                                                    { val: 'incorrect', l: 'Incorrect', c: '#ef4444' },
+                                                    { val: 'unseen', l: 'Unseen', c: 'rgba(255,255,255,0.2)' }
                                                 ].map(f => {
                                                     const count = deck.cards.filter(c => getQuizStatus(c) === f.val).length;
                                                     const isActive = tempPreviewFilter.includes(f.val);
@@ -464,19 +466,19 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
                                                                 height: '18px',
                                                                 borderRadius: '4px',
                                                                 border: '2px solid',
-                                                                borderColor: isActive ? f.color : 'rgba(255,255,255,0.2)',
-                                                                background: isActive ? f.color : 'transparent',
+                                                                borderColor: isActive ? f.c : 'rgba(255,255,255,0.2)',
+                                                                background: isActive ? f.c : 'transparent',
                                                                 display: 'flex',
                                                                 alignItems: 'center',
                                                                 justifyContent: 'center',
                                                                 fontSize: '0.8rem',
-                                                                color: isActive ? (f.val === 'unseen' ? 'white' : 'black') : 'white'
+                                                                color: 'white'
                                                             }}>
                                                                 {isActive && '✓'}
                                                             </div>
-                                                            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: f.color }} />
-                                                            <span style={{ fontSize: '0.9rem', color: 'white', flex: 1 }}>{f.label}</span>
-                                                            <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.9)', fontWeight: 'bold' }}>{count}</span>
+                                                            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: f.c }} />
+                                                            <span style={{ fontSize: '0.9rem', color: 'white', flex: 1 }}>{f.l}</span>
+                                                            <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.9)', fontWeight: 'bold', marginLeft: '-0.3rem' }}>{count}</span>
                                                         </div>
                                                     );
                                                 })}
