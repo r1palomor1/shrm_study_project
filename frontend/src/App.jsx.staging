@@ -1,0 +1,617 @@
+import { useState, useEffect } from 'react';
+import DataImporter from './components/DataImporter';
+import FlashcardStudyMode from './components/FlashcardStudyMode';
+import TraditionalStudyMode from './components/TraditionalStudyMode';
+import QuizStudyMode from './components/QuizStudyMode';
+import AnalyticsDashboard from './components/AnalyticsDashboard';
+import { 
+  saveDeckToStorage, 
+  loadDecksFromStorage, 
+  deleteDeckFromStorage, 
+  updateCardStatus,
+  exportAppData,
+  importAppData,
+  clearAiVault
+} from './utils/storage';
+import { 
+  getQuizDataForDeck,
+  generateDistractorsBatch
+} from './utils/quizProcessor';
+import './index.css';
+
+function App() {
+  const [decks, setDecks] = useState([]);
+  const [isStudying, setIsStudying] = useState(false);
+  const [activeStudyDeck, setActiveStudyDeck] = useState(null);
+  const [isViewingAnalytics, setIsViewingAnalytics] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
+
+  // Study configuration
+  const [selectedDeckTitle, setSelectedDeckTitle] = useState('ALL');
+  const [studyOrder, setStudyOrder] = useState('sequential'); // 'sequential' or 'random'
+  const [studyMode, setStudyMode] = useState('quiz'); // 'traditional', 'quiz'
+  const [quizType, setQuizType] = useState('intelligent'); // 'simple' or 'intelligent'
+  const [isWarmingUp, setIsWarmingUp] = useState(false);
+
+  useEffect(() => {
+    const savedDecks = loadDecksFromStorage();
+    if (savedDecks) {
+      setDecks(savedDecks);
+    }
+  }, []);
+
+  const handleDeckLoaded = (loadedDeck) => {
+    saveDeckToStorage(loadedDeck);
+    // Reload state from storage
+    setDecks(loadDecksFromStorage());
+  };
+
+  const handleDeleteDeck = (title) => {
+    const confirmation = window.confirm(
+      `⚠️ WARNING: This will permanently remove "${title}" and ALL your associated study progress, scores, and mastery history from this device.\n\n` +
+      `Are you ABSOLUTELY sure you want to delete this topic?`
+    );
+    
+    if (confirmation) {
+      deleteDeckFromStorage(title);
+      setDecks(loadDecksFromStorage());
+      // Reset selection if we deleted the selected deck
+      if (selectedDeckTitle === title) setSelectedDeckTitle('ALL');
+    }
+  };
+
+  const handleResetProgress = (title) => {
+    const message = title === 'ALL' 
+      ? `⚠️ WARNING: This will permanently wipe ALL study progress, scores, and mastery history for EVERY topic.\n\nAre you sure you want to start over from scratch?`
+      : `⚠️ WARNING: This will permanently wipe all study progress, scores, and mastery history for "${title}".\n\nAre you sure you want to reset this topic?`;
+
+    if (window.confirm(message)) {
+      const updatedDecks = decks.map(d => {
+        if (title === 'ALL' || d.title === title) {
+          d.cards = d.cards.map(c => {
+            const newCard = { ...c };
+            if (studyMode === 'traditional') newCard.status_traditional = 'unseen';
+            if (studyMode === 'test') newCard.status_test = 'unseen';
+            if (studyMode === 'quiz') newCard.status_quiz = 'unseen';
+            // Also reset legacy status so it doesn't fall back to it
+            newCard.status = 'unseen'; 
+            return newCard;
+          });
+          saveDeckToStorage(d);
+        }
+        return d;
+      });
+      setDecks(loadDecksFromStorage());
+    }
+  };
+
+  const handleExport = () => {
+    exportAppData();
+  };
+
+  const handleImport = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (window.confirm("Restoring from a backup will overwrite all current progress and data. Are you sure?")) {
+      setIsRestoring(true);
+      try {
+        await importAppData(file);
+        setDecks(loadDecksFromStorage());
+        alert("Restoration Complete!");
+      } catch (error) {
+        alert("Restoration Failed: " + error.message);
+      } finally {
+        setIsRestoring(false);
+      }
+    }
+    // Reset input
+    e.target.value = '';
+  };
+  
+  const handleNukeAiData = () => {
+    if (window.confirm("⚠️ WARNING: This will permanently delete ALL generated questions, rationales, and distractors across all decks.\n\nYou will have to re-fetch/re-warm everything. Are you sure?")) {
+      if (clearAiVault()) {
+        alert("AI Vault Nuked Successfully.");
+        // We don't necessarily need to reload decks, but a state refresh helps
+        setDecks(loadDecksFromStorage());
+      }
+    }
+  };
+
+// ... inside App component ...
+
+  const [warmUpProgress, setWarmUpProgress] = useState(0);
+  const [warmUpError, setWarmUpError] = useState(null);
+
+  const handleBulkWarmUp = async () => {
+    if (decks.length === 0) return;
+    setWarmUpError(null);
+    
+    // 1. Identify Target Cards
+    let targetCards = [];
+    if (selectedDeckTitle === 'ALL') {
+      targetCards = decks.flatMap(d => d.cards);
+    } else {
+      const deck = decks.find(d => d.title === selectedDeckTitle);
+      if (deck) targetCards = deck.cards;
+    }
+
+    if (targetCards.length === 0) return;
+
+    // 2. Execution Logic (Dual Mode)
+    setIsWarmingUp(true);
+    setWarmUpProgress(0);
+    const runWarming = async () => {
+      try {
+        // MODE 1: Intelligent (Simulator)
+        let { missingCards: missingIntel } = await getQuizDataForDeck({ cards: targetCards }, 'intelligent');
+        while (missingIntel.length > 0) {
+          let rateLimited = false;
+          await generateDistractorsBatch(missingIntel, 'intelligent', (p, error) => {
+            setWarmUpProgress(Math.round(p * 0.5)); 
+            if (error === 'RATE_LIMIT') rateLimited = true;
+          });
+
+          if (rateLimited) {
+            setWarmUpError('Daily Limit detected. Switching to Fallback Engine...');
+            await new Promise(r => setTimeout(r, 2000));
+            setWarmUpError(null);
+            // Refresh missing list
+            const updated = await getQuizDataForDeck({ cards: targetCards }, 'intelligent');
+            missingIntel = updated.missingCards;
+          } else {
+            break; 
+          }
+        }
+
+        // MODE 2: Simple (Recall)
+        let { missingCards: missingSimple } = await getQuizDataForDeck({ cards: targetCards }, 'simple');
+        while (missingSimple.length > 0) {
+          let rateLimited = false;
+          await generateDistractorsBatch(missingSimple, 'simple', (p, error) => {
+            setWarmUpProgress(50 + Math.round(p * 0.5));
+            if (error === 'RATE_LIMIT') rateLimited = true;
+          });
+
+          if (rateLimited) {
+            setWarmUpError('Daily Limit detected. Switching to Fallback Engine...');
+            await new Promise(r => setTimeout(r, 2000));
+            setWarmUpError(null);
+            // Refresh missing list
+            const updated = await getQuizDataForDeck({ cards: targetCards }, 'simple');
+            missingSimple = updated.missingCards;
+          } else {
+            break;
+          }
+        }
+
+        if (!warmUpError) {
+          // FINAL AUDIT: Physical scan of the vault to verify logic versus storage
+          const finalIntel = await getQuizDataForDeck({ cards: targetCards }, 'intelligent');
+          const finalSimple = await getQuizDataForDeck({ cards: targetCards }, 'simple');
+          
+          if (finalIntel.missingCount > 0 || finalSimple.missingCount > 0) {
+            setWarmUpError(`Logistics Error: ${finalIntel.missingCount + finalSimple.missingCount} items failed to sync. Please re-run.`);
+            setIsWarmingUp(false);
+            return;
+          }
+
+          setWarmUpProgress(100);
+          setTimeout(() => {
+            setIsWarmingUp(false);
+            setWarmUpProgress(0);
+          }, 2000);
+        }
+      } catch (err) {
+        console.error("Warm-Up failed:", err);
+        setWarmUpError("System Error. Please try again.");
+      }
+    };
+
+    runWarming();
+  };
+
+  const handleStartStudying = () => {
+    if (decks.length === 0) return;
+
+    let cardsToStudy = [];
+    let studyTitle = "All Topics";
+    let totalOriginalCards = 0;
+
+    if (selectedDeckTitle === 'ALL') {
+      decks.forEach(d => {
+        cardsToStudy = [...cardsToStudy, ...d.cards];
+        totalOriginalCards += d.cards.length;
+      });
+    } else {
+      const specificDeck = decks.find(d => d.title === selectedDeckTitle);
+      if (specificDeck) {
+        cardsToStudy = [...specificDeck.cards];
+        studyTitle = specificDeck.title;
+        totalOriginalCards = specificDeck.cards.length;
+      }
+    }
+
+    const getStatus = (c) => {
+      if (studyMode === 'traditional') return c.status_traditional || c.status || 'unseen';
+      if (studyMode === 'test') return c.status_test || c.status || 'unseen';
+      if (studyMode === 'quiz') return c[`status_quiz_${quizType}`] || 'unseen';
+      return c.status || 'unseen';
+    };
+    const seenCards = cardsToStudy.filter(c => getStatus(c) !== 'unseen');
+    let unseenCards = cardsToStudy.filter(c => getStatus(c) === 'unseen');
+
+    let finalDeckCards = [];
+    let initialIndex = 0;
+    let isReviewMode = false;
+
+    if (cardsToStudy.length > 0 && unseenCards.length === 0) {
+      // Review Mode: All cards are seen, so study them all again from start
+      isReviewMode = true;
+      finalDeckCards = [...cardsToStudy];
+      initialIndex = 0;
+    } else {
+      // Normal Mode: Prioritize unseen cards
+      finalDeckCards = [...seenCards, ...unseenCards];
+      initialIndex = seenCards.length;
+    }
+
+    if (cardsToStudy.length === 0) {
+      alert("No cards found for this selection.");
+      return;
+    }
+
+    if (studyOrder === 'random') {
+      // If in review mode, shuffle everything. If normal, only shuffle unseen.
+      const shuffleBuffer = isReviewMode ? finalDeckCards : unseenCards;
+      for (let i = shuffleBuffer.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffleBuffer[i], shuffleBuffer[j]] = [shuffleBuffer[j], shuffleBuffer[i]];
+      }
+      studyTitle += ' (Randomized)';
+    } else {
+      studyTitle += ' (Sequential)';
+    }
+
+    if (isReviewMode) studyTitle += ' [Review]';
+
+    setActiveStudyDeck({
+      title: studyTitle,
+      cards: finalDeckCards,
+      totalOriginalCards: totalOriginalCards,
+      initialIndex: initialIndex,
+      quizType: quizType
+    });
+    setIsStudying(true);
+  };
+
+  const handleUpdateCardStatus = (cardId, status, historyData = {}) => {
+    const enrichedHistory = { ...historyData };
+    if (studyMode === 'quiz') enrichedHistory.quizType = quizType;
+    
+    updateCardStatus(cardId, studyMode, status, enrichedHistory);
+    // Silent reload of decks to update main dashboard progress in background
+    setDecks(loadDecksFromStorage());
+  };
+
+  if (isStudying && activeStudyDeck) {
+    return (
+      <div className="app-container animate-fade-in" style={{ paddingTop: '2rem' }}>
+        {studyMode === 'test' ? (
+          <FlashcardStudyMode
+            deck={activeStudyDeck}
+            onBack={() => setIsStudying(false)}
+            onUpdateCardStatus={handleUpdateCardStatus}
+          />
+        ) : studyMode === 'traditional' ? (
+          <TraditionalStudyMode
+            deck={activeStudyDeck}
+            onBack={() => setIsStudying(false)}
+            onUpdateCardStatus={handleUpdateCardStatus}
+          />
+        ) : studyMode === 'quiz' ? (
+          <QuizStudyMode
+            deck={activeStudyDeck}
+            onBack={() => setIsStudying(false)}
+            onUpdateCardStatus={handleUpdateCardStatus}
+          />
+        ) : (
+          <div style={{ textAlign: 'center', color: 'white' }}>
+            <h2>Mode Not Supported</h2>
+            <button onClick={() => setIsStudying(false)}>Back to Dashboard</button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (isViewingAnalytics) {
+    return (
+      <div className="app-container animate-fade-in" style={{ paddingTop: '2rem' }}>
+        <AnalyticsDashboard 
+          decks={decks} 
+          onBack={() => setIsViewingAnalytics(false)} 
+        />
+      </div>
+    );
+  }
+
+  const totalCards = decks.reduce((sum, deck) => sum + deck.cards.length, 0);
+
+  return (
+    <div className="app-container animate-fade-in">
+      <header style={{ textAlign: 'center', marginBottom: '3rem' }}>
+        <h1 className="text-gradient">SHRM 2026 Study App</h1>
+        <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>Master the SHRM curriculum with intelligent tracking and importing.</p>
+        {decks.length > 0 && (
+          <button 
+            onClick={() => setIsViewingAnalytics(true)}
+            style={{ 
+              backgroundColor: 'transparent', 
+              border: '1px solid var(--secondary)', 
+              color: 'var(--secondary)',
+              padding: '0.6rem 1.2rem',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              fontSize: '0.9rem'
+            }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '1.2rem' }}>analytics</span>
+            View Performance Report
+          </button>
+        )}
+      </header>
+
+      <main style={{ display: 'grid', gap: '2rem', gridTemplateColumns: 'minmax(0, 1fr)' }}>
+
+        <DataImporter onDeckLoaded={handleDeckLoaded} />
+
+        {decks.length > 0 && (
+          <section className="glass-panel animate-fade-in">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h2>Your Study Material</h2>
+              <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+                {decks.length} Topics | {totalCards} Cards
+              </span>
+            </div>
+
+            {/* Capsules per deck */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', marginBottom: '2rem' }}>
+              {[...decks].sort((a, b) => a.title.localeCompare(b.title)).map(deck => {
+                const getStatus = (c) => {
+                  if (studyMode === 'traditional') return c.status_traditional || c.status || 'unseen';
+                  if (studyMode === 'test') return c.status_test || c.status || 'unseen';
+                  if (studyMode === 'quiz') return c[`status_quiz_${quizType}`] || 'unseen';
+                  return c.status || 'unseen';
+                };
+                const masteredCount = deck.cards.filter(c => getStatus(c) !== 'unseen').length;
+                const percent = deck.cards.length > 0 ? Math.round((masteredCount / deck.cards.length) * 100) : 0;
+
+                // Calculate Mastery Index (Average of graded cards)
+                const gradedForMastery = deck.cards.filter(c => getStatus(c) && getStatus(c) !== 'unseen');
+                const totalWeight = gradedForMastery.reduce((sum, c) => {
+                  const s = getStatus(c);
+                  const rating = parseInt(s.split('-')[1]) || 0;
+                  return sum + rating;
+                }, 0);
+                const avgScore = gradedForMastery.length > 0 ? (totalWeight / gradedForMastery.length).toFixed(1) : null;
+
+                return (
+                  <div key={deck.title} className="glass-panel" style={{
+                    padding: '1rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '1rem',
+                    flex: '0 1 350px',
+                    minWidth: '280px',
+                    margin: 0
+                  }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.6rem', marginBottom: '0.25rem' }}>
+                        <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{deck.title}</h3>
+                        {avgScore && (
+                          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 'bold' }}>
+                            (Confidence: {avgScore})
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                        <span>{masteredCount} / {deck.cards.length} completed</span>
+                        <span>{percent}%</span>
+                      </div>
+                      <div style={{ width: '100%', height: '4px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '2px', marginTop: '0.5rem', overflow: 'hidden' }}>
+                        <div style={{ width: `${percent}%`, height: '100%', backgroundColor: 'var(--secondary)', transition: 'width 0.3s ease' }} />
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      <button
+                        onClick={() => handleResetProgress(deck.title)}
+                        style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem', background: 'transparent', border: '1px solid #eab308', color: '#eab308', minWidth: 'auto', boxShadow: 'none' }}>
+                        Reset
+                      </button>
+                      <button
+                        onClick={() => handleDeleteDeck(deck.title)}
+                        style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem', background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', minWidth: 'auto', boxShadow: 'none' }}>
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Study Configuration UI */}
+            <div style={{ backgroundColor: 'var(--bg-darker)', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+              <h3 style={{ marginTop: 0, marginBottom: '1.5rem' }}>Study Configuration</h3>
+
+              <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
+                <div style={{ flex: 1, minWidth: '200px' }}>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Study Mode:</label>
+                  <select
+                    value={studyMode}
+                    onChange={(e) => setStudyMode(e.target.value)}
+                    style={{
+                      width: '100%', padding: '0.75rem', borderRadius: '8px',
+                      backgroundColor: 'rgba(0,0,0,0.3)', color: 'white', border: '1px solid var(--border-color)',
+                      fontFamily: 'inherit', fontSize: '1rem'
+                    }}
+                  >
+                    {/* <option value="test" style={{ backgroundColor: 'var(--bg-dark)' }}>AI Test Mode (Typing)</option> */}
+                    <option value="quiz" style={{ backgroundColor: 'var(--bg-dark)' }}>Multiple Choice Quiz (Intelligent)</option>
+                    <option value="traditional" style={{ backgroundColor: 'var(--bg-dark)' }}>Traditional (Self-Marking)</option>
+                  </select>
+                </div>
+
+                <div style={{ flex: 1, minWidth: '200px' }}>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Select Topic(s):</label>
+                  <select
+                    value={selectedDeckTitle}
+                    onChange={(e) => setSelectedDeckTitle(e.target.value)}
+                    style={{
+                      width: '100%', padding: '0.75rem', borderRadius: '8px',
+                      backgroundColor: 'rgba(0,0,0,0.3)', color: 'white', border: '1px solid var(--border-color)',
+                      fontFamily: 'inherit', fontSize: '1rem'
+                    }}
+                  >
+                    <option value="ALL" style={{ backgroundColor: 'var(--bg-dark)' }}>All Topics ({totalCards} cards)</option>
+                    {[...decks].sort((a, b) => a.title.localeCompare(b.title)).map(d => (
+                      <option key={d.title} value={d.title} style={{ backgroundColor: 'var(--bg-dark)' }}>{d.title} ({d.cards.length} cards)</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div style={{ flex: 1, minWidth: '200px' }}>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Order:</label>
+                  <select
+                    value={studyOrder}
+                    onChange={(e) => setStudyOrder(e.target.value)}
+                    style={{
+                      width: '100%', padding: '0.75rem', borderRadius: '8px',
+                      backgroundColor: 'rgba(0,0,0,0.3)', color: 'white', border: '1px solid var(--border-color)',
+                      fontFamily: 'inherit', fontSize: '1rem'
+                    }}
+                  >
+                    <option value="random" style={{ backgroundColor: 'var(--bg-dark)' }}>Randomized</option>
+                    <option value="sequential" style={{ backgroundColor: 'var(--bg-dark)' }}>Sequential (In order)</option>
+                  </select>
+                </div>
+
+                {studyMode === 'quiz' && (
+                  <div style={{ flex: 1, minWidth: '200px' }} className="animate-fade-in">
+                    <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Quiz Type:</label>
+                    <select
+                      value={quizType}
+                      onChange={(e) => setQuizType(e.target.value)}
+                      style={{
+                        width: '100%', padding: '0.75rem', borderRadius: '8px',
+                        backgroundColor: 'rgba(0,0,0,0.3)', color: 'white', border: '1px solid var(--border-color)',
+                        fontFamily: 'inherit', fontSize: '1rem'
+                      }}
+                    >
+                      <option value="simple" style={{ backgroundColor: 'var(--bg-dark)' }}>Simple (Knowledge Recall)</option>
+                      <option value="intelligent" style={{ backgroundColor: 'var(--bg-dark)' }}>Intelligent (SHRM Simulator)</option>
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              {studyMode === 'quiz' && (
+                <div style={{ marginTop: '1.5rem', textAlign: 'left' }} className="animate-fade-in">
+                  {isWarmingUp ? (
+                    <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.8rem', fontSize: '0.85rem' }}>
+                          {warmUpError ? (
+                            <span style={{ color: '#fbbf24', fontWeight: 'bold' }}>
+                              <span className="material-symbols-outlined" style={{ fontSize: '1.1rem', verticalAlign: 'middle', marginRight: '0.4rem' }}>warning</span>
+                              {warmUpError}
+                            </span>
+                          ) : (
+                            <span style={{ color: 'var(--secondary)', fontWeight: 'bold' }}>
+                              <span className="material-symbols-outlined" style={{ fontSize: '1.1rem', verticalAlign: 'middle', marginRight: '0.4rem' }}>sync</span>
+                              Generating Topic(s) Content...
+                            </span>
+                          )}
+                        {warmUpProgress}%
+                      </div>
+                      <div style={{ width: '100%', height: '6px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
+                        <div style={{ 
+                          width: `${warmUpProgress}%`, 
+                          height: '100%', 
+                          backgroundColor: warmUpError ? '#fbbf24' : 'var(--secondary)', 
+                          transition: 'width 0.4s ease-out',
+                          boxShadow: warmUpError ? '0 0 10px #fbbf24' : '0 0 10px var(--secondary)'
+                        }} />
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ marginTop: '1rem' }}>
+                      <button 
+                        onClick={handleBulkWarmUp}
+                        className="secondary"
+                        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: decks.length === 0 ? 0.5 : 1 }}
+                        disabled={decks.length === 0}
+                      >
+                        <span className="material-symbols-outlined">bolt</span>
+                        Bulk Warm-Up (Generate All)
+                      </button>
+                      <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.5rem', marginLeft: '0.5rem' }}>
+                        Recommended: Pre-generate all distractors and rationales for a better experience.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div style={{ marginTop: '2rem', textAlign: 'center' }}>
+                <button onClick={handleStartStudying} style={{ fontSize: '1.1rem', padding: '1rem 3rem' }}>
+                  Start Studying
+                </button>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* Data Management - Always Visible */}
+        <section className="glass-panel animate-fade-in" style={{ marginTop: '0' }}>
+            <div style={{ padding: '0.5rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                <div>
+                  <h4 style={{ margin: 0, color: 'white', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: '1.2rem', color: 'var(--secondary)' }}>cloud_sync</span>
+                    {decks.length > 0 ? 'Data Migration & Backup' : 'Restore from Backup'}
+                  </h4>
+                  <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                    {decks.length > 0 
+                      ? 'Export your progress and AI data for use on other devices.' 
+                      : 'Have a backup file? Restore your entire study session here.'}
+                  </p>
+                </div>
+                <div style={{ display: 'flex', gap: '1rem' }}>
+                    <button onClick={handleExport} className="secondary" style={{ fontSize: '0.85rem', padding: '0.5rem 1rem' }}>
+                      Export Backup
+                    </button>
+                    <button onClick={handleNukeAiData} style={{ fontSize: '0.85rem', padding: '0.5rem 1rem', background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', boxShadow: 'none' }}>
+                      Nuke AI Data
+                    </button>
+                  <label className="button secondary" style={{ fontSize: '0.85rem', padding: '0.5rem 1rem', display: 'inline-block', cursor: 'pointer', margin: 0 }}>
+                    Restore Backup
+                    <input 
+                      type="file" 
+                      accept=".json" 
+                      onChange={handleImport} 
+                      style={{ display: 'none' }} 
+                      disabled={isRestoring}
+                    />
+                  </label>
+                </div>
+              </div>
+            </div>
+        </section>
+      </main>
+    </div>
+  );
+}
+
+export default App;
