@@ -48,8 +48,9 @@ async function handleGenerateDistractors(req, res) {
         
         MANDATORY RULES:
         1. CORRECT ANSWER: Use exact input answer.
-        2. DISTRACTORS: 3 professional HR terms that are plausible but incorrect definitions.
-        3. RATIONALE: Distinguish the correct term from the distractors.
+        2. DISTRACTORS: Generate 3 high-quality distractors.
+        3. SYMMETRY RULE: All 4 options (Correct + 3 Distractors) MUST be similar in length, professional tone, and complexity. If the correct answer is a full sentence, the distractors must also be full sentences. Avoid single-word distractors for multi-sentence answers.
+        4. RATIONALE: Distinguish the correct term from the distractors.
         `;
     }
 

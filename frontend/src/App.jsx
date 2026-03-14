@@ -187,13 +187,12 @@ function App() {
         }
 
         if (!warmUpError) {
-          // FINAL RECONCILIATION: Verify the vault actually has everything now
-          const { missingCards: verifyIntel } = await getQuizDataForDeck({ cards: targetCards }, 'intelligent');
-          const { missingCards: verifySimple } = await getQuizDataForDeck({ cards: targetCards }, 'simple');
+          // FINAL AUDIT: Physical scan of the vault to verify logic versus storage
+          const finalIntel = await getQuizDataForDeck({ cards: targetCards }, 'intelligent');
+          const finalSimple = await getQuizDataForDeck({ cards: targetCards }, 'simple');
           
-          if (verifyIntel.length > 0 || verifySimple.length > 0) {
-            setWarmUpError("Sync incomplete. Re-calculating vault...");
-            // Optionally could auto-retry here, but for now we warn the user
+          if (finalIntel.missingCount > 0 || finalSimple.missingCount > 0) {
+            setWarmUpError(`Logistics Error: ${finalIntel.missingCount + finalSimple.missingCount} items failed to sync. Please re-run.`);
             setIsWarmingUp(false);
             return;
           }
@@ -202,7 +201,7 @@ function App() {
           setTimeout(() => {
             setIsWarmingUp(false);
             setWarmUpProgress(0);
-          }, 1500);
+          }, 2000);
         }
       } catch (err) {
         console.error("Warm-Up failed:", err);

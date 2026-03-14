@@ -11,6 +11,8 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
     const [progress, setProgress] = useState(0);
     const [showPreview, setShowPreview] = useState(false);
     const [previewFilter, setPreviewFilter] = useState(['correct', 'incorrect', 'unseen']);
+    const [tempPreviewFilter, setTempPreviewFilter] = useState(['correct', 'incorrect', 'unseen']);
+    const [showFilterMenu, setShowFilterMenu] = useState(false);
     
     const card = deck.cards[currentIndex];
 
@@ -360,38 +362,139 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
                         background: '#1a1b2e', position: 'sticky', top: 0
                     }}>
                         <div>
-                            <h2 style={{ margin: 0, fontSize: '1.4rem' }}>{deck.title} Preview (Simple)</h2>
+                            <h2 style={{ margin: 0, fontSize: '1.4rem' }}>{deck.title?.split(' (')[0] || 'Deck'} Preview</h2>
                             <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                                 Review your quiz results for all {deck.cards.length} cards.
                             </p>
                         </div>
                         <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
-                            <div style={{ display: 'flex', gap: '0.4rem', backgroundColor: 'rgba(255,255,255,0.05)', padding: '4px', borderRadius: '8px' }}>
-                                {[
-                                    { val: 'correct', label: 'Correct', color: 'var(--secondary)' },
-                                    { val: 'incorrect', label: 'Incorrect', color: '#ef4444' },
-                                    { val: 'unseen', label: 'Unseen', color: 'rgba(255,255,255,0.4)' }
-                                ].map(f => (
-                                    <button
-                                        key={f.val}
-                                        onClick={() => {
-                                            if (previewFilter.includes(f.val)) {
-                                                setPreviewFilter(previewFilter.filter(x => x !== f.val));
-                                            } else {
-                                                setPreviewFilter([...previewFilter, f.val]);
-                                            }
-                                        }}
-                                        style={{
-                                            padding: '4px 10px', fontSize: '0.75rem', borderRadius: '6px',
-                                            border: 'none', cursor: 'pointer',
-                                            background: previewFilter.includes(f.val) ? f.color : 'transparent',
-                                            color: previewFilter.includes(f.val) ? (f.val === 'unseen' ? 'white' : 'black') : 'rgba(255,255,255,0.4)',
-                                            fontWeight: 'bold', transition: 'all 0.2s'
-                                        }}
-                                    >
-                                        {f.label}
-                                    </button>
-                                ))}
+                            {/* Multi-select Dropdown Filter */}
+                            <div style={{ position: 'relative' }}>
+                                <button 
+                                    onClick={() => {
+                                        setTempPreviewFilter([...previewFilter]);
+                                        setShowFilterMenu(!showFilterMenu);
+                                    }}
+                                    style={{
+                                        background: 'rgba(255,255,255,0.05)',
+                                        border: '1px solid rgba(255,255,255,0.1)',
+                                        padding: '0.6rem 1.2rem',
+                                        borderRadius: '10px',
+                                        color: 'white',
+                                        fontSize: '0.85rem',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.8rem',
+                                        fontWeight: '600'
+                                    }}
+                                >
+                                    <span>Filter Cards ({previewFilter.length === 3 ? 'All' : `${previewFilter.length} Selected`})</span>
+                                    <span style={{ transform: showFilterMenu ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', fontSize: '0.7rem' }}>▼</span>
+                                </button>
+
+                                {showFilterMenu && (
+                                    <>
+                                        {/* Transparent click-away layer */}
+                                        <div 
+                                            onClick={() => setShowFilterMenu(false)}
+                                            style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 2050 }} 
+                                        />
+                                        <div style={{
+                                            position: 'absolute',
+                                            top: '110%',
+                                            right: 0,
+                                            width: '240px',
+                                            background: '#1a1b2e',
+                                            border: '1px solid rgba(255,255,255,0.1)',
+                                            borderRadius: '12px',
+                                            padding: '1.2rem',
+                                            boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
+                                            zIndex: 2100,
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: '1rem',
+                                            animation: 'fadeInUp 0.15s ease'
+                                        }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.8rem', marginBottom: '0.2rem' }}>
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); setTempPreviewFilter(['correct', 'incorrect', 'unseen']); }}
+                                                    style={{ background: 'transparent', border: 'none', color: 'var(--secondary)', fontSize: '0.7rem', fontWeight: 'bold', cursor: 'pointer' }}
+                                                >
+                                                    SELECT ALL
+                                                </button>
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); setTempPreviewFilter([]); }}
+                                                    style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: '0.7rem', fontWeight: 'bold', cursor: 'pointer' }}
+                                                >
+                                                    CLEAR ALL
+                                                </button>
+                                            </div>
+
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                                                {[
+                                                    { val: 'correct', label: 'Correct', color: 'var(--secondary)' },
+                                                    { val: 'incorrect', label: 'Incorrect', color: '#ef4444' },
+                                                    { val: 'unseen', label: 'Unseen', color: 'rgba(255,255,255,0.4)' }
+                                                ].map(f => {
+                                                    const count = deck.cards.filter(c => getQuizStatus(c) === f.val).length;
+                                                    const isActive = tempPreviewFilter.includes(f.val);
+                                                    return (
+                                                        <div 
+                                                            key={f.val}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                if (isActive) setTempPreviewFilter(tempPreviewFilter.filter(x => x !== f.val));
+                                                                else setTempPreviewFilter([...tempPreviewFilter, f.val]);
+                                                            }}
+                                                            style={{
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                gap: '0.8rem',
+                                                                cursor: 'pointer',
+                                                                padding: '0.2rem 0',
+                                                                opacity: isActive ? 1 : 0.4
+                                                            }}
+                                                        >
+                                                            <div style={{
+                                                                width: '18px',
+                                                                height: '18px',
+                                                                borderRadius: '4px',
+                                                                border: '2px solid',
+                                                                borderColor: isActive ? f.color : 'rgba(255,255,255,0.2)',
+                                                                background: isActive ? f.color : 'transparent',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                fontSize: '0.8rem',
+                                                                color: isActive ? (f.val === 'unseen' ? 'white' : 'black') : 'white'
+                                                            }}>
+                                                                {isActive && '✓'}
+                                                            </div>
+                                                            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: f.color }} />
+                                                            <span style={{ fontSize: '0.9rem', color: 'white', flex: 1 }}>{f.label}</span>
+                                                            <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.9)', fontWeight: 'bold' }}>{count}</span>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+
+                                            <div style={{ display: 'flex', gap: '0.8rem', marginTop: '0.5rem', paddingTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); setShowFilterMenu(false); }}
+                                                    style={{ flex: 1, background: 'rgba(255,255,255,0.05)', color: 'white', border: 'none', padding: '0.5rem', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer' }}
+                                                >
+                                                    Cancel
+                                                </button>
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); setPreviewFilter([...tempPreviewFilter]); setShowFilterMenu(false); }}
+                                                    style={{ flex: 1, background: 'var(--secondary)', color: 'black', border: 'none', padding: '0.5rem', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer' }}
+                                                >
+                                                    Apply
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
                             </div>
                             <button 
                                 onClick={() => setShowPreview(false)} 
@@ -416,19 +519,45 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
 
                             return (
                                 <div key={c.id} style={{
-                                    display: 'flex', gap: '1rem', padding: '1.2rem',
-                                    background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
-                                    borderRadius: '12px', borderLeft: `5px solid ${status === 'correct' ? 'var(--secondary)' : status === 'incorrect' ? '#ef4444' : 'rgba(255,255,255,0.1)'}`
+                                    display: 'flex', gap: '0.8rem', minHeight: '120px',
+                                    transition: 'all 0.3s ease'
                                 }}>
-                                    <div style={{ color: 'var(--text-muted)', fontWeight: 'bold' }}>{idx + 1}</div>
-                                    <div style={{ flex: 1 }}>
-                                        <div style={{ marginBottom: '0.5rem', fontSize: '1.1rem', fontWeight: '500' }}>{c.question}</div>
-                                        <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                                            <span style={{ color: 'var(--secondary)', fontWeight: 'bold' }}>Answer: </span>
-                                            {c.answer}
+                                    <div style={{
+                                        width: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: 'bold', flexShrink: 0
+                                    }}>
+                                        {idx + 1}
+                                    </div>
+
+                                    <div style={{
+                                        flex: 1, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
+                                        borderRadius: '12px', display: 'flex', overflow: 'hidden',
+                                        borderLeft: `5px solid ${status === 'correct' ? 'var(--secondary)' : status === 'incorrect' ? '#ef4444' : 'rgba(255,255,255,0.1)'}`
+                                    }}>
+                                        {/* Question Area */}
+                                        <div style={{
+                                            padding: '0.8rem 1.2rem', flex: 0.7, borderRight: '1px solid rgba(255,255,255,0.06)',
+                                            position: 'relative', wordBreak: 'break-word'
+                                        }}>
+                                            <span style={{ position: 'absolute', top: '0.8rem', left: '0.8rem', fontSize: '1.2rem', fontWeight: '900', color: 'rgba(255,255,255,0.05)' }}>Q</span>
+                                            <div style={{ fontSize: '1.15rem', color: 'white', lineHeight: '1.5', marginTop: '0.5rem' }}>
+                                                {c.question}
+                                            </div>
+                                        </div>
+
+                                        {/* Answer Area */}
+                                        <div style={{
+                                            padding: '0.8rem 1.2rem', flex: 1, background: 'rgba(255,255,255,0.01)',
+                                            position: 'relative', wordBreak: 'break-word'
+                                        }}>
+                                            <span style={{ position: 'absolute', top: '0.8rem', left: '0.8rem', fontSize: '1.2rem', fontWeight: '900', color: 'rgba(255,255,255,0.05)' }}>A</span>
+                                            <div style={{ fontSize: '1.1rem', color: 'rgba(255,255,255,0.7)', lineHeight: '1.5', marginTop: '0.5rem' }}>
+                                                {c.answer}
+                                            </div>
                                         </div>
                                     </div>
-                                    <div style={{ minWidth: '100px', textAlign: 'right' }}>
+
+                                    <div style={{ width: '100px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', paddingRight: '1rem' }}>
                                         <span style={{ 
                                             fontSize: '0.7rem', fontWeight: 'bold', textTransform: 'uppercase',
                                             color: status === 'correct' ? 'var(--secondary)' : status === 'incorrect' ? '#ef4444' : 'rgba(255,255,255,0.2)'
