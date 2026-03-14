@@ -30,7 +30,7 @@ export async function getQuizDataForDeck(deck, requestedQuizType = 'intelligent'
  * Now supports dual-mode generation and actual success tracking.
  */
 export async function generateDistractorsBatch(cards, quizType = 'intelligent', onProgress) {
-    const MAX_BATCH_SIZE = 5; 
+    const MAX_BATCH_SIZE = 10; 
     let successfulCount = 0;
     const totalRequests = cards.length;
     
@@ -52,7 +52,11 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
             if (response.status === 429) {
                 throw new Error('RATE_LIMIT');
             }
-            if (!response.ok) throw new Error('API_ERROR');
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                console.error('API Error Response:', errorData);
+                throw new Error(errorData.message || 'API_ERROR');
+            }
 
             const data = await response.json();
             
