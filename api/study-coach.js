@@ -24,10 +24,13 @@ async function handleGenerateDistractors(req, res) {
     }
 
     try {
+        if (!process.env.GEMINI_API_KEY) {
+            return res.status(500).json({ message: "API Key Missing", error: "GEMINI_API_KEY environment variable is not defined." });
+        }
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-        // Upgraded to 2.5 Flash for March 2026 reasoning power & 250 RPD generosity
+        // Corrected from invalid 'gemini-2.5-flash' to stable 'gemini-1.5-flash'
         const model = genAI.getGenerativeModel({ 
-            model: "gemini-2.5-flash",
+            model: "gemini-1.5-flash",
             generationConfig: { responseMimeType: "application/json" }
         });
 
