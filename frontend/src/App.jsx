@@ -236,7 +236,7 @@ function App() {
     const getStatus = (c) => {
       if (studyMode === 'traditional') return c.status_traditional || c.status || 'unseen';
       if (studyMode === 'test') return c.status_test || c.status || 'unseen';
-      if (studyMode === 'quiz') return c.status_quiz || c.status || 'unseen';
+      if (studyMode === 'quiz') return c[`status_quiz_${quizType}`] || 'unseen';
       return c.status || 'unseen';
     };
     const seenCards = cardsToStudy.filter(c => getStatus(c) !== 'unseen');
@@ -286,8 +286,11 @@ function App() {
     setIsStudying(true);
   };
 
-  const handleUpdateCardStatus = (cardId, status, historyData) => {
-    updateCardStatus(cardId, studyMode, status, historyData);
+  const handleUpdateCardStatus = (cardId, status, historyData = {}) => {
+    const enrichedHistory = { ...historyData };
+    if (studyMode === 'quiz') enrichedHistory.quizType = quizType;
+    
+    updateCardStatus(cardId, studyMode, status, enrichedHistory);
     // Silent reload of decks to update main dashboard progress in background
     setDecks(loadDecksFromStorage());
   };
@@ -380,7 +383,7 @@ function App() {
                 const getStatus = (c) => {
                   if (studyMode === 'traditional') return c.status_traditional || c.status || 'unseen';
                   if (studyMode === 'test') return c.status_test || c.status || 'unseen';
-                  if (studyMode === 'quiz') return c.status_quiz || c.status || 'unseen';
+                  if (studyMode === 'quiz') return c[`status_quiz_${quizType}`] || 'unseen';
                   return c.status || 'unseen';
                 };
                 const masteredCount = deck.cards.filter(c => getStatus(c) !== 'unseen').length;

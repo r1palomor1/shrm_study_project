@@ -170,7 +170,8 @@ export function updateCardStatus(cardId, studyMode, newStatus, historyData = nul
                 } else if (studyMode === 'test') {
                     deck.cards[cardIndex].status_test = newStatus;
                 } else if (studyMode === 'quiz') {
-                    deck.cards[cardIndex].status_quiz = newStatus;
+                    const quizType = historyData?.quizType || 'intelligent';
+                    deck.cards[cardIndex][`status_quiz_${quizType}`] = newStatus;
                 }
 
                 // Save permanent history if provided
@@ -184,7 +185,8 @@ export function updateCardStatus(cardId, studyMode, newStatus, historyData = nul
                             timestamp: new Date().toISOString()
                         };
                     } else if (studyMode === 'quiz') {
-                        deck.cards[cardIndex].history_quiz = {
+                        const quizType = historyData?.quizType || 'intelligent';
+                        deck.cards[cardIndex][`history_quiz_${quizType}`] = {
                             grade: newStatus,
                             timestamp: new Date().toISOString()
                         };

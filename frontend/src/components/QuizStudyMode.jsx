@@ -119,7 +119,7 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
     };
 
     const getQuizStatus = (c) => {
-        const s = c.status_quiz || 'unseen';
+        const s = c[`status_quiz_${deck.quizType}`] || 'unseen';
         if (s === 'difficulty-5') return 'correct';
         if (s === 'difficulty-1') return 'incorrect';
         return 'unseen';
@@ -404,11 +404,12 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
                                             top: '110%',
                                             right: 0,
                                             width: '240px',
-                                            background: '#1a1b2e',
-                                            border: '1px solid rgba(255,255,255,0.1)',
+                                            background: '#1E1F35',
+                                            backdropFilter: 'blur(10px)',
+                                            border: '1px solid rgba(255,255,255,0.15)',
                                             borderRadius: '12px',
                                             padding: '1.2rem',
-                                            boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
+                                            boxShadow: '0 10px 40px rgba(0,0,0,0.6)',
                                             zIndex: 2100,
                                             display: 'flex',
                                             flexDirection: 'column',
