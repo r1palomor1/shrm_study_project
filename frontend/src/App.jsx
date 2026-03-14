@@ -187,6 +187,17 @@ function App() {
         }
 
         if (!warmUpError) {
+          // FINAL RECONCILIATION: Verify the vault actually has everything now
+          const { missingCards: verifyIntel } = await getQuizDataForDeck({ cards: targetCards }, 'intelligent');
+          const { missingCards: verifySimple } = await getQuizDataForDeck({ cards: targetCards }, 'simple');
+          
+          if (verifyIntel.length > 0 || verifySimple.length > 0) {
+            setWarmUpError("Sync incomplete. Re-calculating vault...");
+            // Optionally could auto-retry here, but for now we warn the user
+            setIsWarmingUp(false);
+            return;
+          }
+
           setWarmUpProgress(100);
           setTimeout(() => {
             setIsWarmingUp(false);
@@ -517,7 +528,7 @@ function App() {
                           ) : (
                             <span style={{ color: 'var(--secondary)', fontWeight: 'bold' }}>
                               <span className="material-symbols-outlined" style={{ fontSize: '1.1rem', verticalAlign: 'middle', marginRight: '0.4rem' }}>sync</span>
-                              Generating Elite Content...
+                              Generating Topic(s) Content...
                             </span>
                           )}
                         {warmUpProgress}%

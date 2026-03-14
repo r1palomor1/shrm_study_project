@@ -73,8 +73,17 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
             setOptions([card.answer, "Loading...", "Loading...", "Loading..."]);
         }
         
-        setSelectedOption(null);
-        setIsAnswered(false);
+        // Restore previous state if available
+        const currentStatus = getQuizStatus(card);
+        const alreadyAnswered = currentStatus !== 'unseen';
+        
+        if (alreadyAnswered) {
+            setSelectedOption(card.answer); // Fallback: default to correct if we don't store selected index
+            setIsAnswered(true);
+        } else {
+            setSelectedOption(null);
+            setIsAnswered(false);
+        }
     }, [currentIndex, card, isProcessing, deck.quizType]);
 
     const handleSelect = (option) => {
@@ -104,8 +113,6 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
     const handlePrevious = () => {
         if (currentIndex > 0) {
             setCurrentIndex(currentIndex - 1);
-            setIsAnswered(false);
-            setSelectedOption(null);
         }
     };
 
@@ -121,10 +128,10 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
             <div style={{ height: '60vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: '2rem' }}>
                 <div style={{ fontSize: '1.2rem', color: 'white', textAlign: 'center' }}>
                     <h2 style={{ marginBottom: '0.5rem', color: quizError ? '#fbbf24' : 'white' }}>
-                        {quizError ? 'Gemini is Resting...' : `Preparing ${deck.quizType === 'intelligent' ? 'Intelligent' : 'Simple'} Quiz`}
+                        {quizError ? 'Tutor is taking a quick break...' : `Crafting your personal ${deck.quizType === 'intelligent' ? 'Intelligent' : 'Simple'} Quiz`}
                     </h2>
                     <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                        {quizError || 'Designing high-fidelity distractors and rationales using Gemini 2.5...'}
+                        {quizError || 'Polishing your practice questions and detailed explanations...'}
                     </p>
                 </div>
                 <div style={{ width: '100%', maxWidth: '400px', height: '8px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', overflow: 'hidden' }}>
@@ -183,29 +190,28 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
                 <div style={{ fontWeight: 'bold' }}>Question {currentIndex + 1} of {deck.cards.length}</div>
             </div>
 
-                <div className="glass-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                    <div style={{ color: 'var(--secondary)', marginBottom: '1.5rem', textAlign: 'center', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                <div className="glass-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '1.5rem', overflowY: 'auto' }}>
+                    <div style={{ color: 'var(--secondary)', marginBottom: '0.8rem', textAlign: 'center', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold' }}>
                         {deck.quizType === 'intelligent' ? 'Situational Judgment (SJI)' : 'Knowledge Recall'}
-                        {/* SYSTEM MARKER Phase 11.7 v5 Styled Force */}
-                        <div style={{ position: 'absolute', top: '10px', right: '10px', fontSize: '8px', color: 'rgba(255,255,255,0.2)' }}>SYNC_FORCE_V5</div>
                     </div>
                     
+
                     {deck.quizType === 'intelligent' && currentAiData?.scenario && (
                         <div style={{ 
-                            padding: '1.5rem', 
+                            padding: '1.2rem', 
                             backgroundColor: 'rgba(255,255,255,0.03)', 
                             borderRadius: '12px', 
-                            marginBottom: '2rem',
-                            borderLeft: '5px solid var(--primary)',
-                            lineHeight: '1.6',
-                            fontSize: '1rem'
+                            marginBottom: '1.5rem',
+                            borderLeft: '4px solid var(--primary)',
+                            lineHeight: '1.5',
+                            fontSize: '0.95rem'
                         }}>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--primary)', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Workplace Scenario:</div>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--primary)', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '0.4rem' }}>Workplace Scenario:</div>
                             {currentAiData.scenario}
                         </div>
                     )}
 
-                    <h2 style={{ fontSize: '1.6rem', textAlign: 'center', marginBottom: '2.5rem', lineHeight: '1.4' }}>
+                    <h2 style={{ fontSize: '1.4rem', textAlign: 'center', marginBottom: '1.8rem', lineHeight: '1.4', fontWeight: '500' }}>
                         {deck.quizType === 'intelligent' ? (currentAiData?.question || card.question) : card.question}
                     </h2>
 
@@ -255,6 +261,23 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
                             );
                         })}
                     </div>
+
+                    {isAnswered && currentAiData?.rationale && (
+                        <div className="animate-fade-in" style={{ 
+                            marginTop: '2rem',
+                            padding: '1.5rem',
+                            backgroundColor: 'rgba(16, 185, 129, 0.05)',
+                            borderRadius: '12px',
+                            border: '1px solid rgba(16, 185, 129, 0.2)',
+                            lineHeight: '1.6',
+                            fontSize: '0.95rem'
+                        }}>
+                            <div style={{ color: 'var(--secondary)', fontWeight: 'bold', fontSize: '0.8rem', textTransform: 'uppercase', marginBottom: '0.6rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                🎓 Tutor Explanation:
+                            </div>
+                            {currentAiData.rationale}
+                        </div>
+                    )}
                 </div>
 
             <div style={{ marginTop: '3rem', marginBottom: '2rem' }}>
