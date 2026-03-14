@@ -28,7 +28,6 @@ async function handleGenerateDistractors(req, res) {
             return res.status(500).json({ message: "API Key Missing", error: "GEMINI_API_KEY environment variable is not defined." });
         }
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-        // Corrected from invalid 'gemini-2.5-flash' to stable 'gemini-1.5-flash'
         const model = genAI.getGenerativeModel({ 
             model: "gemini-1.5-flash",
             generationConfig: { responseMimeType: "application/json" }
@@ -96,13 +95,36 @@ async function handleGenerateDistractors(req, res) {
         `;
 
         const result = await model.generateContent(prompt);
-        const responseText = result.response.text();
-        const data = JSON.parse(responseText);
+        let responseText = result.response.text();
         
-        return res.status(200).json(data);
+        // Clean markdown blocks if Gemini added them (failsafe)
+        if (responseText.includes('```')) {
+            const matches = responseText.match(/```(?:json)?([\s\S]*?)```/);
+            if (matches && matches[1]) {
+                responseText = matches[1].trim();
+            } else {
+                responseText = responseText.replace(/```(?:json)?/g, '').replace(/```/g, '').trim();
+            }
+        }
+
+        try {
+            const data = JSON.parse(responseText);
+            return res.status(200).json(data);
+        } catch (parseError) {
+            console.error("JSON Parse Error. Raw response:", responseText);
+            return res.status(500).json({ 
+                message: "AI returned invalid JSON", 
+                error: parseError.message,
+                raw: responseText.slice(0, 500) 
+            });
+        }
     } catch (error) {
         console.error("Distractor Generation Error:", error);
-        return res.status(500).json({ message: "AI Generation Failed", error: error.message });
+        return res.status(500).json({ 
+            message: "AI Generation Failed", 
+            error: error.message,
+            stack: error.stack 
+        });
     }
 }
 
@@ -110,6 +132,9 @@ async function handleCoachingInsight(req, res) {
     try {
         const { masteryPercent, masteryIndex, counts } = req.body;
 
+        if (!process.env.GEMINI_API_KEY) {
+            throw new Error("API Key Missing");
+        }
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
         const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
@@ -118,14 +143,14 @@ async function handleCoachingInsight(req, res) {
         Analyze the student's current progress and provide a highly personalized, tactical one-sentence coaching insight.
         
         Current Stats:
-        - Completion: ${masteryPercent}%
-        - Average Confidence: ${masteryIndex} / 5.0
+        - Completion: \${masteryPercent}%
+        - Average Confidence: \${masteryIndex} / 5.0
         - Detailed Breakdown:
-          * Perfect (5): ${counts['difficulty-5'] || 0}
-          * Mastered (4): ${counts['difficulty-4'] || 0}
-          * Learning (3): ${counts['difficulty-3'] || 0}
-          * Growing (2): ${counts['difficulty-2'] || 0}
-          * Struggling (1): ${counts['difficulty-1'] || 0}
+          * Perfect (5): \${counts['difficulty-5'] || 0}
+          * Mastered (4): \${counts['difficulty-4'] || 0}
+          * Learning (3): \${counts['difficulty-3'] || 0}
+          * Growing (2): \${counts['difficulty-2'] || 0}
+          * Struggling (1): \${counts['difficulty-1'] || 0}
 
         Mandatory Instruction:
         1. If the 'Struggling (1)' count is greater than 0, your advice MUST focus on these specific cards first. 
@@ -144,8 +169,8 @@ async function handleCoachingInsight(req, res) {
         console.error("Coach API Error:", error);
         const struggling = (req.body.counts && req.body.counts['difficulty-1']) || 0;
         const msg = struggling > 0 
-            ? `Immediate Focus: Revisit those ${struggling} Struggling concepts before moving on to new material.`
+            ? `Immediate Focus: Revisit those \${struggling} Struggling concepts before moving on to new material.`
             : "Great consistency! Keep polishing those Growing cards to hit that 4.0 mastery target.";
-        return res.status(500).json({ insight: msg });
+        return res.status(200).json({ insight: msg }); // Return 200 with fallback insight
     }
 }
