@@ -46,7 +46,7 @@ async function handleGenerateDistractors(req, res) {
         - question: End with "What is the BEST action for the HR professional?" or "What should be the FIRST step?"
         - correct_answer: A strategic, single-sentence action that describes applying the [Term]. Start with a verb, NO label/name of the term.
         - distractors: 3 high-plausibility traps matching the patterns above.
-        - rationale: Explain the "Business Case" for the correct action over the distractors. No labels like "Correct:".
+        - rationale: Explain the "Why" in terms of Business Impact. Frame the HR professional as a Strategic Consultant. Explain how the correct action prevents organizational costs (e.g., turnover, litigation, lost productivity) compared to the distractors. No labels like "Correct:".
         `;
     } else {
         promptSystemInstructions = `

@@ -272,7 +272,7 @@ export default function SettingsModal({
           </div>
 
           <div style={{ opacity: 0.3, textAlign: 'center', fontSize: '0.7rem' }}>
-            SHRM Study Project v1.2.0 • Build ID: 86CCF7D
+            SHRM Study Project v1.2.0 • Build ID: {__BUILD_ID__.toUpperCase()}
           </div>
         </div>
       </div>
