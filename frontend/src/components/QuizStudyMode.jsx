@@ -294,7 +294,10 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
 
                 <div style={{ display: 'grid', gap: '1.2rem' }}>
                     {options.map((opt, i) => {
-                        const isCorrect = opt === card.answer;
+                        const correctAnswer = (deck.quizType === 'intelligent' && currentAiData?.correct_answer) 
+                            ? currentAiData.correct_answer 
+                            : card.answer;
+                        const isCorrect = opt === correctAnswer;
                         const isSelected = userSelectedIdx === i;
                         
                         let border = '1px solid var(--border-color)';

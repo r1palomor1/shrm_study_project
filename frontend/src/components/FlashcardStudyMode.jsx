@@ -234,24 +234,6 @@ export default function FlashcardStudyMode({ deck, onBack, onUpdateCardStatus })
                                         fontSize: '0.95rem'
                                     }}>
                                         <strong style={{ color: 'var(--text-main)' }}>AI Feedback:</strong> {results.feedback}
-                                        
-                                        {results.missing_keywords && results.missing_keywords.length > 0 && (
-                                            <div style={{ marginTop: '0.8rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center' }}>
-                                                <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', fontWeight: 'bold' }}>Key Concepts Missed:</span>
-                                                {results.missing_keywords.map((kw, i) => (
-                                                    <span key={i} style={{ 
-                                                        background: 'rgba(239, 68, 68, 0.1)', 
-                                                        color: '#ef4444', 
-                                                        padding: '0.2rem 0.6rem', 
-                                                        borderRadius: '6px', 
-                                                        fontSize: '0.75rem',
-                                                        border: '1px solid rgba(239, 68, 68, 0.2)'
-                                                    }}>
-                                                        {kw}
-                                                    </span>
-                                                ))}
-                                            </div>
-                                        )}
                                     </div>
                                 )}
                             </div>
