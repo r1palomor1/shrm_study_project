@@ -5,8 +5,10 @@ import { generateDistractorsBatch } from '../utils/quizProcessor';
 export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
     const [currentIndex, setCurrentIndex] = useState(deck.initialIndex || 0);
     const [options, setOptions] = useState([]);
-    const [selectedOption, setSelectedOption] = useState(null);
-    const [isAnswered, setIsAnswered] = useState(false);
+    const [userSelectedIdx, setUserSelectedIdx] = useState(null);
+    const [isConfirmed, setIsConfirmed] = useState(false);
+    const [showHint, setShowHint] = useState(false);
+    const [scrolledToBottom, setScrolledToBottom] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
     const [progress, setProgress] = useState(0);
     const [showPreview, setShowPreview] = useState(false);
@@ -104,28 +106,37 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
         if (alreadyAnswered) {
             // Restore actual user selection from history if it exists
             const savedOption = card[`selected_option_${deck.quizType}`];
-            setSelectedOption(savedOption || card.answer); 
-            setIsAnswered(true);
+            const savedOptionIndex = options.indexOf(savedOption);
+            setUserSelectedIdx(savedOptionIndex !== -1 ? savedOptionIndex : null);
+            setIsConfirmed(true);
         } else {
-            setSelectedOption(null);
-            setIsAnswered(false);
+            setUserSelectedIdx(null);
+            setIsConfirmed(false);
         }
     }, [currentIndex, card, isProcessing, deck.quizType, deck.cards]); // Added deck.cards for real-time sync
 
-    const handleSelect = (option) => {
-        if (isAnswered) return;
-        setSelectedOption(option);
+    // Reset states when moving to a new card
+    useEffect(() => {
+        setUserSelectedIdx(null);
+        setIsConfirmed(false);
+        setShowHint(false);
+        setScrolledToBottom(false);
+    }, [currentIndex]);
+
+    const handleSelect = (option, index) => {
+        if (isConfirmed) return;
+        setUserSelectedIdx(index);
     };
 
     const handleSubmit = () => {
-        if (!selectedOption) return;
-        setIsAnswered(true);
+        if (userSelectedIdx === null) return;
+        setIsConfirmed(true);
         
-        const isCorrect = selectedOption === card.answer;
+        const isCorrect = options[userSelectedIdx] === card.answer;
         if (onUpdateCardStatus) {
             // Mapping: Correct = difficulty-5, Incorrect = difficulty-1
             onUpdateCardStatus(card.id, isCorrect ? 'difficulty-5' : 'difficulty-1', {
-                selectedOption: selectedOption
+                selectedOption: options[userSelectedIdx]
             });
             
             // CRITICAL: Optimistically update local card state so navigating Back/Next
@@ -133,7 +144,7 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
             const quizKey = `status_quiz_${deck.quizType}`;
             const optionKey = `selected_option_${deck.quizType}`;
             card[quizKey] = isCorrect ? 'difficulty-5' : 'difficulty-1';
-            card[optionKey] = selectedOption;
+            card[optionKey] = options[userSelectedIdx];
         }
     };
 
@@ -225,15 +236,6 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
                 <div style={{ fontWeight: 'bold' }}>Question {currentIndex + 1} of {deck.cards.length}</div>
             </div>
 
-                <div className="glass-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '1.5rem', overflowY: 'auto' }}>
-                    <div style={{ color: 'var(--secondary)', marginBottom: '0.8rem', textAlign: 'center', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold' }}>
-                        {deck.quizType === 'intelligent' ? 'Situational Judgment (SJI)' : 'Knowledge Recall'}
-                    </div>
-                    
-
-                    {deck.quizType === 'intelligent' && currentAiData?.scenario && (
-                        <div style={{ 
-                            padding: '1.2rem', 
                             backgroundColor: 'rgba(255,255,255,0.03)', 
                             borderRadius: '12px', 
                             marginBottom: '1.5rem',
@@ -569,22 +571,22 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
                                     }}>
                                         {/* Question Area */}
                                         <div style={{
-                                            padding: '1rem 1.2rem', flex: '0 0 30%', borderRight: '1px solid rgba(255,255,255,0.06)',
-                                            position: 'relative', wordBreak: 'break-word', overflow: 'hidden'
+                                            padding: '1.2rem', flex: '0 0 32%', borderRight: '1px solid rgba(255,255,255,0.06)',
+                                            wordBreak: 'break-word', overflow: 'hidden'
                                         }}>
-                                            <span style={{ position: 'absolute', top: '0.8rem', left: '0.8rem', fontSize: '1.2rem', fontWeight: '900', color: 'rgba(255,255,255,0.05)' }}>Q</span>
-                                            <div style={{ fontSize: '1rem', color: 'rgba(255,255,255,0.6)', lineHeight: '1.4', marginTop: '0.5rem' }}>
+                                            <div style={{ fontSize: '0.95rem', color: 'rgba(255,255,255,0.85)', lineHeight: '1.5' }}>
+                                                <strong style={{ color: '#0ea5e9', marginRight: '0.4rem', fontSize: '0.9rem' }}>Q:</strong>
                                                 {c.question}
                                             </div>
                                         </div>
 
                                         {/* Answer Area */}
                                         <div style={{
-                                            padding: '1rem 1.2rem', flex: 1, background: 'rgba(255,255,255,0.01)',
-                                            position: 'relative', wordBreak: 'break-word', display: 'flex', flexDirection: 'column', justifyContent: 'center'
+                                            padding: '1.2rem', flex: 1, background: 'rgba(255,255,255,0.01)',
+                                            wordBreak: 'break-word'
                                         }}>
-                                            <span style={{ position: 'absolute', top: '0.8rem', left: '0.8rem', fontSize: '1.2rem', fontWeight: '900', color: 'rgba(255,255,255,0.05)' }}>A</span>
-                                            <div style={{ fontSize: '1.1rem', color: 'white', lineHeight: '1.5', marginTop: '0.5rem' }}>
+                                            <div style={{ fontSize: '1.1rem', color: 'white', lineHeight: '1.5', fontWeight: '500' }}>
+                                                <strong style={{ color: 'var(--primary)', marginRight: '0.4rem', fontSize: '0.9rem' }}>A:</strong>
                                                 {c.answer}
                                             </div>
                                         </div>

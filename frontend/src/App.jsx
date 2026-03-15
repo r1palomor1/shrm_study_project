@@ -4,6 +4,7 @@ import FlashcardStudyMode from './components/FlashcardStudyMode';
 import TraditionalStudyMode from './components/TraditionalStudyMode';
 import QuizStudyMode from './components/QuizStudyMode';
 import AnalyticsDashboard from './components/AnalyticsDashboard';
+import SettingsModal from './components/SettingsModal';
 import { 
   saveDeckToStorage, 
   loadDecksFromStorage, 
@@ -25,6 +26,7 @@ function App() {
   const [activeStudyDeck, setActiveStudyDeck] = useState(null);
   const [isViewingAnalytics, setIsViewingAnalytics] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Study configuration
   const [selectedDeckTitle, setSelectedDeckTitle] = useState('ALL');
@@ -371,274 +373,266 @@ function App() {
 
   return (
     <div className="app-container animate-fade-in">
-      <header style={{ textAlign: 'center', marginBottom: '3rem' }}>
-        <h1 className="text-gradient">SHRM 2026 Study App</h1>
-        <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem' }}>Master the SHRM curriculum with intelligent tracking and importing.</p>
-        {decks.length > 0 && (
+      <header style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        marginBottom: '3rem',
+        padding: '1rem 0',
+        borderBottom: '1px solid rgba(255,255,255,0.05)'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+          <h1 style={{ fontSize: '1.8rem', margin: 0 }} className="text-gradient">SHRM 2026</h1>
+          <DataImporter onDeckLoaded={handleDeckLoaded} />
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          {decks.length > 0 && (
+            <button 
+              onClick={() => setIsViewingAnalytics(true)}
+              style={{ 
+                backgroundColor: 'rgba(255,255,255,0.05)', 
+                border: '1px solid rgba(255,255,255,0.1)', 
+                color: 'white',
+                padding: '0.5rem 1rem',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                fontSize: '0.85rem',
+                boxShadow: 'none'
+              }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '1.1rem' }}>analytics</span>
+              Insights
+            </button>
+          )}
           <button 
-            onClick={() => setIsViewingAnalytics(true)}
-            style={{ 
-              backgroundColor: 'transparent', 
-              border: '1px solid var(--secondary)', 
-              color: 'var(--secondary)',
-              padding: '0.6rem 1.2rem',
-              display: 'inline-flex',
+            onClick={() => setIsSettingsOpen(true)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'rgba(255,255,255,0.6)',
+              padding: '0.5rem',
+              cursor: 'pointer',
+              display: 'flex',
               alignItems: 'center',
-              gap: '0.5rem',
-              fontSize: '0.9rem'
+              boxShadow: 'none'
             }}
           >
-            <span className="material-symbols-outlined" style={{ fontSize: '1.2rem' }}>analytics</span>
-            View Performance Report
+            <span className="material-symbols-outlined" style={{ fontSize: '1.8rem' }}>settings</span>
           </button>
-        )}
+        </div>
       </header>
 
-      <main style={{ display: 'grid', gap: '2rem', gridTemplateColumns: 'minmax(0, 1fr)' }}>
+      {isSettingsOpen && (
+        <SettingsModal 
+          onClose={() => setIsSettingsOpen(false)}
+          onExport={handleExport}
+          onImport={handleImport}
+          onNukeAi={handleNukeAiData}
+          isRestoring={isRestoring}
+        />
+      )}
 
-        <DataImporter onDeckLoaded={handleDeckLoaded} />
+      <main>
+        {decks.length > 0 ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 340px', gap: '2rem' }}>
+            
+            {/* Left: Topic Selector Grid */}
+            <section style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h2 style={{ fontSize: '1.5rem', margin: 0 }}>Select Topic</h2>
+                <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                  {decks.length} Topics | {totalCards} Cards
+                </div>
+              </div>
 
-        {decks.length > 0 && (
-          <section className="glass-panel animate-fade-in">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-              <h2>Your Study Material</h2>
-              <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-                {decks.length} Topics | {totalCards} Cards
-              </span>
-            </div>
+              <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', 
+                gap: '1rem',
+                maxHeight: 'calc(100vh - 300px)',
+                overflowY: 'auto',
+                paddingRight: '0.5rem'
+              }} className="custom-scrollbar">
+                
+                {/* "ALL" Topic Card */}
+                <div 
+                  onClick={() => setSelectedDeckTitle('ALL')}
+                  className={`glass-panel topic-card ${selectedDeckTitle === 'ALL' ? 'active' : ''}`}
+                  style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h3 style={{ margin: 0 }}>All Study Material</h3>
+                    <span className="material-symbols-outlined" style={{ color: selectedDeckTitle === 'ALL' ? 'var(--secondary)' : 'rgba(255,255,255,0.2)' }}>
+                      {selectedDeckTitle === 'ALL' ? 'check_circle' : 'circle'}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                    Comprehensive review of {totalCards} cards across all topics.
+                  </div>
+                </div>
 
-            {/* Capsules per deck */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', marginBottom: '2rem' }}>
-              {[...decks].sort((a, b) => a.title.localeCompare(b.title)).map(deck => {
-                const getStatus = (c) => {
-                  if (studyMode === 'traditional') return c.status_traditional || c.status || 'unseen';
-                  if (studyMode === 'test') return c.status_test || c.status || 'unseen';
-                  if (studyMode === 'quiz') return c[`status_quiz_${quizType}`] || 'unseen';
-                  return c.status || 'unseen';
-                };
-                const masteredCount = deck.cards.filter(c => getStatus(c) !== 'unseen').length;
-                const percent = deck.cards.length > 0 ? Math.round((masteredCount / deck.cards.length) * 100) : 0;
+                {[...decks].sort((a, b) => a.title.localeCompare(b.title)).map(deck => {
+                  const getStatus = (c) => {
+                    if (studyMode === 'traditional') return c.status_traditional || c.status || 'unseen';
+                    if (studyMode === 'test') return c.status_test || c.status || 'unseen';
+                    if (studyMode === 'quiz') return c[`status_quiz_${quizType}`] || 'unseen';
+                    return c.status || 'unseen';
+                  };
+                  const masteredCount = deck.cards.filter(c => getStatus(c) !== 'unseen').length;
+                  const percent = deck.cards.length > 0 ? Math.round((masteredCount / deck.cards.length) * 100) : 0;
+                  const isActive = selectedDeckTitle === deck.title;
 
-                // Calculate Mastery Index (Average of graded cards)
-                const gradedForMastery = deck.cards.filter(c => getStatus(c) && getStatus(c) !== 'unseen');
-                const totalWeight = gradedForMastery.reduce((sum, c) => {
-                  const s = getStatus(c);
-                  const rating = parseInt(s.split('-')[1]) || 0;
-                  return sum + rating;
-                }, 0);
-                const avgScore = gradedForMastery.length > 0 ? (totalWeight / gradedForMastery.length).toFixed(1) : null;
-
-                return (
-                  <div key={deck.title} className="glass-panel" style={{
-                    padding: '1rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '1rem',
-                    flex: '0 1 350px',
-                    minWidth: '280px',
-                    margin: 0
-                  }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.6rem', marginBottom: '0.25rem' }}>
-                        <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{deck.title}</h3>
-                        {avgScore && (
-                          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 'bold' }}>
-                            (Confidence: {avgScore})
-                          </span>
-                        )}
+                  return (
+                    <div 
+                      key={deck.title} 
+                      onClick={() => setSelectedDeckTitle(deck.title)}
+                      className={`glass-panel topic-card ${isActive ? 'active' : ''}`}
+                      style={{ padding: '1.2rem', position: 'relative' }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.8rem' }}>
+                        <div style={{ flex: 1 }}>
+                          <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{deck.title}</h3>
+                          <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+                            {deck.cards.length} Flashcards
+                          </div>
+                        </div>
+                        <span className="material-symbols-outlined" style={{ color: isActive ? 'var(--secondary)' : 'rgba(255,255,255,0.1)' }}>
+                          {isActive ? 'check_circle' : 'radio_button_unchecked'}
+                        </span>
                       </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                        <span>{masteredCount} / {deck.cards.length} completed</span>
+                      
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>
+                        <span>{masteredCount} mastered</span>
                         <span>{percent}%</span>
                       </div>
-                      <div style={{ width: '100%', height: '4px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '2px', marginTop: '0.5rem', overflow: 'hidden' }}>
+                      <div style={{ width: '100%', height: '4px', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '2px', overflow: 'hidden' }}>
                         <div style={{ width: `${percent}%`, height: '100%', backgroundColor: 'var(--secondary)', transition: 'width 0.3s ease' }} />
                       </div>
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                      <button
-                        onClick={() => handleResetProgress(deck.title)}
-                        style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem', background: 'transparent', border: '1px solid #eab308', color: '#eab308', minWidth: 'auto', boxShadow: 'none' }}>
-                        Reset
-                      </button>
-                      <button
-                        onClick={() => handleDeleteDeck(deck.title)}
-                        style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem', background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', minWidth: 'auto', boxShadow: 'none' }}>
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            </section>
 
-            {/* Study Configuration UI */}
-            <div style={{ backgroundColor: 'var(--bg-darker)', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-              <h3 style={{ marginTop: 0, marginBottom: '1.5rem' }}>Study Configuration</h3>
+            {/* Right: Focused Study Panel */}
+            <section style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              <div className="glass-panel" style={{ 
+                padding: '2rem', 
+                position: 'sticky', 
+                top: '2rem',
+                border: '1px solid rgba(255,255,255,0.1)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '1.5rem'
+              }}>
+                <h3 style={{ margin: 0, color: 'var(--secondary)', fontSize: '1.2rem' }}>Study Configuration</h3>
 
-              <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
-                <div style={{ flex: 1, minWidth: '200px' }}>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Study Mode:</label>
-                  <select
-                    value={studyMode}
-                    onChange={(e) => setStudyMode(e.target.value)}
-                    style={{
-                      width: '100%', padding: '0.75rem', borderRadius: '8px',
-                      backgroundColor: 'rgba(0,0,0,0.3)', color: 'white', border: '1px solid var(--border-color)',
-                      fontFamily: 'inherit', fontSize: '1rem'
-                    }}
-                  >
-                    {/* <option value="test" style={{ backgroundColor: 'var(--bg-dark)' }}>AI Test Mode (Typing)</option> */}
-                    <option value="quiz" style={{ backgroundColor: 'var(--bg-dark)' }}>Multiple Choice Quiz (Intelligent)</option>
-                    <option value="traditional" style={{ backgroundColor: 'var(--bg-dark)' }}>Traditional (Self-Marking)</option>
-                  </select>
-                </div>
-
-                <div style={{ flex: 1, minWidth: '200px' }}>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Select Topic(s):</label>
-                  <select
-                    value={selectedDeckTitle}
-                    onChange={(e) => setSelectedDeckTitle(e.target.value)}
-                    style={{
-                      width: '100%', padding: '0.75rem', borderRadius: '8px',
-                      backgroundColor: 'rgba(0,0,0,0.3)', color: 'white', border: '1px solid var(--border-color)',
-                      fontFamily: 'inherit', fontSize: '1rem'
-                    }}
-                  >
-                    <option value="ALL" style={{ backgroundColor: 'var(--bg-dark)' }}>All Topics ({totalCards} cards)</option>
-                    {[...decks].sort((a, b) => a.title.localeCompare(b.title)).map(d => (
-                      <option key={d.title} value={d.title} style={{ backgroundColor: 'var(--bg-dark)' }}>{d.title} ({d.cards.length} cards)</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div style={{ flex: 1, minWidth: '200px' }}>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Order:</label>
-                  <select
-                    value={studyOrder}
-                    onChange={(e) => setStudyOrder(e.target.value)}
-                    style={{
-                      width: '100%', padding: '0.75rem', borderRadius: '8px',
-                      backgroundColor: 'rgba(0,0,0,0.3)', color: 'white', border: '1px solid var(--border-color)',
-                      fontFamily: 'inherit', fontSize: '1rem'
-                    }}
-                  >
-                    <option value="random" style={{ backgroundColor: 'var(--bg-dark)' }}>Randomized</option>
-                    <option value="sequential" style={{ backgroundColor: 'var(--bg-dark)' }}>Sequential (In order)</option>
-                  </select>
-                </div>
-
-                {studyMode === 'quiz' && (
-                  <div style={{ flex: 1, minWidth: '200px' }} className="animate-fade-in">
-                    <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Quiz Type:</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 'bold' }}>MODE</label>
                     <select
-                      value={quizType}
-                      onChange={(e) => setQuizType(e.target.value)}
+                      value={studyMode}
+                      onChange={(e) => setStudyMode(e.target.value)}
                       style={{
-                        width: '100%', padding: '0.75rem', borderRadius: '8px',
-                        backgroundColor: 'rgba(0,0,0,0.3)', color: 'white', border: '1px solid var(--border-color)',
-                        fontFamily: 'inherit', fontSize: '1rem'
+                        width: '100%', padding: '0.8rem', borderRadius: '10px',
+                        backgroundColor: 'rgba(0,0,0,0.2)', color: 'white', border: '1px solid rgba(255,255,255,0.1)',
+                        fontFamily: 'inherit', fontSize: '1rem', cursor: 'pointer'
                       }}
                     >
-                      <option value="intelligent" style={{ backgroundColor: 'var(--bg-dark)' }}>Intelligent (SHRM Simulator)</option>
-                      <option value="simple" style={{ backgroundColor: 'var(--bg-dark)' }}>Simple (Knowledge Recall)</option>
+                      <option value="quiz">Multiple Choice Quiz</option>
+                      <option value="traditional">Traditional Study</option>
                     </select>
                   </div>
-                )}
-              </div>
 
-              {studyMode === 'quiz' && (
-                <div style={{ marginTop: '1.5rem', textAlign: 'left' }} className="animate-fade-in">
-                  {isWarmingUp ? (
-                    <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.8rem', fontSize: '0.85rem' }}>
-                          {warmUpError ? (
-                            <span style={{ color: '#fbbf24', fontWeight: 'bold' }}>
-                              <span className="material-symbols-outlined" style={{ fontSize: '1.1rem', verticalAlign: 'middle', marginRight: '0.4rem' }}>warning</span>
-                              {warmUpError}
-                            </span>
-                          ) : (
-                            <span style={{ color: 'var(--secondary)', fontWeight: 'bold' }}>
-                              <span className="material-symbols-outlined" style={{ fontSize: '1.1rem', verticalAlign: 'middle', marginRight: '0.4rem' }}>sync</span>
-                              Generating Topic(s) Content...
-                            </span>
-                          )}
-                        {warmUpProgress}%
-                      </div>
-                      <div style={{ width: '100%', height: '6px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
-                        <div style={{ 
-                          width: `${warmUpProgress}%`, 
-                          height: '100%', 
-                          backgroundColor: warmUpError ? '#fbbf24' : 'var(--secondary)', 
-                          transition: 'width 0.4s ease-out',
-                          boxShadow: warmUpError ? '0 0 10px #fbbf24' : '0 0 10px var(--secondary)'
-                        }} />
-                      </div>
-                    </div>
-                  ) : (
-                    <div style={{ marginTop: '1rem' }}>
-                      <button 
-                        onClick={handleBulkWarmUp}
-                        className="secondary"
-                        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: decks.length === 0 ? 0.5 : 1 }}
-                        disabled={decks.length === 0}
+                  {studyMode === 'quiz' && (
+                    <div className="animate-fade-in">
+                      <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 'bold' }}>ENGINE</label>
+                      <select
+                        value={quizType}
+                        onChange={(e) => setQuizType(e.target.value)}
+                        style={{
+                          width: '100%', padding: '0.8rem', borderRadius: '10px',
+                          backgroundColor: 'rgba(0,0,0,0.2)', color: 'white', border: '1px solid rgba(255,255,255,0.1)',
+                          fontFamily: 'inherit', fontSize: '1rem', cursor: 'pointer'
+                        }}
                       >
-                        <span className="material-symbols-outlined">bolt</span>
-                        Bulk Warm-Up (Generate All)
-                      </button>
-                      <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.5rem', marginLeft: '0.5rem' }}>
-                        Recommended: Pre-generate all distractors and rationales for a better experience.
-                      </p>
+                        <option value="intelligent">Intelligent (Simulator)</option>
+                        <option value="simple">Simple (Recall)</option>
+                      </select>
+                    </div>
+                  )}
+
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 'bold' }}>ORDER</label>
+                    <select
+                      value={studyOrder}
+                      onChange={(e) => setStudyOrder(e.target.value)}
+                      style={{
+                        width: '100%', padding: '0.8rem', borderRadius: '10px',
+                        backgroundColor: 'rgba(0,0,0,0.2)', color: 'white', border: '1px solid rgba(255,255,255,0.1)',
+                        fontFamily: 'inherit', fontSize: '1rem', cursor: 'pointer'
+                      }}
+                    >
+                      <option value="random">Randomized</option>
+                      <option value="sequential">Sequential</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div style={{ marginTop: '1rem' }}>
+                  <button onClick={handleStartStudying} style={{ width: '100%', fontSize: '1.1rem', padding: '1.2rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.8rem' }}>
+                    <span className="material-symbols-outlined">play_arrow</span>
+                    Start Studying
+                  </button>
+                  
+                  {studyMode === 'quiz' && (
+                    <div style={{ marginTop: '1rem' }}>
+                      {isWarmingUp ? (
+                        <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.6rem', fontSize: '0.75rem' }}>
+                            <span style={{ color: warmUpError ? '#fbbf24' : 'var(--secondary)' }}>{warmUpError || 'Generating Content...'}</span>
+                            <span>{warmUpProgress}%</span>
+                          </div>
+                          <div style={{ width: '100%', height: '4px', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '2px', overflow: 'hidden' }}>
+                            <div style={{ width: `${warmUpProgress}%`, height: '100%', backgroundColor: 'var(--secondary)', transition: 'width 0.4s ease' }} />
+                          </div>
+                        </div>
+                      ) : (
+                        <button 
+                          onClick={handleBulkWarmUp}
+                          style={{ 
+                            width: '100%', 
+                            background: 'transparent', 
+                            border: '1px solid rgba(16, 185, 129, 0.3)', 
+                            color: 'var(--secondary)',
+                            fontSize: '0.85rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '0.5rem',
+                            padding: '0.8rem',
+                            boxShadow: 'none'
+                          }}
+                        >
+                          <span className="material-symbols-outlined" style={{ fontSize: '1.1rem' }}>bolt</span>
+                          Bulk Warm-Up
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
-              )}
-
-              <div style={{ marginTop: '2rem', textAlign: 'center' }}>
-                <button onClick={handleStartStudying} style={{ fontSize: '1.1rem', padding: '1rem 3rem' }}>
-                  Start Studying
-                </button>
               </div>
-            </div>
-          </section>
+            </section>
+          </div>
+        ) : (
+          <div style={{ textAlign: 'center', padding: '5rem 2rem', color: 'var(--text-muted)' }}>
+            <span className="material-symbols-outlined" style={{ fontSize: '5rem', marginBottom: '1.5rem', opacity: 0.2 }}>upload_file</span>
+            <h2>No Study Material Found</h2>
+            <p>Upload a .md file in the top header to begin your 2026 SHRM prep.</p>
+          </div>
         )}
-
-        {/* Data Management - Always Visible */}
-        <section className="glass-panel animate-fade-in" style={{ marginTop: '0' }}>
-            <div style={{ padding: '0.5rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-                <div>
-                  <h4 style={{ margin: 0, color: 'white', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: '1.2rem', color: 'var(--secondary)' }}>cloud_sync</span>
-                    {decks.length > 0 ? 'Data Migration & Backup' : 'Restore from Backup'}
-                  </h4>
-                  <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                    {decks.length > 0 
-                      ? 'Export your progress and AI data for use on other devices.' 
-                      : 'Have a backup file? Restore your entire study session here.'}
-                  </p>
-                </div>
-                <div style={{ display: 'flex', gap: '1rem' }}>
-                    <button onClick={handleExport} className="secondary" style={{ fontSize: '0.85rem', padding: '0.5rem 1rem' }}>
-                      Export Backup
-                    </button>
-                    <button onClick={handleNukeAiData} style={{ fontSize: '0.85rem', padding: '0.5rem 1rem', background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', boxShadow: 'none' }}>
-                      Nuke AI Data
-                    </button>
-                  <label className="button secondary" style={{ fontSize: '0.85rem', padding: '0.5rem 1rem', display: 'inline-block', cursor: 'pointer', margin: 0 }}>
-                    Restore Backup
-                    <input 
-                      type="file" 
-                      accept=".json" 
-                      onChange={handleImport} 
-                      style={{ display: 'none' }} 
-                      disabled={isRestoring}
-                    />
-                  </label>
-                </div>
-              </div>
-            </div>
-        </section>
       </main>
     </div>
   );

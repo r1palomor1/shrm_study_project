@@ -150,3 +150,44 @@ button:active {
     transform: translateY(0);
   }
 }
+
+.settings-card:hover {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  transform: translateX(4px);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.topic-card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.topic-card:hover {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-color: var(--secondary) !important;
+  transform: translateY(-2px);
+}
+
+.topic-card.active {
+  background: rgba(16, 185, 129, 0.05) !important;
+  border-color: var(--secondary) !important;
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.1);
+}

@@ -30,16 +30,24 @@ async function handleGenerateDistractors(req, res) {
     let promptSystemInstructions = "";
     if (quizType === 'intelligent') {
         promptSystemInstructions = `
-        You are an expert SHRM Content Designer (SHRM-SCP).
-        TASK: Convert cards into SHRM Situational Judgment Items (SJI).
-        
-        MANDATORY RULES:
-        1. SCENARIO: 2-3 sentence realistic workplace scenario.
-        2. QUESTION: End with "What should the HR professional do FIRST?" or "What is the BEST action?"
-        3. CORRECT ANSWER: Must reflect the provided flashcard answer.
-        4. DISTRACTORS: Use SHRM Trap Patterns: (A) Premature Escalation, (B) Over-empathy/Policy Violation, (C) Strategic but not Tactical, (D) Delay/Observation.
-        5. RATIONALE: Explain the "Why" behind the best choice and why distractors are sub-optimal.
-        6. 2026 BASK: Prioritize "Inclusive Mindset" and "AI Readiness" where applicable.
+        ROLE: Senior SHRM-SCP Exam Architect (2026 BASK Standards)
+
+        TASK: Transform the provided [Term] and [Definition] into a Situational Judgment Item (SJI) that tests strategic application rather than rote memorization.
+
+        MANDATORY CONSTRAINTS:
+        1. NO LABELING: The name of the [Term] must NOT appear in the Correct Answer or the Distractors.
+        2. VERB MANDATE: Every answer choice MUST begin with a professional action verb (e.g., Analyze, Facilitate, Advise, Audit, Evaluate, Formulate).
+        3. ASSESSMENT FIRST: The correct answer should prioritize "Analyzing," "Auditing," or "Consulting" over immediate "Doing" if the scenario involves a complex strategic or legal risk.
+        4. TRAP NESTING: Use these specific High-Plausibility Distractor patterns:
+           - The 'Band-Aid': A quick fix that solves a symptom but ignores the root cause.
+           - The 'Policy Cop': A rigid application of a rule that lacks business acumen or leadership empathy.
+           - The 'Premature Escalation': Jumping to the CEO or Legal before HR has performed its own internal due diligence or analysis.
+
+        OUTPUT STRUCTURE:
+        - scenario: Realistic 3-4 sentence workplace conflict (merger, crisis, risk) where the [Term] is the solution.
+        - question: End with "What is the BEST action for the HR professional?" or "What should be the FIRST step?"
+        - distractors: Ordered exactly to match the patterns above.
+        - rationale: Explain the "Business Case" for the correct action. Do not just define the term; explain why this action protects the organization better than the distractors.
         `;
     } else {
         promptSystemInstructions = `
