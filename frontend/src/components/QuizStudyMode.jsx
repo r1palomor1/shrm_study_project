@@ -569,22 +569,22 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
                                     }}>
                                         {/* Question Area */}
                                         <div style={{
-                                            padding: '1rem 1.2rem', flex: '0 0 30%', borderRight: '1px solid rgba(255,255,255,0.06)',
-                                            position: 'relative', wordBreak: 'break-word', overflow: 'hidden'
+                                            padding: '1.2rem', flex: '0 0 32%', borderRight: '1px solid rgba(255,255,255,0.06)',
+                                            wordBreak: 'break-word', overflow: 'hidden'
                                         }}>
-                                            <span style={{ position: 'absolute', top: '0.8rem', left: '0.8rem', fontSize: '1.2rem', fontWeight: '900', color: 'rgba(255,255,255,0.05)' }}>Q</span>
-                                            <div style={{ fontSize: '1rem', color: 'rgba(255,255,255,0.6)', lineHeight: '1.4', marginTop: '0.5rem' }}>
+                                            <div style={{ fontSize: '0.95rem', color: 'rgba(255,255,255,0.85)', lineHeight: '1.5' }}>
+                                                <strong style={{ color: '#0ea5e9', marginRight: '0.4rem', fontSize: '0.9rem' }}>Q:</strong>
                                                 {c.question}
                                             </div>
                                         </div>
 
                                         {/* Answer Area */}
                                         <div style={{
-                                            padding: '1rem 1.2rem', flex: 1, background: 'rgba(255,255,255,0.01)',
-                                            position: 'relative', wordBreak: 'break-word', display: 'flex', flexDirection: 'column', justifyContent: 'center'
+                                            padding: '1.2rem', flex: 1, background: 'rgba(255,255,255,0.01)',
+                                            wordBreak: 'break-word'
                                         }}>
-                                            <span style={{ position: 'absolute', top: '0.8rem', left: '0.8rem', fontSize: '1.2rem', fontWeight: '900', color: 'rgba(255,255,255,0.05)' }}>A</span>
-                                            <div style={{ fontSize: '1.1rem', color: 'white', lineHeight: '1.5', marginTop: '0.5rem' }}>
+                                            <div style={{ fontSize: '1.1rem', color: 'white', lineHeight: '1.5', fontWeight: '500' }}>
+                                                <strong style={{ color: 'var(--primary)', marginRight: '0.4rem', fontSize: '0.9rem' }}>A:</strong>
                                                 {c.answer}
                                             </div>
                                         </div>
