@@ -920,16 +920,16 @@ export default function TraditionalStudyMode({ deck, onBack, onUpdateCardStatus 
                                             style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 2050 }} 
                                         />
                                         <div style={{
-                                            position: 'absolute',
-                                            top: '110%',
-                                            right: 0,
+                                            position: 'fixed',
+                                            top: '120px',
+                                            right: 'calc(50% - 410px)',
                                             width: '260px',
                                             background: '#1a1b2e',
                                             border: '1px solid rgba(255,255,255,0.1)',
                                             borderRadius: '12px',
                                             padding: '1.2rem',
                                             boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
-                                            zIndex: 2100,
+                                            zIndex: 9999,
                                             display: 'flex',
                                             flexDirection: 'column',
                                             gap: '1rem',
@@ -1112,34 +1112,38 @@ export default function TraditionalStudyMode({ deck, onBack, onUpdateCardStatus 
                                     }}>
                                         {/* Question Area */}
                                         <div style={{
-                                            padding: '0.8rem 0.6rem 0.8rem 1.2rem',
-                                            flex: 0.7,
+                                            padding: '1rem 1.2rem',
+                                            flex: '0 0 30%', 
                                             borderRight: '1px solid rgba(255,255,255,0.06)',
                                             position: 'relative',
-                                            wordBreak: 'break-word'
+                                            wordBreak: 'break-word',
+                                            overflow: 'hidden'
                                         }}>
                                             <span style={{ 
                                                 position: 'absolute', top: '0.8rem', left: '0.8rem', 
                                                 fontSize: '1.2rem', fontWeight: '900', color: 'rgba(255,255,255,0.05)' 
                                             }}>Q</span>
-                                            <div style={{ fontSize: '1.15rem', color: 'white', lineHeight: '1.5', marginTop: '0.5rem' }}>
+                                            <div style={{ fontSize: '1rem', color: 'rgba(255,255,255,0.6)', lineHeight: '1.4', marginTop: '0.5rem' }}>
                                                 {c.question}
                                             </div>
                                         </div>
 
                                         {/* Answer Area */}
                                         <div style={{
-                                            padding: '0.8rem 0.5rem 0.8rem 1.2rem',
+                                            padding: '1rem 1.2rem',
                                             flex: 1,
                                             background: 'rgba(255,255,255,0.01)',
                                             position: 'relative',
-                                            wordBreak: 'break-word'
+                                            wordBreak: 'break-word',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            justifyContent: 'center'
                                         }}>
                                             <span style={{ 
                                                 position: 'absolute', top: '0.8rem', left: '0.8rem', 
                                                 fontSize: '1.2rem', fontWeight: '900', color: 'rgba(255,255,255,0.05)' 
                                             }}>A</span>
-                                            <div style={{ fontSize: '1.1rem', color: 'rgba(255,255,255,0.7)', lineHeight: '1.5', marginTop: '0.5rem' }}>
+                                            <div style={{ fontSize: '1.1rem', color: 'white', lineHeight: '1.5', marginTop: '0.5rem' }}>
                                                 {c.answer}
                                             </div>
                                         </div>

@@ -127,6 +127,13 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
             onUpdateCardStatus(card.id, isCorrect ? 'difficulty-5' : 'difficulty-1', {
                 selectedOption: selectedOption
             });
+            
+            // CRITICAL: Optimistically update local card state so navigating Back/Next
+            // immediately reflects the answered state without needing to Exit.
+            const quizKey = `status_quiz_${deck.quizType}`;
+            const optionKey = `selected_option_${deck.quizType}`;
+            card[quizKey] = isCorrect ? 'difficulty-5' : 'difficulty-1';
+            card[optionKey] = selectedOption;
         }
     };
 
@@ -562,22 +569,22 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
                                     }}>
                                         {/* Question Area */}
                                         <div style={{
-                                            padding: '0.8rem 1.2rem', flex: 0.7, borderRight: '1px solid rgba(255,255,255,0.06)',
-                                            position: 'relative', wordBreak: 'break-word'
+                                            padding: '1rem 1.2rem', flex: '0 0 30%', borderRight: '1px solid rgba(255,255,255,0.06)',
+                                            position: 'relative', wordBreak: 'break-word', overflow: 'hidden'
                                         }}>
                                             <span style={{ position: 'absolute', top: '0.8rem', left: '0.8rem', fontSize: '1.2rem', fontWeight: '900', color: 'rgba(255,255,255,0.05)' }}>Q</span>
-                                            <div style={{ fontSize: '1.15rem', color: 'white', lineHeight: '1.5', marginTop: '0.5rem' }}>
+                                            <div style={{ fontSize: '1rem', color: 'rgba(255,255,255,0.6)', lineHeight: '1.4', marginTop: '0.5rem' }}>
                                                 {c.question}
                                             </div>
                                         </div>
 
                                         {/* Answer Area */}
                                         <div style={{
-                                            padding: '0.8rem 1.2rem', flex: 1, background: 'rgba(255,255,255,0.01)',
-                                            position: 'relative', wordBreak: 'break-word'
+                                            padding: '1rem 1.2rem', flex: 1, background: 'rgba(255,255,255,0.01)',
+                                            position: 'relative', wordBreak: 'break-word', display: 'flex', flexDirection: 'column', justifyContent: 'center'
                                         }}>
                                             <span style={{ position: 'absolute', top: '0.8rem', left: '0.8rem', fontSize: '1.2rem', fontWeight: '900', color: 'rgba(255,255,255,0.05)' }}>A</span>
-                                            <div style={{ fontSize: '1.1rem', color: 'rgba(255,255,255,0.7)', lineHeight: '1.5', marginTop: '0.5rem' }}>
+                                            <div style={{ fontSize: '1.1rem', color: 'white', lineHeight: '1.5', marginTop: '0.5rem' }}>
                                                 {c.answer}
                                             </div>
                                         </div>

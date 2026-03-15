@@ -302,6 +302,25 @@ function App() {
     if (studyMode === 'quiz') enrichedHistory.quizType = quizType;
     
     updateCardStatus(cardId, studyMode, status, enrichedHistory);
+    
+    // BACKBONE SYNC: Ensure the live study session sees the progress immediately
+    if (activeStudyDeck) {
+      const updatedCards = activeStudyDeck.cards.map(c => {
+        if (c.id === cardId) {
+          const updated = { ...c };
+          if (studyMode === 'traditional') updated.status_traditional = status;
+          else if (studyMode === 'test') updated.status_test = status;
+          else if (studyMode === 'quiz') {
+            updated[`status_quiz_${quizType}`] = status;
+            if (historyData.selectedOption) updated[`selected_option_${quizType}`] = historyData.selectedOption;
+          }
+          return updated;
+        }
+        return c;
+      });
+      setActiveStudyDeck({ ...activeStudyDeck, cards: updatedCards });
+    }
+    
     // Silent reload of decks to update main dashboard progress in background
     setDecks(loadDecksFromStorage());
   };
