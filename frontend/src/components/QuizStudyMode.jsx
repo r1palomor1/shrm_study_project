@@ -120,7 +120,7 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
         
         const isCorrect = options[userSelectedIdx] === card.answer;
         if (onUpdateCardStatus) {
-            onUpdateCardStatus(card.id, 'quiz', isCorrect ? 'difficulty-5' : 'difficulty-1', {
+            onUpdateCardStatus(card.id, isCorrect ? 'difficulty-5' : 'difficulty-1', {
                 quizType: deck.quizType,
                 selectedOption: options[userSelectedIdx]
             });
@@ -476,6 +476,7 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
                                                     { val: 'incorrect', l: 'Incorrect', c: '#ef4444' },
                                                     { val: 'unseen', l: 'Unseen', c: 'rgba(255,255,255,0.2)' }
                                                 ].map(f => {
+                                                    const count = deck.cards.filter(c => getQuizStatus(c) === f.val).length;
                                                     const isActive = tempPreviewFilter.includes(f.val);
                                                     return (
                                                         <div key={f.val} onClick={() => {
@@ -486,6 +487,7 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
                                                                 {isActive && '✓'}
                                                             </div>
                                                             <span style={{ fontSize: '0.9rem', color: 'white', flex: 1 }}>{f.l}</span>
+                                                            <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.6)', fontWeight: '800' }}>{count}</span>
                                                         </div>
                                                     );
                                                 })}

@@ -5,6 +5,7 @@ import TraditionalStudyMode from './components/TraditionalStudyMode';
 import QuizStudyMode from './components/QuizStudyMode';
 import AnalyticsDashboard from './components/AnalyticsDashboard';
 import SettingsModal from './components/SettingsModal';
+import ResetModal from './components/ResetModal';
 import { 
   saveDeckToStorage, 
   loadDecksFromStorage, 
@@ -27,6 +28,8 @@ function App() {
   const [isViewingAnalytics, setIsViewingAnalytics] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isResetOpen, setIsResetOpen] = useState(false);
+  const [resetTarget, setResetTarget] = useState(null);
 
   // Study configuration
   const [selectedDeckTitle, setSelectedDeckTitle] = useState('ALL');
@@ -63,28 +66,58 @@ function App() {
   };
 
   const handleResetProgress = (title) => {
-    const message = title === 'ALL' 
-      ? `⚠️ WARNING: This will permanently wipe ALL study progress, scores, and mastery history for EVERY topic.\n\nAre you sure you want to start over from scratch?`
-      : `⚠️ WARNING: This will permanently wipe all study progress, scores, and mastery history for "${title}".\n\nAre you sure you want to reset this topic?`;
+    setResetTarget(title);
+    setIsResetOpen(true);
+  };
 
-    if (window.confirm(message)) {
-      const updatedDecks = decks.map(d => {
-        if (title === 'ALL' || d.title === title) {
-          d.cards = d.cards.map(c => {
-            const newCard = { ...c };
-            if (studyMode === 'traditional') newCard.status_traditional = 'unseen';
-            if (studyMode === 'test') newCard.status_test = 'unseen';
-            if (studyMode === 'quiz') newCard.status_quiz = 'unseen';
-            // Also reset legacy status so it doesn't fall back to it
-            newCard.status = 'unseen'; 
-            return newCard;
+  const handlePerformReset = (modesToReset) => {
+    setDecks(prevDecks => {
+      const updatedDecks = prevDecks.map(d => {
+        if (resetTarget === 'ALL' || d.title === resetTarget) {
+          const resetCards = d.cards.map(c => {
+            const updated = { ...c };
+            
+            if (modesToReset.traditional) {
+              updated.status_traditional = 'unseen';
+              updated.status = 'unseen'; // Shared fallback
+            }
+            if (modesToReset.test) {
+              updated.status_test = 'unseen';
+              updated.history_test = null;
+            }
+            if (modesToReset.quiz_simple) {
+              updated.status_quiz_simple = 'unseen';
+              updated.selected_option_simple = null;
+              updated.history_quiz_simple = null;
+            }
+            if (modesToReset.quiz_intelligent) {
+              updated.status_quiz_intelligent = 'unseen';
+              updated.selected_option_intelligent = null;
+              updated.history_quiz_intelligent = null;
+            }
+
+            // Global score reset if all or multiple modes reset
+            if (Object.values(modesToReset).every(v => v)) {
+              updated.score = 0;
+            }
+            
+            return updated;
           });
-          saveDeckToStorage(d);
+          const updatedDeck = { ...d, cards: resetCards };
+          saveDeckToStorage(updatedDeck);
+          return updatedDeck;
         }
         return d;
       });
-      setDecks(loadDecksFromStorage());
+      return updatedDecks;
+    });
+
+    if (resetTarget === 'ALL' || resetTarget === selectedDeckTitle) {
+      setActiveStudyDeck(null);
     }
+    
+    setIsResetOpen(false);
+    setResetTarget(null);
   };
 
   const handleExport = () => {
@@ -300,21 +333,29 @@ function App() {
   };
 
   const handleUpdateCardStatus = (cardId, status, historyData = {}) => {
-    const enrichedHistory = { ...historyData };
-    if (studyMode === 'quiz') enrichedHistory.quizType = quizType;
+    // Determine the exact quiz type from history or current state
+    const currentQuizType = historyData.quizType || quizType;
+    const enrichedHistory = { ...historyData, quizType: currentQuizType };
     
+    // Update LocalStorage and background decks state
     updateCardStatus(cardId, studyMode, status, enrichedHistory);
     
-    // BACKBONE SYNC: Ensure the live study session sees the progress immediately
+    // Update live study deck state
     if (activeStudyDeck) {
       const updatedCards = activeStudyDeck.cards.map(c => {
         if (c.id === cardId) {
           const updated = { ...c };
-          if (studyMode === 'traditional') updated.status_traditional = status;
-          else if (studyMode === 'test') updated.status_test = status;
-          else if (studyMode === 'quiz') {
-            updated[`status_quiz_${quizType}`] = status;
-            if (historyData.selectedOption) updated[`selected_option_${quizType}`] = historyData.selectedOption;
+          if (studyMode === 'traditional') {
+            updated.status_traditional = status;
+          } else if (studyMode === 'test') {
+            updated.status_test = status;
+          } else if (studyMode === 'quiz') {
+            const qKey = `status_quiz_${currentQuizType}`;
+            const oKey = `selected_option_${currentQuizType}`;
+            updated[qKey] = status;
+            if (historyData.selectedOption) {
+              updated[oKey] = historyData.selectedOption;
+            }
           }
           return updated;
         }
@@ -323,7 +364,7 @@ function App() {
       setActiveStudyDeck({ ...activeStudyDeck, cards: updatedCards });
     }
     
-    // Silent reload of decks to update main dashboard progress in background
+    // Sync the main decks view
     setDecks(loadDecksFromStorage());
   };
 
@@ -433,6 +474,20 @@ function App() {
           onResetProgress={handleResetProgress}
           decks={decks}
           isRestoring={isRestoring}
+        />
+      )}
+
+      {isResetOpen && (
+        <ResetModal 
+          isOpen={isResetOpen}
+          targetTitle={resetTarget}
+          currentMode={studyMode}
+          quizType={quizType}
+          onClose={() => {
+            setIsResetOpen(false);
+            setResetTarget(null);
+          }}
+          onConfirm={handlePerformReset}
         />
       )}
 
