@@ -383,7 +383,6 @@ function App() {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
           <h1 style={{ fontSize: '1.8rem', margin: 0 }} className="text-gradient">SHRM 2026</h1>
-          <DataImporter onDeckLoaded={handleDeckLoaded} />
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -430,11 +429,15 @@ function App() {
           onExport={handleExport}
           onImport={handleImport}
           onNukeAi={handleNukeAiData}
+          onDeleteDeck={handleDeleteDeck}
+          onResetProgress={handleResetProgress}
+          decks={decks}
           isRestoring={isRestoring}
         />
       )}
 
       <main>
+        <DataImporter onDeckLoaded={handleDeckLoaded} />
         {decks.length > 0 ? (
           <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 340px', gap: '2rem' }}>
             
@@ -464,9 +467,20 @@ function App() {
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <h3 style={{ margin: 0 }}>All Study Material</h3>
-                    <span className="material-symbols-outlined" style={{ color: selectedDeckTitle === 'ALL' ? 'var(--secondary)' : 'rgba(255,255,255,0.2)' }}>
-                      {selectedDeckTitle === 'ALL' ? 'check_circle' : 'circle'}
-                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                      {selectedDeckTitle === 'ALL' && (
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); handleResetProgress('ALL'); }}
+                          style={{ background: 'transparent', border: 'none', padding: 0, color: 'rgba(255,255,255,0.3)', cursor: 'pointer', boxShadow: 'none', display: 'flex' }}
+                          title="Reset All Progress"
+                        >
+                          <span className="material-symbols-outlined" style={{ fontSize: '1.1rem' }}>restart_alt</span>
+                        </button>
+                      )}
+                      <span className="material-symbols-outlined" style={{ color: selectedDeckTitle === 'ALL' ? 'var(--secondary)' : 'rgba(255,255,255,0.2)' }}>
+                        {selectedDeckTitle === 'ALL' ? 'check_circle' : 'circle'}
+                      </span>
+                    </div>
                   </div>
                   <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                     Comprehensive review of {totalCards} cards across all topics.
@@ -498,9 +512,29 @@ function App() {
                             {deck.cards.length} Flashcards
                           </div>
                         </div>
-                        <span className="material-symbols-outlined" style={{ color: isActive ? 'var(--secondary)' : 'rgba(255,255,255,0.1)' }}>
-                          {isActive ? 'check_circle' : 'radio_button_unchecked'}
-                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                          {isActive && (
+                            <>
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); handleResetProgress(deck.title); }}
+                                style={{ background: 'transparent', border: 'none', padding: 0, color: 'rgba(255,255,255,0.3)', cursor: 'pointer', boxShadow: 'none', display: 'flex' }}
+                                title="Reset Progress"
+                              >
+                                <span className="material-symbols-outlined" style={{ fontSize: '1.1rem' }}>restart_alt</span>
+                              </button>
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); handleDeleteDeck(deck.title); }}
+                                style={{ background: 'transparent', border: 'none', padding: 0, color: 'rgba(239, 68, 68, 0.4)', cursor: 'pointer', boxShadow: 'none', display: 'flex' }}
+                                title="Delete Topic"
+                              >
+                                <span className="material-symbols-outlined" style={{ fontSize: '1.1rem' }}>delete</span>
+                              </button>
+                            </>
+                          )}
+                          <span className="material-symbols-outlined" style={{ color: isActive ? 'var(--secondary)' : 'rgba(255,255,255,0.1)' }}>
+                            {isActive ? 'check_circle' : 'radio_button_unchecked'}
+                          </span>
+                        </div>
                       </div>
                       
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>
@@ -513,6 +547,27 @@ function App() {
                     </div>
                   );
                 })}
+
+                {/* ADD NEW TOPIC CARD */}
+                <div style={{ position: 'relative' }}>
+                  <label htmlFor="md-upload-main" style={{ cursor: 'pointer', display: 'block' }}>
+                    <div className="glass-panel topic-card" style={{ 
+                      padding: '1.2rem', 
+                      display: 'flex', 
+                      flexDirection: 'column', 
+                      alignItems: 'center', 
+                      justifyContent: 'center', 
+                      gap: '0.8rem',
+                      border: '1px dashed rgba(255,255,255,0.15)',
+                      height: '100%',
+                      minHeight: '135px',
+                      background: 'rgba(255,255,255,0.02)'
+                    }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: '2rem', color: 'rgba(255,255,255,0.2)' }}>add_circle</span>
+                      <span style={{ fontSize: '0.9rem', color: 'rgba(255,255,255,0.4)', fontWeight: '600' }}>Add New Topic</span>
+                    </div>
+                  </label>
+                </div>
               </div>
             </section>
 
@@ -630,7 +685,23 @@ function App() {
           <div style={{ textAlign: 'center', padding: '5rem 2rem', color: 'var(--text-muted)' }}>
             <span className="material-symbols-outlined" style={{ fontSize: '5rem', marginBottom: '1.5rem', opacity: 0.2 }}>upload_file</span>
             <h2>No Study Material Found</h2>
-            <p>Upload a .md file in the top header to begin your 2026 SHRM prep.</p>
+            <p style={{ marginBottom: '2rem' }}>Please import your study material to begin your 2026 SHRM prep.</p>
+            <label htmlFor="md-upload-main" style={{ cursor: 'pointer' }}>
+                <span className="button" style={{ 
+                    padding: '1rem 2.5rem', 
+                    fontSize: '1rem', 
+                    display: 'inline-flex', 
+                    alignItems: 'center', 
+                    gap: '0.8rem',
+                    background: 'var(--primary)',
+                    borderRadius: '16px',
+                    color: 'white',
+                    fontWeight: 'bold'
+                }}>
+                    <span className="material-symbols-outlined">upload_file</span>
+                    Add Your First Topic
+                </span>
+            </label>
           </div>
         )}
       </main>

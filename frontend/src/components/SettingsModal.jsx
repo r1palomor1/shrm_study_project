@@ -1,13 +1,25 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export default function SettingsModal({ 
   onClose, 
   onExport, 
   onImport, 
   onNukeAi, 
+  onDeleteDeck,
+  onResetProgress,
+  decks,
   isRestoring 
 }) {
-  const [activeCategory, setActiveCategory] = useState('data'); // Default to data management
+  const [activeCategory, setActiveCategory] = useState('data');
+
+  // ESC Listener
+  useEffect(() => {
+    const handleEsc = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [onClose]);
 
   return (
     <div style={{
@@ -19,23 +31,26 @@ export default function SettingsModal({
       backgroundColor: 'rgba(0,0,0,0.8)',
       backdropFilter: 'blur(10px)',
       display: 'flex',
+      flexDirection: 'column',
       alignItems: 'center',
-      justifyContent: 'center',
+      justifyContent: 'flex-start',
       zIndex: 10000,
-      padding: '2rem'
+      padding: '2rem',
+      overflowY: 'auto'
     }} onClick={onClose}>
       <div 
         style={{
           width: '100%',
           maxWidth: '600px',
-          maxHeight: '85vh',
+          margin: 'auto',
           backgroundColor: '#0f111a',
           borderRadius: '24px',
           border: '1px solid rgba(255,255,255,0.1)',
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+          maxHeight: 'calc(100vh - 4rem)'
         }} 
         onClick={e => e.stopPropagation()}
       >
@@ -69,49 +84,6 @@ export default function SettingsModal({
         {/* Content */}
         <div style={{ padding: '2rem', overflowY: 'auto' }} className="custom-scrollbar">
           
-          {/* Section: GENERAL */}
-          <div style={{ marginBottom: '2.5rem' }}>
-            <h4 style={{ color: 'var(--secondary)', fontSize: '0.75rem', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '1.2rem' }}>General</h4>
-            
-            <div className="settings-card" style={{
-              background: 'rgba(255,255,255,0.03)',
-              borderRadius: '16px',
-              padding: '1.2rem',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: '1rem'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                <span className="material-symbols-outlined" style={{ color: 'rgba(255,255,255,0.4)' }}>language</span>
-                <div>
-                  <div style={{ fontSize: '1rem', color: 'white' }}>Language</div>
-                </div>
-              </div>
-              <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.9rem' }}>English</div>
-            </div>
-
-            <div className="settings-card" style={{
-              background: 'rgba(255,255,255,0.03)',
-              borderRadius: '16px',
-              padding: '1.2rem',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              cursor: 'pointer',
-              border: '1px solid transparent',
-              transition: 'all 0.2s'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                <span className="material-symbols-outlined" style={{ color: 'rgba(255,255,255,0.4)' }}>storage</span>
-                <div>
-                  <div style={{ fontSize: '1rem', color: 'white' }}>Data Management</div>
-                </div>
-              </div>
-              <span className="material-symbols-outlined" style={{ color: 'rgba(255,255,255,0.2)' }}>chevron_right</span>
-            </div>
-          </div>
-
           {/* Section: DATA ACTIONS */}
           <div style={{ marginBottom: '2.5rem' }}>
             <h4 style={{ color: 'var(--secondary)', fontSize: '0.75rem', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '1.2rem' }}>AI Companion & Data</h4>
@@ -187,6 +159,65 @@ export default function SettingsModal({
                   />
                 </label>
               </div>
+            </div>
+          </div>
+
+          {/* Section: TOPIC MANAGEMENT */}
+          <div style={{ marginBottom: '2.5rem' }}>
+            <h4 style={{ color: 'var(--secondary)', fontSize: '0.75rem', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '1.2rem' }}>Topic Management</h4>
+            
+            <div style={{ display: 'grid', gap: '0.8rem', maxHeight: '300px', overflowY: 'auto', paddingRight: '0.5rem' }} className="custom-scrollbar">
+              {decks && decks.length > 0 ? (
+                [...decks].sort((a, b) => a.title.localeCompare(b.title)).map(deck => (
+                  <div key={deck.title} className="settings-card" style={{
+                    background: 'rgba(255,255,255,0.03)',
+                    borderRadius: '16px',
+                    padding: '1rem 1.2rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between'
+                  }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '0.95rem', color: 'white', fontWeight: '500' }}>{deck.title}</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{deck.cards.length} Cards</div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.8rem' }}>
+                      <button 
+                        onClick={() => onResetProgress(deck.title)}
+                        style={{ 
+                          background: 'rgba(255,255,255,0.05)', 
+                          color: 'white', 
+                          border: '1px solid rgba(255,255,255,0.1)', 
+                          padding: '0.4rem 0.8rem', 
+                          fontSize: '0.75rem',
+                          borderRadius: '8px',
+                          boxShadow: 'none'
+                        }}
+                      >
+                        Reset
+                      </button>
+                      <button 
+                        onClick={() => onDeleteDeck(deck.title)}
+                        style={{ 
+                          background: 'rgba(239,68,68,0.1)', 
+                          color: '#ef4444', 
+                          border: '1px solid rgba(239,68,68,0.2)', 
+                          padding: '0.4rem 0.8rem', 
+                          fontSize: '0.75rem',
+                          borderRadius: '8px',
+                          boxShadow: 'none'
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div style={{ textAlign: 'center', padding: '1rem', color: 'rgba(255,255,255,0.2)', fontSize: '0.9rem' }}>
+                  No topics loaded.
+                </div>
+              )}
             </div>
           </div>
 
