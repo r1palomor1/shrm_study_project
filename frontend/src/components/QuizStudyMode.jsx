@@ -91,7 +91,9 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
         } else {
             setOptions([card.answer, "Loading...", "Loading...", "Loading..."]);
         }
-        
+    }, [currentIndex, card.id, isProcessing, deck.quizType]);
+
+    useEffect(() => {
         const currentStatus = getQuizStatus(card);
         const alreadyAnswered = currentStatus !== 'unseen';
         
@@ -105,7 +107,7 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
             setIsConfirmed(false);
         }
         setShowHint(false);
-    }, [currentIndex, card, isProcessing, deck.quizType, deck.cards, options.length]);
+    }, [currentIndex, card.id, options, deck.quizType]);
 
     const handleSelect = (index) => {
         if (isConfirmed) return;
@@ -118,7 +120,8 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
         
         const isCorrect = options[userSelectedIdx] === card.answer;
         if (onUpdateCardStatus) {
-            onUpdateCardStatus(card.id, isCorrect ? 'difficulty-5' : 'difficulty-1', {
+            onUpdateCardStatus(card.id, 'quiz', isCorrect ? 'difficulty-5' : 'difficulty-1', {
+                quizType: deck.quizType,
                 selectedOption: options[userSelectedIdx]
             });
             
@@ -221,14 +224,14 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
                                 padding: '0.6rem 1rem',
                                 fontSize: '1.2rem',
                                 minWidth: 'auto',
-                                color: showHint ? 'var(--secondary)' : 'rgba(255,255,255,0.4)',
+                                color: showHint ? '#fbbf24' : 'rgba(255,255,255,0.4)',
                                 cursor: 'pointer',
                                 transition: 'all 0.2s',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 borderRadius: '8px',
-                                boxShadow: showHint ? '0 0 15px rgba(16, 185, 129, 0.2)' : 'none'
+                                boxShadow: showHint ? '0 0 15px rgba(251, 191, 36, 0.2)' : 'none'
                             }}
                             title="Reveal Concept Hint"
                         >
@@ -262,13 +265,13 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
                 {showHint && deck.quizType === 'intelligent' && (
                     <div className="animate-fade-in" style={{ 
                         padding: '0.8rem 1.2rem', 
-                        backgroundColor: 'rgba(16, 185, 129, 0.1)', 
+                        backgroundColor: 'rgba(251, 191, 36, 0.1)', 
                         borderRadius: '10px', 
                         marginBottom: '1.5rem',
-                        border: '1px dashed var(--secondary)',
+                        border: '1px dashed #fbbf24',
                         textAlign: 'center',
                         fontSize: '0.9rem',
-                        color: 'var(--secondary)',
+                        color: '#fbbf24',
                         fontWeight: '600'
                     }}>
                         Concept Hint: <span style={{ textDecoration: 'underline' }}>{card.question}</span>
@@ -330,16 +333,16 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
                     <div className="animate-fade-in" style={{ 
                         marginTop: '2rem',
                         padding: '1.5rem',
-                        backgroundColor: 'rgba(16, 185, 129, 0.05)',
+                        backgroundColor: 'rgba(255, 255, 255, 0.03)',
                         borderRadius: '12px',
-                        border: '1px solid rgba(16, 185, 129, 0.2)',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
                         lineHeight: '1.6',
                         fontSize: '0.95rem'
                     }}>
                         <div style={{ color: 'var(--secondary)', fontWeight: 'bold', fontSize: '0.8rem', textTransform: 'uppercase', marginBottom: '0.6rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                             🎓 Tutor Explanation:
                         </div>
-                        {currentAiData.rationale}
+                        {currentAiData.rationale.replace(/^(Correct|Answer|Rationale):\s*/i, '')}
                     </div>
                 )}
             </div>

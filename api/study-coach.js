@@ -47,7 +47,7 @@ async function handleGenerateDistractors(req, res) {
         - scenario: Realistic 3-4 sentence workplace conflict (merger, crisis, risk) where the [Term] is the solution.
         - question: End with "What is the BEST action for the HR professional?" or "What should be the FIRST step?"
         - distractors: Ordered exactly to match the patterns above.
-        - rationale: Explain the "Business Case" for the correct action. Do not just define the term; explain why this action protects the organization better than the distractors.
+        - rationale: Explain the "Business Case" for the correct action. Do not just define the term; explain why this action protects the organization better than the distractors. IMPORTANT: Do NOT include labels like "Correct:", "Answer:", or "Rationale:" at the start of the text.
         `;
     } else {
         promptSystemInstructions = `
@@ -58,7 +58,7 @@ async function handleGenerateDistractors(req, res) {
         1. CORRECT ANSWER: Use exact input answer.
         2. DISTRACTORS: Generate 3 high-quality distractors.
         3. SYMMETRY RULE: All 4 options (Correct + 3 Distractors) MUST be similar in length, professional tone, and complexity. If the correct answer is a full sentence, the distractors must also be full sentences. Avoid single-word distractors for multi-sentence answers.
-        4. RATIONALE: Distinguish the correct term from the distractors.
+        4. RATIONALE: Distinguish the correct term from the distractors. IMPORTANT: Do NOT include labels like "Correct:", "Answer:", or "Rationale:" at the start of the text.
         `;
     }
 
