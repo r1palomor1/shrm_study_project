@@ -133,7 +133,7 @@ export default function SettingsModal({
                 </div>
                 <button 
                   onClick={() => {
-                    const vault = JSON.parse(localStorage.getItem('ai_distractor_vault') || '{}');
+                    const vault = JSON.parse(localStorage.getItem('shrm_distractor_vault') || '{}');
                     let md = '# SHRM 2026 Simulator - SJI Audit Log (V3)\n\n';
                     md += `Generated: ${new Date().toLocaleString()}\n\n---\n\n`;
                     
