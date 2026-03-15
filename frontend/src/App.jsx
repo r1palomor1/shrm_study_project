@@ -66,6 +66,7 @@ function App() {
   };
 
   const handleResetProgress = (title) => {
+    setIsSettingsOpen(false); // Close settings to avoid modal overlap
     setResetTarget(title);
     setIsResetOpen(true);
   };

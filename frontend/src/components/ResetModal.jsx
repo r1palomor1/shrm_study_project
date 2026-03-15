@@ -51,12 +51,9 @@ export default function ResetModal({ isOpen, onClose, onConfirm, targetTitle, cu
   return (
     <div className="modal-overlay" style={{ zIndex: 3000 }}>
       <div className="modal-content animate-fade-in" style={{ maxWidth: '400px', padding: '2rem' }}>
-        <h2 style={{ fontSize: '1.5rem', marginBottom: '0.5rem', color: 'white' }}>Reset Progress</h2>
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
-          {targetTitle === 'ALL' 
-            ? 'Wipe study data across all currently loaded topics.' 
-            : `Surgically reset progress for "${targetTitle}".`}
-        </p>
+        <h2 style={{ fontSize: '1.4rem', marginBottom: '1.5rem', color: 'white', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '1rem' }}>
+          Reset Progress {targetTitle !== 'ALL' ? ` - ${targetTitle}` : ' - All Topics'}
+        </h2>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', marginBottom: '1.5rem' }}>
           <button 
@@ -121,8 +118,9 @@ export default function ResetModal({ isOpen, onClose, onConfirm, targetTitle, cu
           ))}
         </div>
 
-        <p style={{ fontSize: '0.75rem', color: 'rgba(239, 68, 68, 0.7)', fontStyle: 'italic', marginBottom: '2rem', textAlign: 'center' }}>
-          ⚠️ This action cannot be undone. Progress will be permanently lost.
+        <p style={{ fontSize: '0.85rem', color: 'rgba(239, 68, 68, 0.9)', fontStyle: 'italic', marginBottom: '2rem', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+          <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>warning</span>
+          This action cannot be undone. Progress will be lost.
         </p>
 
         <div style={{ display: 'flex', gap: '1rem' }}>
