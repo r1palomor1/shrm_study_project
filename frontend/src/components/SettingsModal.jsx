@@ -128,6 +128,56 @@ export default function SettingsModal({
                 alignItems: 'center'
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                  <span className="material-symbols-outlined" style={{ color: '#fbbf24' }}>description</span>
+                  <span style={{ fontWeight: '600' }}>Export SJI Audit Log</span>
+                </div>
+                <button 
+                  onClick={() => {
+                    const vault = JSON.parse(localStorage.getItem('ai_distractor_vault') || '{}');
+                    let md = '# SHRM 2026 Simulator - SJI Audit Log (V3)\n\n';
+                    md += `Generated: ${new Date().toLocaleString()}\n\n---\n\n`;
+                    
+                    Object.entries(vault).forEach(([key, data]) => {
+                      if (data.quizType === 'intelligent' && data.scenario) {
+                        md += `## SJI: ${data.question}\n\n`;
+                        md += `> **Scenario:** ${data.scenario}\n\n`;
+                        md += `*   **Correct (Boss-Mode Action):** ${data.correct_answer}\n`;
+                        data.distractors.forEach((d, i) => {
+                          md += `*   **Trap ${i+1}:** ${d}\n`;
+                        });
+                        md += `\n**🎓 Tutor Rationale:**\n${data.rationale}\n\n`;
+                        md += `---\n\n`;
+                      }
+                    });
+
+                    const blob = new Blob([md], { type: 'text/markdown' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `shrm_sji_audit_v3_${new Date().toISOString().split('T')[0]}.md`;
+                    a.click();
+                  }}
+                  style={{ 
+                    padding: '0.4rem 1rem', 
+                    fontSize: '0.8rem',
+                    background: 'rgba(251, 191, 36, 0.1)',
+                    border: '1px solid #fbbf24',
+                    color: '#fbbf24'
+                  }}
+                >
+                  Export MD
+                </button>
+              </div>
+
+              <div style={{
+                background: 'rgba(255,255,255,0.03)',
+                borderRadius: '16px',
+                padding: '1.2rem',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
                   <span className="material-symbols-outlined" style={{ color: 'var(--secondary)' }}>cloud_download</span>
                   <span style={{ fontWeight: '600' }}>Export Backup</span>
                 </div>

@@ -439,9 +439,9 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
                         background: '#1a1b2e', position: 'sticky', top: 0, zIndex: 10
                     }}>
                         <div>
-                            <h2 style={{ margin: 0, fontSize: '1.4rem' }}>Deck Preview</h2>
+                            <h2 style={{ margin: 0, fontSize: '1.4rem' }}>{deck.title.replace(/\s*[\(\[].*$/, '')} Preview</h2>
                             <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                                Review your results for all {deck.cards.length} cards.
+                                Review questions, answers, and track progress for all {deck.cards.length} cards.
                             </p>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
