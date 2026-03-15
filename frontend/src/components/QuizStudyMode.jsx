@@ -61,6 +61,26 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
         setIsProcessing(false);
     };
 
+    // Helper for deterministic shuffling based on card ID
+    const getSeededShuffle = (array, seedString) => {
+        let hash = 0;
+        for (let i = 0; i < seedString.length; i++) {
+            hash = ((hash << 5) - hash) + seedString.charCodeAt(i);
+            hash |= 0;
+        }
+        let seed = Math.abs(hash);
+        const result = [...array];
+        let m = result.length, t, i;
+        while (m) {
+            seed = (seed * 9301 + 49297) % 233280;
+            i = Math.floor((seed / 233280) * m--);
+            t = result[m];
+            result[m] = result[i];
+            result[i] = t;
+        }
+        return result;
+    };
+
     // Load options for current card
     useEffect(() => {
         if (isProcessing) return;
@@ -68,8 +88,10 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
         const aiData = getDistractorFromVault(card.id, deck.quizType);
         
         if (aiData && aiData.distractors && aiData.quizType === deck.quizType) {
-            const allOptions = [card.answer, ...aiData.distractors.slice(0, 3)].sort(() => 0.5 - Math.random());
-            setOptions(allOptions.slice(0, 4));
+            const baseOptions = [card.answer, ...aiData.distractors.slice(0, 3)];
+            // Use card.id + quizType as seed to keep order stable for this question
+            const shuffled = getSeededShuffle(baseOptions, card.id + deck.quizType);
+            setOptions(shuffled.slice(0, 4));
         } else {
             // Fallback for unexpected missing data
             setOptions([card.answer, "Loading...", "Loading...", "Loading..."]);

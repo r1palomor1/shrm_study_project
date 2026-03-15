@@ -263,11 +263,22 @@ function App() {
     }
 
     if (studyOrder === 'random') {
-      // If in review mode, shuffle everything. If normal, only shuffle unseen.
-      const shuffleBuffer = isReviewMode ? finalDeckCards : unseenCards;
-      for (let i = shuffleBuffer.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shuffleBuffer[i], shuffleBuffer[j]] = [shuffleBuffer[j], shuffleBuffer[i]];
+      // Shuffling cards based on mode
+      if (isReviewMode) {
+        // Shuffle EVERYTHING
+        for (let i = finalDeckCards.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [finalDeckCards[i], finalDeckCards[j]] = [finalDeckCards[j], finalDeckCards[i]];
+        }
+      } else if (unseenCards.length > 0) {
+        // Only shuffle the unseen portion
+        const shuffledUnseen = [...unseenCards];
+        for (let i = shuffledUnseen.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [shuffledUnseen[i], shuffledUnseen[j]] = [shuffledUnseen[j], shuffledUnseen[i]];
+        }
+        // Re-construct final deck with seen cards first, followed by shuffled unseen
+        finalDeckCards = [...seenCards, ...shuffledUnseen];
       }
       studyTitle += ' (Randomized)';
     } else {
@@ -510,8 +521,8 @@ function App() {
                         fontFamily: 'inherit', fontSize: '1rem'
                       }}
                     >
-                      <option value="simple" style={{ backgroundColor: 'var(--bg-dark)' }}>Simple (Knowledge Recall)</option>
                       <option value="intelligent" style={{ backgroundColor: 'var(--bg-dark)' }}>Intelligent (SHRM Simulator)</option>
+                      <option value="simple" style={{ backgroundColor: 'var(--bg-dark)' }}>Simple (Knowledge Recall)</option>
                     </select>
                   </div>
                 )}
