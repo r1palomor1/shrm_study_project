@@ -101,15 +101,15 @@ export default function TraditionalStudyMode({ deck, onBack, onUpdateCardStatus 
     };
 
     return (
-        <div style={{ maxWidth: '1000px', margin: '0 auto', width: '100%', paddingTop: '0.5rem' }}>
+        <div style={{ maxWidth: '1000px', margin: '0 auto', width: '100%', paddingTop: '0' }}>
             {/* Unified Top Header Row */}
             <div style={{ 
                 display: 'flex', 
                 justifyContent: 'space-between', 
                 alignItems: 'center', 
-                marginBottom: '1rem',
+                marginBottom: '0.6rem',
                 borderBottom: '1px solid var(--border-color)',
-                paddingBottom: '0.8rem',
+                paddingBottom: '0.5rem',
                 position: 'sticky',
                 top: 0,
                 backgroundColor: 'transparent',
@@ -661,7 +661,6 @@ export default function TraditionalStudyMode({ deck, onBack, onUpdateCardStatus 
                 <div className="glass-panel" style={{
                     display: 'flex',
                     flexDirection: 'column',
-                    transition: 'min-height 0.2s ease',
                     margin: 0,
                     overflow: 'hidden',
                     borderBottom: isAnswerRevealed ? 'none' : '1px solid var(--border-color)',
@@ -675,15 +674,13 @@ export default function TraditionalStudyMode({ deck, onBack, onUpdateCardStatus 
                         display: 'flex', 
                         alignItems: 'center', 
                         justifyContent: 'center', 
-                        padding: isAnswerRevealed ? '0.4rem 1.5rem' : '3.5rem 1.5rem',
-                        transition: 'padding 0.2s ease'
+                        padding: isAnswerRevealed ? '1.5rem' : '3.5rem 1.5rem',
                     }}>
                         <h2 style={{ 
                             fontSize: isAnswerRevealed ? '2.4rem' : '2.8rem', 
                             textAlign: 'center', 
                             margin: 0, 
                             fontWeight: '500',
-                            transition: 'font-size 0.2s'
                         }}>
                             {card.question}
                         </h2>

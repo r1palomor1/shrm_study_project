@@ -590,11 +590,7 @@ function App() {
                     <select
                       value={studyMode}
                       onChange={(e) => setStudyMode(e.target.value)}
-                      style={{
-                        width: '100%', padding: '0.8rem', borderRadius: '10px',
-                        backgroundColor: 'rgba(0,0,0,0.2)', color: 'white', border: '1px solid rgba(255,255,255,0.1)',
-                        fontFamily: 'inherit', fontSize: '1rem', cursor: 'pointer'
-                      }}
+                      className="glass-select"
                     >
                       <option value="quiz">Multiple Choice Quiz</option>
                       <option value="traditional">Traditional Study</option>
@@ -607,11 +603,7 @@ function App() {
                       <select
                         value={quizType}
                         onChange={(e) => setQuizType(e.target.value)}
-                        style={{
-                          width: '100%', padding: '0.8rem', borderRadius: '10px',
-                          backgroundColor: 'rgba(0,0,0,0.2)', color: 'white', border: '1px solid rgba(255,255,255,0.1)',
-                          fontFamily: 'inherit', fontSize: '1rem', cursor: 'pointer'
-                        }}
+                        className="glass-select"
                       >
                         <option value="intelligent">Intelligent (Simulator)</option>
                         <option value="simple">Simple (Recall)</option>
@@ -624,11 +616,7 @@ function App() {
                     <select
                       value={studyOrder}
                       onChange={(e) => setStudyOrder(e.target.value)}
-                      style={{
-                        width: '100%', padding: '0.8rem', borderRadius: '10px',
-                        backgroundColor: 'rgba(0,0,0,0.2)', color: 'white', border: '1px solid rgba(255,255,255,0.1)',
-                        fontFamily: 'inherit', fontSize: '1rem', cursor: 'pointer'
-                      }}
+                      className="glass-select"
                     >
                       <option value="random">Randomized</option>
                       <option value="sequential">Sequential</option>

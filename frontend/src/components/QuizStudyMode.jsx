@@ -178,8 +178,8 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
     const currentAiData = getDistractorFromVault(card.id, deck.quizType);
 
     return (
-        <div style={{ maxWidth: '850px', margin: '0 auto', width: '100%', minHeight: 'calc(100vh - 6rem)', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', position: 'relative', zIndex: 10 }}>
+        <div style={{ maxWidth: '850px', margin: '0 auto', width: '100%', minHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', position: 'relative', zIndex: 10 }}>
                 <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
                     <button 
                         onClick={onBack} 
@@ -239,7 +239,7 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
                 <div style={{ fontWeight: 'bold' }}>Question {currentIndex + 1} of {deck.cards.length}</div>
             </div>
 
-            <div className="glass-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '1.5rem', overflowY: 'auto' }}>
+            <div className="glass-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '1.2rem', overflowY: 'auto' }}>
                 <div style={{ color: 'var(--secondary)', marginBottom: '0.8rem', textAlign: 'center', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold' }}>
                     {deck.quizType === 'intelligent' ? 'Situational Judgment (SJI)' : 'Knowledge Recall'}
                 </div>
@@ -275,7 +275,7 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
                     </div>
                 )}
 
-                <h2 style={{ fontSize: '1.4rem', textAlign: 'center', marginBottom: '1.8rem', lineHeight: '1.4', fontWeight: '500' }}>
+                <h2 style={{ fontSize: '1.3rem', textAlign: 'center', marginBottom: '1.5rem', lineHeight: '1.4', fontWeight: '500' }}>
                     {deck.quizType === 'intelligent' ? (currentAiData?.question || card.question) : card.question}
                 </h2>
 
@@ -428,20 +428,84 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
                                 Review your results for all {deck.cards.length} cards.
                             </p>
                         </div>
-                        <button 
-                            onClick={() => setShowPreview(false)} 
-                            style={{ background: 'transparent', border: '1px solid var(--border-color)', padding: '0.6rem 1.5rem', fontSize: '0.9rem', color: 'white' }}
-                        >
-                            Close Preview
-                        </button>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                            {/* Filter Dropdown */}
+                            <div style={{ position: 'relative' }}>
+                                <button 
+                                    onClick={() => {
+                                        setTempPreviewFilter([...previewFilter]);
+                                        setShowFilterMenu(!showFilterMenu);
+                                    }}
+                                    style={{
+                                        background: 'rgba(255,255,255,0.05)',
+                                        border: '1px solid rgba(255,255,255,0.1)',
+                                        padding: '0.6rem 1.2rem',
+                                        borderRadius: '10px',
+                                        color: 'white',
+                                        fontSize: '0.85rem',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.8rem',
+                                        fontWeight: '600'
+                                    }}
+                                >
+                                    <span>Filter ({previewFilter.length === 3 ? 'All' : `${previewFilter.length}`})</span>
+                                    <span style={{ transform: showFilterMenu ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', fontSize: '0.7rem' }}>▼</span>
+                                </button>
+
+                                {showFilterMenu && (
+                                    <>
+                                        <div onClick={() => setShowFilterMenu(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 2050 }} />
+                                        <div style={{
+                                            position: 'fixed', top: '80px', right: '40px', width: '240px',
+                                            background: '#1a1b2e', border: '1px solid rgba(255,255,255,0.1)',
+                                            borderRadius: '12px', padding: '1.2rem', boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
+                                            zIndex: 9999, display: 'flex', flexDirection: 'column', gap: '1rem',
+                                            animation: 'fadeInUp 0.15s ease'
+                                        }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.8rem' }}>
+                                                <button onClick={() => setTempPreviewFilter(['correct', 'incorrect', 'unseen'])} style={{ background: 'transparent', border: 'none', color: 'var(--secondary)', fontSize: '0.7rem', fontWeight: 'bold' }}>ALL</button>
+                                                <button onClick={() => setTempPreviewFilter([])} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: '0.7rem', fontWeight: 'bold' }}>CLEAR</button>
+                                            </div>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+                                                {[
+                                                    { val: 'correct', l: 'Correct', c: 'var(--secondary)' },
+                                                    { val: 'incorrect', l: 'Incorrect', c: '#ef4444' },
+                                                    { val: 'unseen', l: 'Unseen', c: 'rgba(255,255,255,0.2)' }
+                                                ].map(f => {
+                                                    const isActive = tempPreviewFilter.includes(f.val);
+                                                    return (
+                                                        <div key={f.val} onClick={() => {
+                                                            if (isActive) setTempPreviewFilter(tempPreviewFilter.filter(x => x !== f.val));
+                                                            else setTempPreviewFilter([...tempPreviewFilter, f.val]);
+                                                        }} style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', cursor: 'pointer', opacity: isActive ? 1 : 0.4 }}>
+                                                            <div style={{ width: '18px', height: '18px', borderRadius: '4px', border: '2px solid', borderColor: isActive ? f.c : 'rgba(255,255,255,0.2)', background: isActive ? f.c : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem' }}>
+                                                                {isActive && '✓'}
+                                                            </div>
+                                                            <span style={{ fontSize: '0.9rem', color: 'white', flex: 1 }}>{f.l}</span>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                            <button onClick={() => { setPreviewFilter(tempPreviewFilter); setShowFilterMenu(false); }} className="button" style={{ padding: '0.6rem', width: '100%', borderRadius: '8px', fontSize: '0.8rem' }}>Apply Filters</button>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+
+                            <button onClick={() => setShowPreview(false)} style={{ background: 'transparent', border: '1px solid var(--border-color)', padding: '0.6rem 1.5rem', fontSize: '0.9rem', color: 'white' }}>
+                                Close Preview
+                            </button>
+                        </div>
                     </div>
 
                     <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem' }} className="custom-scrollbar">
-                        {deck.cards.map((c, idx) => {
+                        {deck.cards.filter(c => previewFilter.includes(getQuizStatus(c))).map((c, originalIdx) => {
                             const status = getQuizStatus(c);
+                            const displayIdx = deck.cards.indexOf(c) + 1;
                             return (
                                 <div key={c.id} style={{ display: 'flex', gap: '0.8rem', minHeight: '80px', marginBottom: '1rem' }}>
-                                    <div style={{ width: '24px', flexShrink: 0, color: 'var(--text-muted)' }}>{idx + 1}</div>
+                                    <div style={{ width: '24px', flexShrink: 0, color: 'var(--text-muted)' }}>{displayIdx}</div>
                                     <div style={{ flex: 1, background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '8px', borderLeft: `4px solid ${status === 'correct' ? 'var(--secondary)' : status === 'incorrect' ? '#ef4444' : 'rgba(255,255,255,0.1)'}` }}>
                                         <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.9rem' }}>{c.question}</div>
                                         <div style={{ color: 'white', fontWeight: 'bold', marginTop: '0.3rem' }}>{c.answer}</div>
