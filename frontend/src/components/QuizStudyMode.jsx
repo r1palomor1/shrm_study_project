@@ -85,7 +85,12 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
         const aiData = getDistractorFromVault(card.id, deck.quizType);
         
         if (aiData && aiData.distractors && aiData.quizType === deck.quizType) {
-            const baseOptions = [card.answer, ...aiData.distractors.slice(0, 3)];
+            // CHALLENGE MODE: Use the AI-transformed correct answer for Intelligent mode
+            const correctAnswer = (deck.quizType === 'intelligent' && aiData.correct_answer) 
+                ? aiData.correct_answer 
+                : card.answer;
+                
+            const baseOptions = [correctAnswer, ...aiData.distractors.slice(0, 3)];
             const shuffled = getSeededShuffle(baseOptions, card.id + deck.quizType);
             setOptions(shuffled.slice(0, 4));
         } else {
@@ -118,7 +123,12 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
         if (userSelectedIdx === null) return;
         setIsConfirmed(true);
         
-        const isCorrect = options[userSelectedIdx] === card.answer;
+        const aiData = getDistractorFromVault(card.id, deck.quizType);
+        const correctAnswer = (deck.quizType === 'intelligent' && aiData?.correct_answer) 
+            ? aiData.correct_answer 
+            : card.answer;
+
+        const isCorrect = options[userSelectedIdx] === correctAnswer;
         if (onUpdateCardStatus) {
             onUpdateCardStatus(card.id, isCorrect ? 'difficulty-5' : 'difficulty-1', {
                 quizType: deck.quizType,

@@ -28,9 +28,10 @@ export default async function handler(req, res) {
     
     Return your response exactly in this JSON format:
     {
-        "percentage": 0-100, // An integer estimating how conceptually close they were.
-        "grade": "green"|"yellow"|"red", // green (>=85%), yellow(60-84%), red (<60%)
-        "feedback": "One short sentence explaining why they missed points, or congratulating them."
+        "percentage": 0-100, 
+        "grade": "green"|"yellow"|"red", 
+        "missing_keywords": ["keyword1", "keyword2"], // 2-3 essential SHRM terms missing from student's answer
+        "feedback": "Delta Analysis: You correctly identified [A], but ensure you incorporate [missing_keywords] to meet the full 2026 BASK definition."
     }
     `;
 

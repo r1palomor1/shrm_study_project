@@ -6,6 +6,7 @@ import QuizStudyMode from './components/QuizStudyMode';
 import AnalyticsDashboard from './components/AnalyticsDashboard';
 import SettingsModal from './components/SettingsModal';
 import ResetModal from './components/ResetModal';
+import ConfirmationModal from './components/ConfirmationModal';
 import { 
   saveDeckToStorage, 
   loadDecksFromStorage, 
@@ -30,6 +31,7 @@ function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isResetOpen, setIsResetOpen] = useState(false);
   const [resetTarget, setResetTarget] = useState(null);
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, type: 'danger', title: '', message: '', onConfirm: null });
 
   // Study configuration
   const [selectedDeckTitle, setSelectedDeckTitle] = useState('ALL');
@@ -52,17 +54,20 @@ function App() {
   };
 
   const handleDeleteDeck = (title) => {
-    const confirmation = window.confirm(
-      `⚠️ WARNING: This will permanently remove "${title}" and ALL your associated study progress, scores, and mastery history from this device.\n\n` +
-      `Are you ABSOLUTELY sure you want to delete this topic?`
-    );
-    
-    if (confirmation) {
-      deleteDeckFromStorage(title);
-      setDecks(loadDecksFromStorage());
-      // Reset selection if we deleted the selected deck
-      if (selectedDeckTitle === title) setSelectedDeckTitle('ALL');
-    }
+    setIsSettingsOpen(false);
+    setConfirmModal({
+      isOpen: true,
+      type: 'danger',
+      title: 'Delete Topic?',
+      message: `Warning: This will permanently remove "${title}" and ALL associated progress from this device.\n\nAre you absolutely sure?`,
+      confirmText: 'Delete Permanently',
+      onConfirm: () => {
+        deleteDeckFromStorage(title);
+        setDecks(loadDecksFromStorage());
+        if (selectedDeckTitle === title) setSelectedDeckTitle('ALL');
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+      }
+    });
   };
 
   const handleResetProgress = (title) => {
@@ -146,13 +151,20 @@ function App() {
   };
   
   const handleNukeAiData = () => {
-    if (window.confirm("⚠️ WARNING: This will permanently delete ALL generated questions, rationales, and distractors across all decks.\n\nYou will have to re-fetch/re-warm everything. Are you sure?")) {
-      if (clearAiVault()) {
-        alert("AI Vault Nuked Successfully.");
-        // We don't necessarily need to reload decks, but a state refresh helps
-        setDecks(loadDecksFromStorage());
+    setIsSettingsOpen(false);
+    setConfirmModal({
+      isOpen: true,
+      type: 'danger',
+      title: 'Nuke AI Vault?',
+      message: 'This will permanently delete ALL generated scenarios, rationales, and distractors. You will need to re-generate content to study in Quiz mode.\n\nContinue?',
+      confirmText: 'Nuke Everything',
+      onConfirm: () => {
+        if (clearAiVault()) {
+          setDecks(loadDecksFromStorage());
+          setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        }
       }
-    }
+    });
   };
 
 // ... inside App component ...
@@ -491,6 +503,16 @@ function App() {
           onConfirm={handlePerformReset}
         />
       )}
+
+      <ConfirmationModal 
+        isOpen={confirmModal.isOpen}
+        type={confirmModal.type}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText={confirmModal.confirmText}
+        onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmModal.onConfirm}
+      />
 
       <main>
         <DataImporter onDeckLoaded={handleDeckLoaded} />

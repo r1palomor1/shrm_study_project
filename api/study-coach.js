@@ -36,18 +36,17 @@ async function handleGenerateDistractors(req, res) {
 
         MANDATORY CONSTRAINTS:
         1. NO LABELING: The name of the [Term] must NOT appear in the Correct Answer or the Distractors.
-        2. VERB MANDATE: Every answer choice MUST begin with a professional action verb (e.g., Analyze, Facilitate, Advise, Audit, Evaluate, Formulate).
-        3. ASSESSMENT FIRST: The correct answer should prioritize "Analyzing," "Auditing," or "Consulting" over immediate "Doing" if the scenario involves a complex strategic or legal risk.
-        4. TRAP NESTING: Use these specific High-Plausibility Distractor patterns:
-           - The 'Band-Aid': A quick fix that solves a symptom but ignores the root cause.
-           - The 'Policy Cop': A rigid application of a rule that lacks business acumen or leadership empathy.
-           - The 'Premature Escalation': Jumping to the CEO or Legal before HR has performed its own internal due diligence or analysis.
-
+        2. VERB MANDATE: Every answer choice MUST begin with a professional action verb (e.g., Analyze, Facilitate, Advise, Audit, Evaluate, Formulate, Collaborate).
+        3. DISCOVERY PRIORITY: Prioritize gathering perspectives. The correct answer should favor 'Conducting initial stakeholder interviews,' 'Gathering diverse perspectives,' or 'Analyzing existing workforce data' before implementing a solution.
+        4. STAKEHOLDER INTEGRATION: Incorporate roles like 'Cross-functional leads,' 'Budget owners,' or 'Departmental stakeholders' into the scenario and options.
+        5. BOSS-MODE TRAPS: Every distractor MUST be a legally or professionally sound action that is simply 'less optimal' than the correct answer. The 'Premature Escalation' trap must sound professional but bypass initial discovery.
+        
         OUTPUT STRUCTURE:
-        - scenario: Realistic 3-4 sentence workplace conflict (merger, crisis, risk) where the [Term] is the solution.
+        - scenario: Realistic 3-4 sentence workplace conflict (merger, crisis, risk).
         - question: End with "What is the BEST action for the HR professional?" or "What should be the FIRST step?"
-        - distractors: Ordered exactly to match the patterns above.
-        - rationale: Explain the "Business Case" for the correct action. Do not just define the term; explain why this action protects the organization better than the distractors. IMPORTANT: Do NOT include labels like "Correct:", "Answer:", or "Rationale:" at the start of the text.
+        - correct_answer: A strategic, single-sentence action that describes applying the [Term]. Start with a verb, NO label/name of the term.
+        - distractors: 3 high-plausibility traps matching the patterns above.
+        - rationale: Explain the "Business Case" for the correct action over the distractors. No labels like "Correct:".
         `;
     } else {
         promptSystemInstructions = `
@@ -57,8 +56,9 @@ async function handleGenerateDistractors(req, res) {
         MANDATORY RULES:
         1. CORRECT ANSWER: Use exact input answer.
         2. DISTRACTORS: Generate 3 high-quality distractors.
-        3. SYMMETRY RULE: All 4 options (Correct + 3 Distractors) MUST be similar in length, professional tone, and complexity. If the correct answer is a full sentence, the distractors must also be full sentences. Avoid single-word distractors for multi-sentence answers.
-        4. RATIONALE: Distinguish the correct term from the distractors. IMPORTANT: Do NOT include labels like "Correct:", "Answer:", or "Rationale:" at the start of the text.
+        3. CONCEPTUAL PROXIMITY: Distractors MUST be 'Neighboring Concepts' from the same SHRM domain. If the term is about compensation, distractors must be about benefits or indirect rewards, not unrelated topics like hiring.
+        4. SYMMETRY RULE: All 4 options MUST be similar in length, professional tone, and complexity.
+        5. RATIONALE: Focus on the fine lines between the correct term and the neighboring distractors. No "Correct:" labels.
         `;
     }
 
@@ -78,6 +78,7 @@ async function handleGenerateDistractors(req, res) {
                 "id": "original_id",
                 "scenario": "string",
                 "question": "string",
+                "correct_answer": "string",
                 "distractors": ["3 items"],
                 "rationale": "string",
                 "shrm_principle": "string",
