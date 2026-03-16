@@ -129,8 +129,8 @@ export function calculateBASKAnalytics(decks, vault) {
     });
 
     const modes = {
-        intelligent: createStatTemplate(),
-        simple: createStatTemplate()
+        intelligent: { ...createStatTemplate(), uniqueIds: new Set(), attemptedIds: new Set(), totalPoints: 0 },
+        simple: { ...createStatTemplate(), uniqueIds: new Set(), attemptedIds: new Set(), totalPoints: 0 }
     };
 
     decks.forEach(deck => {
@@ -140,6 +140,9 @@ export function calculateBASKAnalytics(decks, vault) {
             ['intelligent', 'simple'].forEach(mode => {
                 const aiData = vault[`${card.id}:${mode}`];
                 if (!aiData) return;
+
+                // Track total unique cards available for this mode
+                modes[mode].uniqueIds.add(card.id);
 
                 const statusKey = `status_quiz_${mode}`;
                 const status = card[statusKey];
@@ -153,6 +156,13 @@ export function calculateBASKAnalytics(decks, vault) {
                     modes[mode].domains[domainKey].total++;
                     if (status && status !== 'unseen') {
                         const mastery = getWeightedMastery(status);
+                        
+                        // Global unique tracking for the mode
+                        if (!modes[mode].attemptedIds.has(card.id)) {
+                            modes[mode].attemptedIds.add(card.id);
+                            modes[mode].totalPoints += (mastery / 4);
+                        }
+
                         modes[mode].domains[domainKey].score += (mastery / 4);
                         modes[mode].domains[domainKey].attempted++;
                         if (compKey) {
@@ -207,13 +217,10 @@ export function calculateBASKAnalytics(decks, vault) {
             attempted: modeData.clusters[key].attempted
         }));
 
-        // Calculate Global GPA for this mode
-        const totalAttempted = domainStats.reduce((s, d) => s + d.attempted, 0) + clusterStats.reduce((s, c) => s + c.attempted, 0);
-        const totalScore = domainStats.reduce((s, d) => s + (d.gpa * d.attempted), 0) + clusterStats.reduce((s, c) => s + (c.gpa * c.attempted), 0);
-        const globalGPA = totalAttempted > 0 ? (totalScore / totalAttempted).toFixed(1) : "0.0";
-        
-        const totalCards = domainStats.reduce((s, d) => s + d.count, 0);
-        const totalCompleted = domainStats.reduce((s, d) => s + d.attempted, 0);
+        // Calculate Global Metrics based on unique mode-level tracking
+        const totalCards = modeData.uniqueIds.size;
+        const totalCompleted = modeData.attemptedIds.size;
+        const globalGPA = totalCompleted > 0 ? ((modeData.totalPoints / totalCompleted) * 4.0).toFixed(1) : "0.0";
         const workDone = totalCards > 0 ? Math.round((totalCompleted / totalCards) * 100) : 0;
 
         return {
@@ -221,7 +228,7 @@ export function calculateBASKAnalytics(decks, vault) {
             clusterStats,
             globalGPA,
             workDone,
-            totalAttempted,
+            totalAttempted: totalCompleted,
             totalUnique: totalCards
         };
     };

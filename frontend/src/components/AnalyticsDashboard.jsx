@@ -163,7 +163,9 @@ export default function AnalyticsDashboard({ decks, onBack, initialMode = 'intel
                                             {cluster.attempted >= 2 ? cluster.gpa.toFixed(1) : '--'}
                                             <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginLeft: '4px' }}>GPA</span>
                                         </div>
-                                        <div className="badge" style={{ marginTop: '0.4rem', fontSize: '0.65rem' }}>{cluster.attempted}/{cluster.count} DONE</div>
+                                        <div className="badge" style={{ marginTop: '0.4rem', fontSize: '0.65rem', background: 'rgba(255,255,255,0.05)', color: 'var(--text-muted)' }}>
+                                            {cluster.attempted > 0 ? `${Math.round((cluster.gpa / 4) * 100)}% PROFICIENT` : '0% PROFICIENT'}
+                                        </div>
                                     </div>
                                 </div>
                                 <div style={{ fontSize: '0.75rem', color: colors[cluster.name] || 'var(--primary)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: '600' }}>
