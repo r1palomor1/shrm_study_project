@@ -83,6 +83,11 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
                 onProgress(percent, null);
             }
 
+            // STAGGER LOGIC: Wait 3 seconds before next batch to stay under 15 RPM limit
+            if (i + MAX_BATCH_SIZE < cards.length) {
+                await new Promise(r => setTimeout(r, 3000));
+            }
+
         } catch (error) {
             console.error('Batch Generation Error:', error);
             if (onProgress) {
