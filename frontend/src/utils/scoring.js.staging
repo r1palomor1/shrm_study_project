@@ -160,10 +160,10 @@ export function calculateBASKAnalytics(decks, vault) {
                         // Global unique tracking for the mode
                         if (!modes[mode].attemptedIds.has(card.id)) {
                             modes[mode].attemptedIds.add(card.id);
-                            modes[mode].totalPoints += (mastery / 4);
+                            modes[mode].totalPoints += mastery; // Raw 4.0 Points
                         }
 
-                        modes[mode].domains[domainKey].score += (mastery / 4);
+                        modes[mode].domains[domainKey].score += mastery; // Raw 4.0 Points
                         modes[mode].domains[domainKey].attempted++;
                         if (modes[mode].domains[domainKey].attempts) {
                             modes[mode].domains[domainKey].attempts.push({
@@ -184,9 +184,9 @@ export function calculateBASKAnalytics(decks, vault) {
                     if (modes[mode].clusters[clusterKey].items.includes(compKey)) {
                         modes[mode].clusters[clusterKey].total++;
                         if (status && status !== 'unseen') {
-                            const mastery = getWeightedMastery(status);
-                            modes[mode].clusters[clusterKey].score += (mastery / 4);
-                            modes[mode].clusters[clusterKey].attempted++;
+                        const mastery = getWeightedMastery(status);
+                        modes[mode].clusters[clusterKey].score += mastery; // Raw 4.0 Points
+                        modes[mode].clusters[clusterKey].attempted++;
                             modes[mode].clusters[clusterKey].attempts.push({
                                 id: card.id,
                                 title: card.question || card.front,
@@ -202,7 +202,7 @@ export function calculateBASKAnalytics(decks, vault) {
                     modes[mode].domains['Behavioral Competencies'].total++;
                     if (status && status !== 'unseen') {
                         const mastery = getWeightedMastery(status);
-                        modes[mode].domains['Behavioral Competencies'].score += (mastery / 4);
+                        modes[mode].domains['Behavioral Competencies'].score += mastery; // Raw 4.0 Points
                         modes[mode].domains['Behavioral Competencies'].attempted++;
                     }
                 }
@@ -219,7 +219,7 @@ export function calculateBASKAnalytics(decks, vault) {
         const domainStats = Object.keys(modeData.domains).filter(k => k !== 'Behavioral Competencies').map(key => ({
             name: key,
             percent: modeData.domains[key].total > 0 ? Math.round((modeData.domains[key].attempted / modeData.domains[key].total) * 100) : 0,
-            gpa: modeData.domains[key].attempted > 0 ? (modeData.domains[key].score / modeData.domains[key].attempted) * 4.0 : 0,
+            gpa: modeData.domains[key].attempted > 0 ? (modeData.domains[key].score / modeData.domains[key].attempted) : 0,
             count: modeData.domains[key].total,
             attempted: modeData.domains[key].attempted,
             attempts: modeData.domains[key].attempts || [],
@@ -229,7 +229,7 @@ export function calculateBASKAnalytics(decks, vault) {
         const clusterStats = Object.keys(modeData.clusters).map(key => ({
             name: modeData.clusters[key].name,
             percent: modeData.clusters[key].total > 0 ? Math.round((modeData.clusters[key].attempted / modeData.clusters[key].total) * 100) : 0,
-            gpa: modeData.clusters[key].attempted > 0 ? (modeData.clusters[key].score / modeData.clusters[key].attempted) * 4.0 : 0,
+            gpa: modeData.clusters[key].attempted > 0 ? (modeData.clusters[key].score / modeData.clusters[key].attempted) : 0,
             count: modeData.clusters[key].total,
             attempted: modeData.clusters[key].attempted,
             attempts: modeData.clusters[key].attempts
@@ -238,7 +238,7 @@ export function calculateBASKAnalytics(decks, vault) {
         // Calculate Global Metrics based on unique mode-level tracking
         const totalCards = modeData.uniqueIds.size;
         const totalCompleted = modeData.attemptedIds.size;
-        const globalGPA = totalCompleted > 0 ? ((modeData.totalPoints / totalCompleted) * 4.0).toFixed(1) : "0.0";
+        const globalGPA = totalCompleted > 0 ? (modeData.totalPoints / totalCompleted).toFixed(1) : "0.0";
         const workDone = totalCards > 0 ? Math.round((totalCompleted / totalCards) * 100) : 0;
 
         return {
