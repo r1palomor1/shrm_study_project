@@ -417,6 +417,7 @@ function App() {
       <div className="app-container animate-fade-in" style={{ paddingTop: '2rem' }}>
         <AnalyticsDashboard 
           decks={decks} 
+          initialMode={quizType}
           onBack={() => setIsViewingAnalytics(false)} 
         />
       </div>

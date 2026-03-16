@@ -109,61 +109,78 @@ export function getWeightedMastery(status) {
 
 /**
  * Aggregates mastery data across the 2026 BASK framework.
- * Returns an object with domainStats and competencyStats.
+ * Returns an object with isolated stats for 'simple' and 'intelligent' modes.
  */
 export function calculateBASKAnalytics(decks, vault) {
-    const domains = {
-        'People': { total: 0, score: 0, links: {} },
-        'Organization': { total: 0, score: 0, links: {} },
-        'Workplace': { total: 0, score: 0, links: {} },
-        'Behavioral Competencies': { total: 0, score: 0, links: {} }
-    };
-
-    const clusters = {
-        'Leadership': { total: 0, score: 0, name: 'Leadership Cluster', items: ['Leadership & Navigation', 'Ethical Practice'] },
-        'Interpersonal': { total: 0, score: 0, name: 'Interpersonal Cluster', items: ['Relationship Management', 'Communication', 'Inclusive Mindset'] },
-        'Business': { total: 0, score: 0, name: 'Business Cluster', items: ['Business Acumen', 'Consultation', 'Analytical Aptitude'] }
-    };
-
     const uniqueQuestions = new Set();
-    let totalCerts = 0; // For future Phase 12
+    
+    const createStatTemplate = () => ({
+        domains: {
+            'People': { total: 0, score: 0, links: {}, attempted: 0 },
+            'Organization': { total: 0, score: 0, links: {}, attempted: 0 },
+            'Workplace': { total: 0, score: 0, links: {}, attempted: 0 },
+            'Behavioral Competencies': { total: 0, score: 0, links: {}, attempted: 0 }
+        },
+        clusters: {
+            'Leadership': { total: 0, score: 0, name: 'Leadership Cluster', items: ['Leadership & Navigation', 'Ethical Practice'], attempted: 0 },
+            'Interpersonal': { total: 0, score: 0, name: 'Interpersonal Cluster', items: ['Relationship Management', 'Communication', 'Inclusive Mindset'], attempted: 0 },
+            'Business': { total: 0, score: 0, name: 'Business Cluster', items: ['Business Acumen', 'Consultation', 'Analytical Aptitude'], attempted: 0 }
+        }
+    });
+
+    const modes = {
+        intelligent: createStatTemplate(),
+        simple: createStatTemplate()
+    };
 
     decks.forEach(deck => {
         deck.cards.forEach(card => {
-            const aiData = vault[card.id] || vault[`${card.id}:intelligent`] || vault[`${card.id}:simple`];
-            if (!aiData) return;
-
             uniqueQuestions.add(card.id);
-            const status = card.status_traditional || card.status_test || card.status_quiz || card.status;
-            const mastery = getWeightedMastery(status);
             
-            // Map Domain (BASK Domain)
-            const domainKey = (aiData.tag_bask || '').split('|')[0].trim();
-            if (domains[domainKey]) {
-                domains[domainKey].total++;
-                domains[domainKey].score += (mastery / 4);
-                
-                // Track behavioral links
-                const behavior = aiData.tag_behavior;
-                if (behavior) {
-                    domains[domainKey].links[behavior] = (domains[domainKey].links[behavior] || 0) + 1;
-                }
-            }
+            ['intelligent', 'simple'].forEach(mode => {
+                const aiData = vault[`${card.id}:${mode}`];
+                if (!aiData) return;
 
-            // Map Cluster
-            const compKey = aiData.tag_behavior;
-            Object.keys(clusters).forEach(clusterKey => {
-                if (clusters[clusterKey].items.includes(compKey)) {
-                    clusters[clusterKey].total++;
-                    clusters[clusterKey].score += (mastery / 4);
+                const statusKey = `status_quiz_${mode}`;
+                const status = card[statusKey];
+                
+                // If not attempted, we still count it for "total" availability, 
+                // but not for "attempted" score tracking
+                const domainKey = (aiData.tag_bask || '').split('|')[0].trim();
+                const compKey = aiData.tag_behavior;
+
+                if (modes[mode].domains[domainKey]) {
+                    modes[mode].domains[domainKey].total++;
+                    if (status && status !== 'unseen') {
+                        const mastery = getWeightedMastery(status);
+                        modes[mode].domains[domainKey].score += (mastery / 4);
+                        modes[mode].domains[domainKey].attempted++;
+                        if (compKey) {
+                            modes[mode].domains[domainKey].links[compKey] = (modes[mode].domains[domainKey].links[compKey] || 0) + 1;
+                        }
+                    }
+                }
+
+                Object.keys(modes[mode].clusters).forEach(clusterKey => {
+                    if (modes[mode].clusters[clusterKey].items.includes(compKey)) {
+                        modes[mode].clusters[clusterKey].total++;
+                        if (status && status !== 'unseen') {
+                            const mastery = getWeightedMastery(status);
+                            modes[mode].clusters[clusterKey].score += (mastery / 4);
+                            modes[mode].clusters[clusterKey].attempted++;
+                        }
+                    }
+                });
+
+                if (compKey) {
+                    modes[mode].domains['Behavioral Competencies'].total++;
+                    if (status && status !== 'unseen') {
+                        const mastery = getWeightedMastery(status);
+                        modes[mode].domains['Behavioral Competencies'].score += (mastery / 4);
+                        modes[mode].domains['Behavioral Competencies'].attempted++;
+                    }
                 }
             });
-            
-            // Always aggregate to top-level Behavioral domain
-            if (compKey) {
-                domains['Behavioral Competencies'].total++;
-                domains['Behavioral Competencies'].score += (mastery / 4);
-            }
         });
     });
 
@@ -172,19 +189,46 @@ export function calculateBASKAnalytics(decks, vault) {
         return Object.entries(links).sort((a, b) => b[1] - a[1])[0][0];
     };
 
+    const processStats = (modeData) => {
+        const domainStats = Object.keys(modeData.domains).filter(k => k !== 'Behavioral Competencies').map(key => ({
+            name: key,
+            percent: modeData.domains[key].total > 0 ? Math.round((modeData.domains[key].attempted / modeData.domains[key].total) * 100) : 0,
+            gpa: modeData.domains[key].attempted > 0 ? (modeData.domains[key].score / modeData.domains[key].attempted) * 4.0 : 0,
+            count: modeData.domains[key].total,
+            attempted: modeData.domains[key].attempted,
+            primaryLink: getPrimaryLink(modeData.domains[key].links)
+        }));
+
+        const clusterStats = Object.keys(modeData.clusters).map(key => ({
+            name: modeData.clusters[key].name,
+            percent: modeData.clusters[key].total > 0 ? Math.round((modeData.clusters[key].attempted / modeData.clusters[key].total) * 100) : 0,
+            gpa: modeData.clusters[key].attempted > 0 ? (modeData.clusters[key].score / modeData.clusters[key].attempted) * 4.0 : 0,
+            count: modeData.clusters[key].total,
+            attempted: modeData.clusters[key].attempted
+        }));
+
+        // Calculate Global GPA for this mode
+        const totalAttempted = domainStats.reduce((s, d) => s + d.attempted, 0) + clusterStats.reduce((s, c) => s + c.attempted, 0);
+        const totalScore = domainStats.reduce((s, d) => s + (d.gpa * d.attempted), 0) + clusterStats.reduce((s, c) => s + (c.gpa * c.attempted), 0);
+        const globalGPA = totalAttempted > 0 ? (totalScore / totalAttempted).toFixed(1) : "0.0";
+        
+        const totalCards = domainStats.reduce((s, d) => s + d.count, 0);
+        const totalCompleted = domainStats.reduce((s, d) => s + d.attempted, 0);
+        const workDone = totalCards > 0 ? Math.round((totalCompleted / totalCards) * 100) : 0;
+
+        return {
+            domainStats,
+            clusterStats,
+            globalGPA,
+            workDone,
+            totalAttempted,
+            totalUnique: totalCards
+        };
+    };
+
     return {
         totalUnique: uniqueQuestions.size,
-        domainStats: Object.keys(domains).filter(k => k !== 'Behavioral Competencies').map(key => ({
-            name: key,
-            percent: domains[key].total > 0 ? Math.round((domains[key].score / domains[key].total) * 100) : 0,
-            count: domains[key].total,
-            primaryLink: getPrimaryLink(domains[key].links)
-        })),
-        clusterStats: Object.keys(clusters).map(key => ({
-            name: clusters[key].name,
-            percent: clusters[key].total > 0 ? Math.round((clusters[key].score / clusters[key].total) * 100) : 0,
-            count: clusters[key].total
-        })),
-        behavioralTotal: domains['Behavioral Competencies']
+        intelligent: processStats(modes.intelligent),
+        simple: processStats(modes.simple)
     };
 }
