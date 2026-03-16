@@ -6,6 +6,8 @@ export default function AnalyticsDashboard({ decks, onBack, initialMode = 'intel
     const vault = useMemo(() => loadVaultFromStorage(), []);
     const stats = useMemo(() => calculateBASKAnalytics(decks, vault), [decks, vault]);
     const [activeMode, setActiveMode] = useState(initialMode);
+    const [expandedCard, setExpandedCard] = useState(null); 
+    const [expandedAttempt, setExpandedAttempt] = useState(null); // Track specific question drill-down
 
     const modeStats = stats[activeMode];
     const otherMode = activeMode === 'intelligent' ? 'simple' : 'intelligent';
@@ -107,31 +109,84 @@ export default function AnalyticsDashboard({ decks, onBack, initialMode = 'intel
                     </div>
                     <div style={{ display: 'grid', gap: '1.5rem' }}>
                         {(modeStats.domainStats || []).map(domain => (
-                            <div key={domain.name} className="glass-panel" style={{ padding: '1.5rem', borderLeft: `4px solid ${colors[domain.name] || 'var(--primary)'}` }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                                    <div>
-                                        <h4 style={{ margin: 0, fontSize: '1.2rem' }}>{domain.name}</h4>
-                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
-                                            {domain.name === 'People' && 'HR Strategy, Talent Acq, Engagement'}
-                                            {domain.name === 'Organization' && 'Structure, HR Effectiveness, Technology'}
-                                            {domain.name === 'Workplace' && 'Employment Law, Risk, Global HR'}
+                            <div key={domain.name}>
+                                <div 
+                                    className={`glass-panel card-interactive ${expandedCard === domain.name ? 'active' : ''}`}
+                                    onClick={() => setExpandedCard(expandedCard === domain.name ? null : domain.name)}
+                                    style={{ 
+                                        padding: '1.5rem', 
+                                        borderLeft: `4px solid ${colors[domain.name] || 'var(--primary)'}`,
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s ease',
+                                        background: expandedCard === domain.name ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.03)'
+                                    }}
+                                >
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                                        <div>
+                                            <h4 style={{ margin: 0, fontSize: '1.2rem' }}>{domain.name}</h4>
+                                            <div style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.5)', marginTop: '0.3rem' }}>
+                                                {domain.name === 'People' && 'HR Strategy, Talent Acq, Engagement'}
+                                                {domain.name === 'Organization' && 'Structure, HR Effectiveness, Technology'}
+                                                {domain.name === 'Workplace' && 'Employment Law, Risk, Global HR'}
+                                            </div>
+                                        </div>
+                                        <div style={{ textAlign: 'right' }}>
+                                            <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: domain.attempted >= 2 ? 'white' : 'rgba(255,255,255,0.2)' }}>
+                                                {domain.attempted >= 2 ? domain.gpa.toFixed(1) : '--'}
+                                                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginLeft: '4px' }}>GPA</span>
+                                            </div>
+                                            <div className="badge" style={{ marginTop: '0.4rem', fontSize: '0.65rem', background: 'rgba(255,255,255,0.1)', color: 'white', fontWeight: 'bold' }}>
+                                                {domain.attempted}/{domain.count} DONE
+                                            </div>
                                         </div>
                                     </div>
-                                    <div style={{ textAlign: 'right' }}>
-                                        <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: domain.attempted >= 2 ? 'white' : 'rgba(255,255,255,0.2)' }}>
-                                            {domain.attempted >= 2 ? domain.gpa.toFixed(1) : '--'}
-                                            <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginLeft: '4px' }}>GPA</span>
-                                        </div>
-                                        <div className="badge" style={{ marginTop: '0.4rem', fontSize: '0.65rem' }}>{domain.attempted}/{domain.count} DONE</div>
+                                    <div style={{ fontSize: '0.75rem', color: getBridgeColor(domain.primaryLink), marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: '600' }}>
+                                        <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>join_inner</span>
+                                        {domain.primaryLink ? `Applied via: ${domain.primaryLink}` : 'No behavioral bridge detected'}
+                                    </div>
+                                    <div style={{ height: '6px', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '3px', overflow: 'hidden' }}>
+                                        <div style={{ width: `${domain.percent}%`, height: '100%', backgroundColor: colors[domain.name] || 'var(--primary)', boxShadow: `0 0 15px ${colors[domain.name]}44` }} />
                                     </div>
                                 </div>
-                                <div style={{ fontSize: '0.75rem', color: getBridgeColor(domain.primaryLink), marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: '600' }}>
-                                    <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>join_inner</span>
-                                    {domain.primaryLink ? `Applied via: ${domain.primaryLink}` : 'No behavioral bridge detected'}
-                                </div>
-                                <div style={{ height: '6px', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '3px', overflow: 'hidden' }}>
-                                    <div style={{ width: `${domain.percent}%`, height: '100%', backgroundColor: colors[domain.name] || 'var(--primary)', boxShadow: `0 0 15px ${colors[domain.name]}44` }} />
-                                </div>
+                                
+                                {/* Drill-Down Accordion */}
+                                {expandedCard === domain.name && (
+                                    <div className="animate-slide-down" style={{ 
+                                        padding: '1rem', 
+                                        background: 'rgba(0,0,0,0.2)', 
+                                        borderRadius: '0 0 12px 12px', 
+                                        border: '1px solid rgba(255,255,255,0.05)',
+                                        borderTop: 'none',
+                                        marginBottom: '1rem'
+                                    }}>
+                                        <div style={{ fontSize: '0.65rem', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.8rem', letterSpacing: '1px' }}>Surgical Audit: Attempted Questions</div>
+                                        <div style={{ display: 'grid', gap: '0.6rem' }}>
+                                            {(domain.attempts || []).map((attempt, idx) => (
+                                                <div key={idx} style={{ 
+                                                    padding: '0.8rem', 
+                                                    background: 'rgba(255,255,255,0.03)', 
+                                                    borderRadius: '8px',
+                                                    display: 'flex',
+                                                    justifyContent: 'space-between',
+                                                    alignItems: 'center'
+                                                }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                                                        <span className="material-symbols-outlined" style={{ 
+                                                            fontSize: '1rem', 
+                                                            color: attempt.mastery >= 0.85 ? 'var(--secondary)' : attempt.mastery >= 0.6 ? '#f59e0b' : '#ef4444' 
+                                                        }}>
+                                                            {attempt.mastery >= 0.85 ? 'check_circle' : 'error'}
+                                                        </span>
+                                                        <span style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.8)' }}>{attempt.title.length > 60 ? attempt.title.substring(0, 60) + '...' : attempt.title}</span>
+                                                    </div>
+                                                    <div style={{ fontSize: '0.7rem', fontWeight: 'bold', color: 'var(--text-muted)' }}>
+                                                        {attempt.mastery.toFixed(1)} <span style={{ fontSize: '0.6rem' }}>GPA</span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         ))}
                     </div>
@@ -148,33 +203,123 @@ export default function AnalyticsDashboard({ decks, onBack, initialMode = 'intel
                     </div>
                     <div style={{ display: 'grid', gap: '1.5rem' }}>
                         {(modeStats.clusterStats || []).map(cluster => (
-                            <div key={cluster.name} className="glass-panel" style={{ padding: '1.5rem', borderLeft: `4px solid ${colors[cluster.name] || 'var(--primary)'}` }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                                    <div>
-                                        <h4 style={{ margin: 0, fontSize: '1.2rem' }}>{cluster.name.replace(' Cluster', '')}</h4>
-                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
-                                            {cluster.name.includes('Leadership') && 'Ethical Practice, Relationship Mgmt'}
-                                            {cluster.name.includes('Interpersonal') && 'Communication, Diversity, Inclusion'}
-                                            {cluster.name.includes('Business') && 'Business Acumen, Consulting'}
+                            <div key={cluster.name}>
+                                <div 
+                                    className={`glass-panel card-interactive ${expandedCard === cluster.name ? 'active' : ''}`}
+                                    onClick={() => setExpandedCard(expandedCard === cluster.name ? null : cluster.name)}
+                                    style={{ 
+                                        padding: '1.5rem', 
+                                        borderLeft: `4px solid ${colors[cluster.name] || 'var(--primary)'}`,
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s ease',
+                                        background: expandedCard === cluster.name ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.03)'
+                                    }}
+                                >
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                                        <div>
+                                            <h4 style={{ margin: 0, fontSize: '1.2rem' }}>{cluster.name.replace(' Cluster', '')}</h4>
+                                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+                                                {cluster.name.includes('Leadership') && 'Ethical Practice, Relationship Mgmt'}
+                                                {cluster.name.includes('Interpersonal') && 'Communication, Diversity, Inclusion'}
+                                                {cluster.name.includes('Business') && 'Business Acumen, Consulting'}
+                                            </div>
+                                        </div>
+                                        <div style={{ textAlign: 'right' }}>
+                                            <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: cluster.attempted >= 2 ? 'white' : 'rgba(255,255,255,0.2)' }}>
+                                                {cluster.attempted >= 2 ? cluster.gpa.toFixed(1) : '--'}
+                                                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginLeft: '4px' }}>GPA</span>
+                                            </div>
+                                            <div className="badge" style={{ marginTop: '0.4rem', fontSize: '0.65rem', background: 'rgba(255,255,255,0.15)', color: 'white', fontWeight: '800' }}>
+                                                {cluster.attempted > 0 ? `${Math.round((cluster.gpa / 4) * 100)}% PROFICIENT` : '0% PROFICIENT'}
+                                            </div>
                                         </div>
                                     </div>
-                                    <div style={{ textAlign: 'right' }}>
-                                        <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: cluster.attempted >= 2 ? 'white' : 'rgba(255,255,255,0.2)' }}>
-                                            {cluster.attempted >= 2 ? cluster.gpa.toFixed(1) : '--'}
-                                            <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginLeft: '4px' }}>GPA</span>
-                                        </div>
-                                        <div className="badge" style={{ marginTop: '0.4rem', fontSize: '0.65rem', background: 'rgba(255,255,255,0.05)', color: 'var(--text-muted)' }}>
-                                            {cluster.attempted > 0 ? `${Math.round((cluster.gpa / 4) * 100)}% PROFICIENT` : '0% PROFICIENT'}
-                                        </div>
+                                    <div style={{ fontSize: '0.75rem', color: colors[cluster.name] || 'var(--primary)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: '600' }}>
+                                        <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>join_inner</span>
+                                        {cluster.attempted > 0 ? `Bridges: ${cluster.name.includes('Leadership') ? 'People & Organization' : 'Workplace Domain'}` : 'No bridge data yet'}
+                                    </div>
+                                    <div style={{ height: '6px', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '3px', overflow: 'hidden' }}>
+                                        <div style={{ width: `${cluster.percent}%`, height: '100%', backgroundColor: colors[cluster.name] || 'var(--primary)', boxShadow: `0 0 15px ${colors[cluster.name]}44` }} />
                                     </div>
                                 </div>
-                                <div style={{ fontSize: '0.75rem', color: colors[cluster.name] || 'var(--primary)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: '600' }}>
-                                    <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>join_inner</span>
-                                    {cluster.attempted > 0 ? `Bridges: ${cluster.name.includes('Leadership') ? 'People & Organization' : 'Workplace Domain'}` : 'No bridge data yet'}
-                                </div>
-                                <div style={{ height: '6px', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '3px', overflow: 'hidden' }}>
-                                    <div style={{ width: `${cluster.percent}%`, height: '100%', backgroundColor: colors[cluster.name] || 'var(--primary)', boxShadow: `0 0 15px ${colors[cluster.name]}44` }} />
-                                </div>
+
+                                {/* Drill-Down Accordion */}
+                                {expandedCard === cluster.name && (
+                                    <div className="animate-slide-down" style={{ 
+                                        padding: '1rem', 
+                                        background: 'rgba(0,0,0,0.2)', 
+                                        borderRadius: '0 0 12px 12px', 
+                                        border: '1px solid rgba(255,255,255,0.05)',
+                                        borderTop: 'none',
+                                        marginBottom: '1rem'
+                                    }}>
+                                        <div style={{ fontSize: '0.65rem', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.8rem', letterSpacing: '1px' }}>Surgical Audit: Attempted Questions</div>
+                                        <div style={{ display: 'grid', gap: '0.6rem' }}>
+                                            {(cluster.attempts || []).map((attempt, idx) => {
+                                                const attemptData = vault[`${attempt.id}:intelligent`] || vault[`${attempt.id}:simple`];
+                                                const isExpanded = expandedAttempt === attempt.id;
+
+                                                return (
+                                                    <div key={idx} style={{ 
+                                                        background: 'rgba(255,255,255,0.03)', 
+                                                        borderRadius: '8px',
+                                                        overflow: 'hidden',
+                                                        border: isExpanded ? '1px solid rgba(255,255,255,0.1)' : '1px solid transparent'
+                                                    }}>
+                                                        <div 
+                                                            onClick={(e) => { e.stopPropagation(); setExpandedAttempt(isExpanded ? null : attempt.id); }}
+                                                            style={{ 
+                                                                padding: '0.8rem', 
+                                                                display: 'flex',
+                                                                justifyContent: 'space-between',
+                                                                alignItems: 'center',
+                                                                cursor: 'pointer'
+                                                            }}
+                                                        >
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                                                                <span className="material-symbols-outlined" style={{ 
+                                                                    fontSize: '1rem', 
+                                                                    color: attempt.mastery >= 0.85 ? 'var(--secondary)' : attempt.mastery >= 0.6 ? '#f59e0b' : '#ef4444' 
+                                                                }}>
+                                                                    {attempt.mastery >= 0.85 ? 'check_circle' : 'error'}
+                                                                </span>
+                                                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                                    <span style={{ fontSize: '0.8rem', color: isExpanded ? 'white' : 'rgba(255,255,255,0.8)' }}>{attempt.title.length > 65 ? attempt.title.substring(0, 65) + '...' : attempt.title}</span>
+                                                                    <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>Mapped via: {attempt.domainLink}</span>
+                                                                </div>
+                                                            </div>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                                                <div style={{ fontSize: '0.7rem', fontWeight: 'bold', color: 'var(--text-muted)' }}>
+                                                                    {attempt.mastery.toFixed(1)} <span style={{ fontSize: '0.6rem' }}>GPA</span>
+                                                                </div>
+                                                                <span className="material-symbols-outlined" style={{ fontSize: '1rem', color: 'rgba(255,255,255,0.2)' }}>
+                                                                    {isExpanded ? 'expand_less' : 'expand_more'}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+
+                                                        {isExpanded && attemptData && (
+                                                            <div className="animate-fade-in" style={{ padding: '0.1rem 1rem 1rem 2.6rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                                                                {attemptData.scenario && (
+                                                                    <div style={{ marginBottom: '1rem' }}>
+                                                                        <div style={{ fontSize: '0.6rem', color: 'var(--secondary)', textTransform: 'uppercase', marginBottom: '0.3rem' }}>The Scenario</div>
+                                                                        <p style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.6)', lineHeight: '1.4', margin: 0 }}>{attemptData.scenario}</p>
+                                                                    </div>
+                                                                )}
+                                                                {attemptData.rationale && (
+                                                                    <div>
+                                                                        <div style={{ fontSize: '0.6rem', color: '#fbbf24', textTransform: 'uppercase', marginBottom: '0.3rem' }}>Analysis & Rationale</div>
+                                                                        <p style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.6)', lineHeight: '1.4', margin: 0, fontStyle: 'italic' }}>{attemptData.rationale}</p>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         ))}
                     </div>

@@ -122,9 +122,9 @@ export function calculateBASKAnalytics(decks, vault) {
             'Behavioral Competencies': { total: 0, score: 0, links: {}, attempted: 0 }
         },
         clusters: {
-            'Leadership': { total: 0, score: 0, name: 'Leadership Cluster', items: ['Leadership & Navigation', 'Ethical Practice'], attempted: 0 },
-            'Interpersonal': { total: 0, score: 0, name: 'Interpersonal Cluster', items: ['Relationship Management', 'Communication', 'Inclusive Mindset'], attempted: 0 },
-            'Business': { total: 0, score: 0, name: 'Business Cluster', items: ['Business Acumen', 'Consultation', 'Analytical Aptitude'], attempted: 0 }
+            'Leadership': { total: 0, score: 0, name: 'Leadership Cluster', items: ['Leadership & Navigation', 'Ethical Practice'], attempted: 0, attempts: [] },
+            'Interpersonal': { total: 0, score: 0, name: 'Interpersonal Cluster', items: ['Relationship Management', 'Communication', 'Inclusive Mindset'], attempted: 0, attempts: [] },
+            'Business': { total: 0, score: 0, name: 'Business Cluster', items: ['Business Acumen', 'Consultation', 'Analytical Aptitude'], attempted: 0, attempts: [] }
         }
     });
 
@@ -165,6 +165,13 @@ export function calculateBASKAnalytics(decks, vault) {
 
                         modes[mode].domains[domainKey].score += (mastery / 4);
                         modes[mode].domains[domainKey].attempted++;
+                        modes[mode].domains[domainKey].attempts.push({
+                            id: card.id,
+                            title: card.question || card.front,
+                            mastery: (mastery / 4),
+                            status: status
+                        });
+                        
                         if (compKey) {
                             modes[mode].domains[domainKey].links[compKey] = (modes[mode].domains[domainKey].links[compKey] || 0) + 1;
                         }
@@ -178,6 +185,13 @@ export function calculateBASKAnalytics(decks, vault) {
                             const mastery = getWeightedMastery(status);
                             modes[mode].clusters[clusterKey].score += (mastery / 4);
                             modes[mode].clusters[clusterKey].attempted++;
+                            modes[mode].clusters[clusterKey].attempts.push({
+                                id: card.id,
+                                title: card.question || card.front,
+                                mastery: (mastery / 4),
+                                status: status,
+                                domainLink: domainKey
+                            });
                         }
                     }
                 });
@@ -214,7 +228,8 @@ export function calculateBASKAnalytics(decks, vault) {
             percent: modeData.clusters[key].total > 0 ? Math.round((modeData.clusters[key].attempted / modeData.clusters[key].total) * 100) : 0,
             gpa: modeData.clusters[key].attempted > 0 ? (modeData.clusters[key].score / modeData.clusters[key].attempted) * 4.0 : 0,
             count: modeData.clusters[key].total,
-            attempted: modeData.clusters[key].attempted
+            attempted: modeData.clusters[key].attempted,
+            attempts: modeData.clusters[key].attempts
         }));
 
         // Calculate Global Metrics based on unique mode-level tracking
