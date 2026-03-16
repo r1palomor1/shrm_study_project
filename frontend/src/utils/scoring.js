@@ -116,10 +116,10 @@ export function calculateBASKAnalytics(decks, vault) {
     
     const createStatTemplate = () => ({
         domains: {
-            'People': { total: 0, score: 0, links: {}, attempted: 0 },
-            'Organization': { total: 0, score: 0, links: {}, attempted: 0 },
-            'Workplace': { total: 0, score: 0, links: {}, attempted: 0 },
-            'Behavioral Competencies': { total: 0, score: 0, links: {}, attempted: 0 }
+            'People': { total: 0, score: 0, links: {}, attempted: 0, attempts: [] },
+            'Organization': { total: 0, score: 0, links: {}, attempted: 0, attempts: [] },
+            'Workplace': { total: 0, score: 0, links: {}, attempted: 0, attempts: [] },
+            'Behavioral Competencies': { total: 0, score: 0, links: {}, attempted: 0, attempts: [] }
         },
         clusters: {
             'Leadership': { total: 0, score: 0, name: 'Leadership Cluster', items: ['Leadership & Navigation', 'Ethical Practice'], attempted: 0, attempts: [] },
@@ -165,12 +165,14 @@ export function calculateBASKAnalytics(decks, vault) {
 
                         modes[mode].domains[domainKey].score += (mastery / 4);
                         modes[mode].domains[domainKey].attempted++;
-                        modes[mode].domains[domainKey].attempts.push({
-                            id: card.id,
-                            title: card.question || card.front,
-                            mastery: (mastery / 4),
-                            status: status
-                        });
+                        if (modes[mode].domains[domainKey].attempts) {
+                            modes[mode].domains[domainKey].attempts.push({
+                                id: card.id,
+                                title: card.question || card.front,
+                                mastery: (mastery / 4),
+                                status: status
+                            });
+                        }
                         
                         if (compKey) {
                             modes[mode].domains[domainKey].links[compKey] = (modes[mode].domains[domainKey].links[compKey] || 0) + 1;
