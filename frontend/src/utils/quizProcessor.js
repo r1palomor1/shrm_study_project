@@ -69,7 +69,6 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
                         correct_answer: res.correct_answer,
                         distractors: res.distractors,
                         rationale: res.rationale,
-                        shrm_principle: res.shrm_principle,
                         tag_bask: res.tag_bask,
                         tag_behavior: res.tag_behavior
                     });

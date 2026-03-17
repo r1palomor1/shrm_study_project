@@ -112,9 +112,12 @@ function App() {
     setResetTarget(null);
   };
 
+  const [warmUpStatus, setWarmUpStatus] = useState(null);
+
   const handleBulkWarmUp = async () => {
     if (decks.length === 0) return;
     setWarmUpError(null);
+    setWarmUpStatus("Initializing...");
 
     // 1. Identify Target Cards
     let targetCards = [];
@@ -135,18 +138,24 @@ function App() {
       try {
         // MODE 1: Intelligent (Simulator)
         let { missingCards: missingIntel } = await getQuizDataForDeck({ cards: targetCards }, 'intelligent');
+        const intelBatches = Math.ceil(missingIntel.length / 15);
+        let currentBatch = 0;
+
         while (missingIntel.length > 0) {
           let rateLimited = false;
+          currentBatch++;
+          setWarmUpStatus(`SJI SYNC: Batch ${currentBatch} of ${intelBatches}...`);
+
           await generateDistractorsBatch(missingIntel, 'intelligent', (p, error) => {
             setWarmUpProgress(Math.round(p * 0.5)); // First half of bar
             if (error === 'RATE_LIMIT') rateLimited = true;
           });
 
           if (rateLimited) {
+            setWarmUpStatus("Gemini Overload. Shielding for 15s...");
             setWarmUpError('Gemini Busy. Self-Healing Resume in 15s...');
             await new Promise(r => setTimeout(r, 15000));
             setWarmUpError(null);
-            // Refresh missing list
             const updated = await getQuizDataForDeck({ cards: targetCards }, 'intelligent');
             missingIntel = updated.missingCards;
           } else {
@@ -156,14 +165,21 @@ function App() {
 
         // MODE 2: Simple (Recall)
         let { missingCards: missingSimple } = await getQuizDataForDeck({ cards: targetCards }, 'simple');
+        const simpleBatches = Math.ceil(missingSimple.length / 15);
+        currentBatch = 0;
+
         while (missingSimple.length > 0) {
           let rateLimited = false;
+          currentBatch++;
+          setWarmUpStatus(`RECALL SYNC: Batch ${currentBatch} of ${simpleBatches}...`);
+
           await generateDistractorsBatch(missingSimple, 'simple', (p, error) => {
             setWarmUpProgress(50 + Math.round(p * 0.5)); // Second half of bar
             if (error === 'RATE_LIMIT') rateLimited = true;
           });
 
           if (rateLimited) {
+            setWarmUpStatus("API Rate Limit. Cooling down 15s...");
             setWarmUpError('Rate Limited. Self-Healing Resume in 15s...');
             await new Promise(r => setTimeout(r, 15000));
             setWarmUpError(null);
@@ -174,6 +190,7 @@ function App() {
           }
         }
 
+        setWarmUpStatus("COMPLETED: All Data Synced.");
         setWarmUpProgress(100);
         setTimeout(() => setIsWarmingUp(false), 2000);
       } catch (err) {
@@ -363,7 +380,10 @@ function App() {
                           <span>{masteredCount} mastered</span>
                           <span>{percent}%</span>
                         </div>
-                        <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.05)', borderRadius: '2px', overflow: 'hidden' }}>
+                        <div style={{ color: warmUpError ? '#ef4444' : '#60a5fa', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '1.2rem', fontFamily: 'monospace' }}>
+                  {warmUpStatus}
+                </div>
+                <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '10px', overflow: 'hidden', marginBottom: '1.5rem' }}>
                           <div style={{ width: `${percent}%`, height: '100%', background: selectedDeckTitle === deck.title ? 'var(--secondary)' : 'rgba(255,255,255,0.2)' }} />
                         </div>
                       </div>
