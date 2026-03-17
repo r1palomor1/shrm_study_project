@@ -48,8 +48,8 @@ const TopicHealthCell = ({ count, total }) => {
  * VaultHealthMatrix: Structural Component for AI Readiness Audit.
  * Provides a granular view of AI content presence across all topics.
  */
-const VaultHealthMatrix = ({ decks, onSmartSync, isSyncing, syncProgress }) => {
-  const vault = useMemo(() => loadVaultFromStorage(), []);
+const VaultHealthMatrix = ({ decks, onSmartSync, isSyncing, syncProgress, certLevel = 'CP' }) => {
+  const vault = useMemo(() => loadVaultFromStorage(), [isSyncing, syncProgress]);
 
   // Structural Logic: Calculate health stats for each topic
   const topicStats = useMemo(() => {
@@ -64,8 +64,9 @@ const VaultHealthMatrix = ({ decks, onSmartSync, isSyncing, syncProgress }) => {
       };
 
       deck.cards.forEach(card => {
-        const sData = vault[`${card.id}:simple`];
-        const iData = vault[`${card.id}:intelligent`];
+        // Updated to use the ISOATED KEY STRATEGY (fingerprint:quizType:certLevel)
+        const sData = vault[`${card.id}:simple:${certLevel}`];
+        const iData = vault[`${card.id}:intelligent:${certLevel}`];
 
         // PHYSICAL DATA CHECK: No shadow logic, just existence check
         if (sData?.distractors) stats.simple++;
@@ -76,7 +77,7 @@ const VaultHealthMatrix = ({ decks, onSmartSync, isSyncing, syncProgress }) => {
 
       return stats;
     });
-  }, [decks, vault, isSyncing, syncProgress]); // Re-calculate when sync moves
+  }, [decks, vault, certLevel]); 
 
   const headers = ['Simple Distractors', 'Intelligent Scenarios', 'Strategic Rationales', 'Behavioral Bridge Tags'];
   const dataKeys = ['simple', 'scenarios', 'rationales', 'tags'];

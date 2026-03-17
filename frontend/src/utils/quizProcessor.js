@@ -4,10 +4,14 @@ import { getDistractorFromVault, saveDistractorToVault } from './storage';
  * Orchestrates the retrieval and generation of AI distractors.
  * Checks the local vault first, then groups missing items for batch generation.
  */
-export async function getQuizDataForDeck(deck, requestedQuizType = 'intelligent') {
+/**
+ * Orchestrates the retrieval and generation of AI distractors.
+ * Checks the local vault first, then groups missing items for batch generation.
+ */
+export async function getQuizDataForDeck(deck, requestedQuizType = 'intelligent', certLevel = 'CP') {
     const cardsWithData = deck.cards.map(card => {
-        const vaultData = getDistractorFromVault(card.id, requestedQuizType);
-        // We only count it as "having data" if it exists AND matches the requested type
+        const vaultData = getDistractorFromVault(card.id, requestedQuizType, certLevel);
+        // We only count it as "having data" if it exists AND matches the requested type and cert
         const isValid = vaultData && vaultData.quizType === requestedQuizType;
         return {
             ...card,
@@ -27,9 +31,9 @@ export async function getQuizDataForDeck(deck, requestedQuizType = 'intelligent'
 
 /**
  * Calls the backend to generate distractors for a batch of cards.
- * Now supports dual-mode generation and actual success tracking.
+ * Now supports dual-mode generation and actual success tracking with certLevel isolation.
  */
-export async function generateDistractorsBatch(cards, quizType = 'intelligent', onProgress) {
+export async function generateDistractorsBatch(cards, quizType = 'intelligent', onProgress, certLevel = 'CP') {
     const MAX_BATCH_SIZE = 5; 
     let successfulCount = 0;
     const totalRequests = cards.length;
@@ -45,6 +49,7 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
                 body: JSON.stringify({
                     mode: 'generate-distractors',
                     quizType: quizType,
+                    certLevel: certLevel, // Pass to backend
                     cards: batch.map(c => ({ id: c.id, topic: c.topic, question: c.question, answer: c.answer }))
                 })
             });
@@ -71,7 +76,7 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
                         rationale: res.rationale,
                         tag_bask: res.tag_bask,
                         tag_behavior: res.tag_behavior
-                    });
+                    }, certLevel); // Pass to storage
                 });
                 successfulCount += data.results.length;
             }
@@ -89,11 +94,14 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
 
         } catch (error) {
             console.error('Batch Generation Error:', error);
+            // FATAL ERROR DETECTED: Immediately stop current batch processing
+            // This prevents the "fake progress" 0-100% loop when the API is down/keys missing
             if (onProgress) {
                 onProgress(Math.round((successfulCount / totalRequests) * 100), error.message);
             }
-            // If rate limited, we stop this specific run so the user knows to wait
-            if (error.message === 'RATE_LIMIT') break;
+            // Return failure status so App.jsx can halt the entire Bulk Sync
+            return { success: false, error: error.message };
         }
     }
+    return { success: successfulCount > 0, totalProcessed: successfulCount };
 }

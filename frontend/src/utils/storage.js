@@ -4,15 +4,19 @@ const VAULT_KEY = 'shrm_distractor_vault';
 /**
  * Saves AI-generated distractor data (distractors, rationale, and BASK tags) 
  * to the local vault using the card's unique fingerprint.
+ * @param {string} fingerprint - Unique identifier for the card content.
+ * @param {object} data - The AI response data.
+ * @param {string} certLevel - The certification level (CP or SCP).
  */
-export function saveDistractorToVault(fingerprint, data) {
+export function saveDistractorToVault(fingerprint, data, certLevel = 'CP') {
     try {
         const vault = loadVaultFromStorage();
-        // Use composite key to allow both modes for the same card
-        const key = `${fingerprint}:${data.quizType || 'intelligent'}`;
+        // ISOLATED KEY STRATEGY: Key includes fingerprint, quizType, AND certLevel
+        const key = `${fingerprint}:${data.quizType || 'intelligent'}:${certLevel}`;
         
         vault[key] = {
             ...data,
+            certLevel, // Explicitly store for debugging/consistency
             timestamp: new Date().toISOString()
         };
         localStorage.setItem(VAULT_KEY, JSON.stringify(vault));
@@ -24,14 +28,16 @@ export function saveDistractorToVault(fingerprint, data) {
 }
 
 /**
- * Retrieves AI-generated data from the vault for a specific fingerprint and mode.
+ * Retrieves AI-generated data from the vault for a specific fingerprint, mode, and cert.
  */
-export function getDistractorFromVault(fingerprint, quizType = 'intelligent') {
+export function getDistractorFromVault(fingerprint, quizType = 'intelligent', certLevel = 'CP') {
     const vault = loadVaultFromStorage();
-    const key = `${fingerprint}:${quizType}`;
+    const key = `${fingerprint}:${quizType}:${certLevel}`;
     
-    // Fallback logic: check composite key first, then old fingerprint key if it matches the type
-    const data = vault[key] || (vault[fingerprint]?.quizType === quizType ? vault[fingerprint] : null);
+    // Fallback logic for transitioning existing data (assumes old data is CP)
+    const oldKey = `${fingerprint}:${quizType}`;
+    
+    const data = vault[key] || (certLevel === 'CP' ? vault[oldKey] : null) || (vault[fingerprint]?.quizType === quizType ? vault[fingerprint] : null);
     return data;
 }
 

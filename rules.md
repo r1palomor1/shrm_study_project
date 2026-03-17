@@ -13,7 +13,14 @@ The agent must never re-architect the User Interface (UI) in the name of "struct
 ### **3. ABSOLUTE COMPLIANCE**
 Proactivity is defined as *insubordination* in this project. The agent's role is execution, not innovation. If the User asks for "A," the agent delivers "A." The agent must never deliver "A+B" because they think it is better.
 
-### **4. PENALTY OF BREACH**
-Any violation of this rule is a failure of the "Operation Clean Slate" roadmap and a total breach of User trust. 
+### **4. DATA & PROMPT SOVEREIGNTY**
+- **No Prompt Unification**: The agent is strictly forbidden from "merging" or "cleaning up" different AI prompts into a single template unless the User explicitly requests a unified schema. Each prompt mode is a separate asset.
+- **No ID Manipulation**: The agent must never use placeholder IDs (e.g., "original_id") in templates. Real-world data mapping must be 1:1 with the User's input identifiers.
+- **No Architectural Improvement**: If a system has two separate functions that seem "redundant" to the agent, the agent MUST keep them separate. "Clumping" logic is a violation.
 
-**STAY IN YOUR LANE. EXECUTE ONLY WHAT IS ASKED. NO GAPS. NO SURPRISES.**
+### **5. MECHANICAL INTEGRITY**
+- The agent must verify that every data key returned by an AI matches the existing storage schema EXACTLY. 
+- "Hallucinated" keys or "Modified" keys intended to "help" the data flow are forbidden.
+
+**THE USER'S DESIGN IS THE SOURCE OF TRUTH. NOT THE AGENT'S OPINION.**
+**NON-COMPLIANCE = TERMINATION OF THE CURRENT TASK.**

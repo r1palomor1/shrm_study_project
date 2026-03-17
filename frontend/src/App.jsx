@@ -39,7 +39,12 @@ function App() {
   const [studyOrder, setStudyOrder] = useState('sequential');
   const [studyMode, setStudyMode] = useState('quiz');
   const [quizType, setQuizType] = useState('intelligent');
+  const [certLevel, setCertLevel] = useState(() => localStorage.getItem('shrm_cert_level') || 'CP');
   const [isWarmingUp, setIsWarmingUp] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem('shrm_cert_level', certLevel);
+  }, [certLevel]);
   const [warmUpProgress, setWarmUpProgress] = useState(0);
   const [warmUpError, setWarmUpError] = useState(null);
   const [isMatrixOpen, setIsMatrixOpen] = useState(false);
@@ -137,7 +142,7 @@ function App() {
     const runWarming = async () => {
       try {
         // MODE 1: Intelligent (Simulator)
-        let { missingCards: missingIntel } = await getQuizDataForDeck({ cards: targetCards }, 'intelligent');
+        let { missingCards: missingIntel } = await getQuizDataForDeck({ cards: targetCards }, 'intelligent', certLevel);
         const intelBatches = Math.ceil(missingIntel.length / 5);
         let currentBatch = 0;
 
@@ -147,10 +152,16 @@ function App() {
           const batchToProcess = missingIntel.slice(0, 5); // Take only 5
           setWarmUpStatus(`SJI SYNC: Batch ${currentBatch} of ${intelBatches}...`);
 
-          await generateDistractorsBatch(batchToProcess, 'intelligent', (p, error) => {
+          const result = await generateDistractorsBatch(batchToProcess, 'intelligent', (p, error) => {
             setWarmUpProgress(Math.round(p * 0.5)); // First half of bar
             if (error === 'RATE_LIMIT') rateLimited = true;
-          });
+          }, certLevel);
+
+          if (result && result.success === false) {
+            setWarmUpError(`FATAL: ${result.error || 'AI Provider Failed'}`);
+            setIsWarmingUp(false);
+            return;
+          }
 
           if (rateLimited) {
             setWarmUpStatus("Gemini Overload. Shielding for 15s...");
@@ -165,7 +176,7 @@ function App() {
         }
 
         // MODE 2: Simple (Recall)
-        let { missingCards: missingSimple } = await getQuizDataForDeck({ cards: targetCards }, 'simple');
+        let { missingCards: missingSimple } = await getQuizDataForDeck({ cards: targetCards }, 'simple', certLevel);
         const simpleBatches = Math.ceil(missingSimple.length / 5);
         currentBatch = 0;
 
@@ -175,10 +186,16 @@ function App() {
           const batchToProcess = missingSimple.slice(0, 5); // Take only 5
           setWarmUpStatus(`RECALL SYNC: Batch ${currentBatch} of ${simpleBatches}...`);
 
-          await generateDistractorsBatch(batchToProcess, 'simple', (p, error) => {
+          const result = await generateDistractorsBatch(batchToProcess, 'simple', (p, error) => {
             setWarmUpProgress(50 + Math.round(p * 0.5)); // Second half of bar
             if (error === 'RATE_LIMIT') rateLimited = true;
-          });
+          }, certLevel);
+
+          if (result && result.success === false) {
+            setWarmUpError(`FATAL: ${result.error || 'AI Provider Failed'}`);
+            setIsWarmingUp(false);
+            return;
+          }
 
           if (rateLimited) {
             setWarmUpStatus("API Rate Limit. Cooling down 15s...");
@@ -227,7 +244,7 @@ function App() {
 
     const getStatus = (c) => {
       if (studyMode === 'traditional') return c.status_traditional || c.status || 'unseen';
-      if (studyMode === 'quiz') return c[`status_quiz_${quizType}`] || 'unseen';
+      if (studyMode === 'quiz') return c[`status_quiz_${quizType}_${certLevel}`] || 'unseen'; 
       return c.status || 'unseen';
     };
 
@@ -248,7 +265,7 @@ function App() {
   };
 
   const handleUpdateCardStatus = (cardId, status, historyData = {}) => {
-    updateCardStatus(cardId, studyMode, status, { ...historyData, quizType: historyData.quizType || quizType });
+    updateCardStatus(cardId, studyMode, status, { ...historyData, quizType: historyData.quizType || quizType, certLevel });
     setDecks(loadDecksFromStorage());
   };
 
@@ -341,7 +358,7 @@ function App() {
                 {decks.map(deck => {
                   const getStatus = (c) => {
                     if (studyMode === 'traditional') return c.status_traditional || c.status || 'unseen';
-                    if (studyMode === 'quiz') return c[`status_quiz_${quizType}`] || 'unseen';
+                    if (studyMode === 'quiz') return c[`status_quiz_${quizType}_${certLevel}`] || 'unseen';
                     return 'unseen';
                   };
                   const masteredCount = deck.cards.filter(c => getStatus(c) !== 'unseen').length;
@@ -412,7 +429,7 @@ function App() {
                   <span className="material-symbols-outlined" style={{ fontSize: '1.4rem' }}>{isWarmingUp ? 'sync' : 'bolt'}</span>
                   <div style={{ textAlign: 'left' }}>
                     <div style={{ fontWeight: 'bold' }}>{isWarmingUp ? `Syncing ${warmUpProgress}%` : 'Bulk Warm-Up'}</div>
-                    <div style={{ fontSize: '0.65rem', opacity: 0.6 }}>Populate {selectedDeckTitle === 'ALL' ? 'Full Vault' : 'Topic Gap'}</div>
+                    <div style={{ fontSize: '0.9rem', opacity: 0.9 }}>{warmUpStatus || `Populate ${selectedDeckTitle === 'ALL' ? 'Full Vault' : 'Topic Gap'}`}</div>
                   </div>
                 </button>
 
@@ -424,7 +441,7 @@ function App() {
                   <span className="material-symbols-outlined" style={{ fontSize: '1.4rem' }}>{isMatrixOpen ? 'visibility_off' : 'verified_user'}</span>
                   <div style={{ textAlign: 'left' }}>
                     <div style={{ fontWeight: 'bold' }}>{isMatrixOpen ? 'Hide Matrix' : 'Vault Health'}</div>
-                    <div style={{ fontSize: '0.65rem', opacity: 0.6 }}>Audit Readiness Data</div>
+                    <div style={{ fontSize: '0.9rem', opacity: 0.9 }}>Audit Readiness Data</div>
                   </div>
                 </button>
               </div>
@@ -433,9 +450,34 @@ function App() {
             <section style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
               <div className="glass-panel" style={{ padding: '2rem', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                 <h3 style={{ margin: 0, color: 'var(--secondary)' }}>Study Configuration</h3>
-                <select value={studyMode} onChange={(e) => setStudyMode(e.target.value)} className="glass-select"><option value="quiz">Multiple Choice Quiz</option><option value="traditional">Traditional Study</option></select>
-                {studyMode === 'quiz' && <select value={quizType} onChange={(e) => setQuizType(e.target.value)} className="glass-select"><option value="intelligent">Intelligent (Simulator)</option><option value="simple">Simple (Recall)</option></select>}
-                <button onClick={handleStartStudying} style={{ width: '100%', padding: '1rem', fontWeight: 'bold' }}>Start Studying</button>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>SHRM 2026 BASK Standards</label>
+                  <label style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '-0.3rem' }}>Certification Level</label>
+                  <select value={certLevel} onChange={(e) => setCertLevel(e.target.value)} className="glass-select">
+                    <option value="CP">SHRM-CP (Operational Implementation)</option>
+                    <option value="SCP">SHRM-SCP (Senior Strategic Governance)</option>
+                  </select>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <label style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '-0.3rem' }}>Study Mode</label>
+                  <select value={studyMode} onChange={(e) => setStudyMode(e.target.value)} className="glass-select">
+                    <option value="quiz">Multiple Choice Quiz</option>
+                    <option value="traditional">Traditional Study</option>
+                  </select>
+                </div>
+
+                {studyMode === 'quiz' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <label style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '-0.3rem' }}>Quiz Strategy</label>
+                    <select value={quizType} onChange={(e) => setQuizType(e.target.value)} className="glass-select">
+                      <option value="intelligent">Intelligent (SJI Simulator)</option>
+                      <option value="simple">Simple (Recall)</option>
+                    </select>
+                  </div>
+                )}
+                
+                <button onClick={handleStartStudying} style={{ width: '100%', padding: '1rem', fontWeight: 'bold', marginTop: '1rem' }} className="btn-primary">Start Studying</button>
                 {warmUpError && <div style={{ fontSize: '0.7rem', color: '#fbbf24', textAlign: 'center', marginTop: '0.5rem' }}>{warmUpError}</div>}
               </div>
             </section>
@@ -462,7 +504,7 @@ function App() {
               >
                 <span className="material-symbols-outlined" style={{ fontSize: '1.8rem' }}>close</span>
               </button>
-              <VaultHealthMatrix decks={decks} onSmartSync={handleBulkWarmUp} isSyncing={isWarmingUp} syncProgress={warmUpProgress} />
+              <VaultHealthMatrix decks={decks} onSmartSync={handleBulkWarmUp} isSyncing={isWarmingUp} syncProgress={warmUpProgress} certLevel={certLevel} />
             </div>
           </div>
         )}
