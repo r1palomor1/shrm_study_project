@@ -115,35 +115,75 @@ function App() {
   const handleBulkWarmUp = async () => {
     if (decks.length === 0) return;
     setWarmUpError(null);
+
+    // 1. Identify Target Cards
+    let targetCards = [];
+    if (selectedDeckTitle === 'ALL') {
+      targetCards = decks.flatMap(d => d.cards);
+    } else {
+      const deck = decks.find(d => d.title === selectedDeckTitle);
+      if (deck) targetCards = deck.cards;
+    }
+
+    if (targetCards.length === 0) return;
+
+    // 2. Execution Logic (Dual Mode)
     setIsWarmingUp(true);
     setWarmUpProgress(0);
 
-    const targetCards = selectedDeckTitle === 'ALL' ? decks.flatMap(d => d.cards) : decks.find(d => d.title === selectedDeckTitle)?.cards || [];
-    if (targetCards.length === 0) return;
+    const runWarming = async () => {
+      try {
+        // MODE 1: Intelligent (Simulator)
+        let { missingCards: missingIntel } = await getQuizDataForDeck({ cards: targetCards }, 'intelligent');
+        while (missingIntel.length > 0) {
+          let rateLimited = false;
+          await generateDistractorsBatch(missingIntel, 'intelligent', (p, error) => {
+            setWarmUpProgress(Math.round(p * 0.5)); // First half of bar
+            if (error === 'RATE_LIMIT') rateLimited = true;
+          });
 
-    try {
-      let isFinished = false;
-      while (!isFinished) {
-        let rateLimited = false;
-        await generateDistractorsBatch(targetCards, 'unified', (p, error) => {
-          setWarmUpProgress(p);
-          if (error === 'RATE_LIMIT') rateLimited = true;
-        });
-
-        if (rateLimited) {
-          setWarmUpError("Gemini Busy. Self-Healing Resume in 15s...");
-          await new Promise(r => setTimeout(r, 15000));
-          setWarmUpError(null);
-        } else {
-          isFinished = true;
+          if (rateLimited) {
+            setWarmUpError('Gemini Busy. Self-Healing Resume in 15s...');
+            await new Promise(r => setTimeout(r, 15000));
+            setWarmUpError(null);
+            // Refresh missing list
+            const updated = await getQuizDataForDeck({ cards: targetCards }, 'intelligent');
+            missingIntel = updated.missingCards;
+          } else {
+            break;
+          }
         }
+
+        // MODE 2: Simple (Recall)
+        let { missingCards: missingSimple } = await getQuizDataForDeck({ cards: targetCards }, 'simple');
+        while (missingSimple.length > 0) {
+          let rateLimited = false;
+          await generateDistractorsBatch(missingSimple, 'simple', (p, error) => {
+            setWarmUpProgress(50 + Math.round(p * 0.5)); // Second half of bar
+            if (error === 'RATE_LIMIT') rateLimited = true;
+          });
+
+          if (rateLimited) {
+            setWarmUpError('Rate Limited. Self-Healing Resume in 15s...');
+            await new Promise(r => setTimeout(r, 15000));
+            setWarmUpError(null);
+            const updated = await getQuizDataForDeck({ cards: targetCards }, 'simple');
+            missingSimple = updated.missingCards;
+          } else {
+            break;
+          }
+        }
+
+        setWarmUpProgress(100);
+        setTimeout(() => setIsWarmingUp(false), 2000);
+      } catch (err) {
+        console.error("Bulk Generation Error:", err);
+        setWarmUpError("System Error. Please try again later.");
+        setTimeout(() => setIsWarmingUp(false), 3000);
       }
-      setWarmUpProgress(100);
-      setTimeout(() => setIsWarmingUp(false), 2000);
-    } catch (err) {
-      setWarmUpError("System Error. Please try again.");
-      setTimeout(() => setIsWarmingUp(false), 3000);
-    }
+    };
+
+    runWarming();
   };
 
   const handleStartStudying = () => {
