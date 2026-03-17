@@ -168,11 +168,9 @@ function App() {
             setWarmUpError('Gemini Busy. Self-Healing Resume in 15s...');
             await new Promise(r => setTimeout(r, 15000));
             setWarmUpError(null);
-            const updated = await getQuizDataForDeck({ cards: targetCards }, 'intelligent');
-            missingIntel = updated.missingCards;
-          } else {
-            break;
           }
+          const updated = await getQuizDataForDeck({ cards: targetCards }, 'intelligent');
+          missingIntel = updated.missingCards;
         }
 
         // MODE 2: Simple (Recall)
@@ -202,11 +200,9 @@ function App() {
             setWarmUpError('Rate Limited. Self-Healing Resume in 15s...');
             await new Promise(r => setTimeout(r, 15000));
             setWarmUpError(null);
-            const updated = await getQuizDataForDeck({ cards: targetCards }, 'simple');
-            missingSimple = updated.missingCards;
-          } else {
-            break;
           }
+          const updated = await getQuizDataForDeck({ cards: targetCards }, 'simple');
+          missingSimple = updated.missingCards;
         }
 
         setWarmUpStatus("COMPLETED: All Data Synced.");
