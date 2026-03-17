@@ -1,19 +1,13 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import DataImporter from './components/DataImporter';
 import FlashcardStudyMode from './components/FlashcardStudyMode';
 import TraditionalStudyMode from './components/TraditionalStudyMode';
 import QuizStudyMode from './components/QuizStudyMode';
 import AnalyticsDashboard from './components/AnalyticsDashboard';
+import VaultHealthMatrix from './components/VaultHealthMatrix';
 import SettingsModal from './components/SettingsModal';
 import ResetModal from './components/ResetModal';
 import ConfirmationModal from './components/ConfirmationModal';
-
-// Expert Components (Approved Features)
-import ProjectHeader from './components/ProjectHeader';
-import NavigationSidebar from './components/NavigationSidebar';
-import VaultHealthMatrix from './components/VaultHealthMatrix';
-import TopicCard from './components/TopicCard';
-
 import { 
   saveDeckToStorage, 
   loadDecksFromStorage, 
@@ -29,9 +23,6 @@ import {
 } from './utils/quizProcessor';
 import './index.css';
 
-/**
- * App: Root Application Container (Structural Engineering Upgrade)
- */
 function App() {
   const [decks, setDecks] = useState([]);
   const [isStudying, setIsStudying] = useState(false);
@@ -48,18 +39,17 @@ function App() {
   const [studyOrder, setStudyOrder] = useState('sequential');
   const [studyMode, setStudyMode] = useState('quiz');
   const [quizType, setQuizType] = useState('intelligent');
-  
-  // Bulk Prep Engine State
   const [isWarmingUp, setIsWarmingUp] = useState(false);
   const [warmUpProgress, setWarmUpProgress] = useState(0);
   const [warmUpError, setWarmUpError] = useState(null);
+  const [isMatrixOpen, setIsMatrixOpen] = useState(false);
 
   useEffect(() => {
     const savedDecks = loadDecksFromStorage();
-    if (savedDecks) setDecks(savedDecks);
+    if (savedDecks) {
+      setDecks(savedDecks);
+    }
   }, []);
-
-  const totalCards = useMemo(() => decks.reduce((sum, deck) => sum + deck.cards.length, 0), [decks]);
 
   const handleDeckLoaded = (loadedDeck) => {
     saveDeckToStorage(loadedDeck);
@@ -68,16 +58,23 @@ function App() {
 
   const handleDeleteDeck = (title) => {
     setIsSettingsOpen(false);
+    const isAll = title === 'ALL';
     setConfirmModal({
       isOpen: true,
       type: 'danger',
-      title: 'Delete Topic?',
-      message: `Warning: This will permanently remove "${title}" and ALL associated progress from this device.`,
-      confirmText: 'Delete Permanently',
+      title: isAll ? 'CRITICAL: PURGE ALL DATA?' : 'Delete Topic?',
+      message: isAll 
+        ? 'Warning: This will permanently wipe ALL topics, flashcards, and study progress from this device. THIS ACTION IS IRREVERSIBLE.'
+        : `Warning: This will permanently remove "${title}" and ALL associated progress from this device.`,
+      confirmText: isAll ? 'PURGE EVERYTHING' : 'Delete Permanently',
       onConfirm: () => {
-        deleteDeckFromStorage(title);
+        if (isAll) {
+          decks.forEach(d => deleteDeckFromStorage(d.title));
+        } else {
+          deleteDeckFromStorage(title);
+        }
         setDecks(loadDecksFromStorage());
-        if (selectedDeckTitle === title) setSelectedDeckTitle('ALL');
+        if (isAll || selectedDeckTitle === title) setSelectedDeckTitle('ALL');
         setConfirmModal(prev => ({ ...prev, isOpen: false }));
       }
     });
@@ -115,54 +112,37 @@ function App() {
     setResetTarget(null);
   };
 
-  /**
-   * handleBulkWarmUp: Veteran Implementation with Self-Healing Sync.
-   * Uses 15-second retries and strict unified fetching.
-   */
   const handleBulkWarmUp = async () => {
     if (decks.length === 0) return;
     setWarmUpError(null);
     setIsWarmingUp(true);
     setWarmUpProgress(0);
 
-    const targetCards = selectedDeckTitle === 'ALL' 
-      ? decks.flatMap(d => d.cards) 
-      : decks.find(d => d.title === selectedDeckTitle)?.cards || [];
-    
-    if (targetCards.length === 0) {
-      setIsWarmingUp(false);
-      return;
-    }
+    const targetCards = selectedDeckTitle === 'ALL' ? decks.flatMap(d => d.cards) : decks.find(d => d.title === selectedDeckTitle)?.cards || [];
+    if (targetCards.length === 0) return;
 
     try {
-      let isSyncFinished = false;
-      while (!isSyncFinished) {
-        let isRateLimited = false;
-        
-        // Expert Implementation: Use 'unified' mode for full fidelity sync
-        await generateDistractorsBatch(targetCards, 'unified', (progress, error) => {
-          setWarmUpProgress(progress);
-          if (error === 'RATE_LIMIT') isRateLimited = true;
+      let isFinished = false;
+      while (!isFinished) {
+        let rateLimited = false;
+        await generateDistractorsBatch(targetCards, 'unified', (p, error) => {
+          setWarmUpProgress(p);
+          if (error === 'RATE_LIMIT') rateLimited = true;
         });
 
-        if (isRateLimited) {
-          setWarmUpError("GEMINI BUSY. SELF-HEALING RETRY IN 15S...");
+        if (rateLimited) {
+          setWarmUpError("Gemini Busy. Self-Healing Resume in 15s...");
           await new Promise(r => setTimeout(r, 15000));
           setWarmUpError(null);
-          // Loop continues for retry
         } else {
-          isSyncFinished = true;
+          isFinished = true;
         }
       }
       setWarmUpProgress(100);
-      setTimeout(() => {
-        setIsWarmingUp(false);
-        setWarmUpProgress(0);
-      }, 2000);
+      setTimeout(() => setIsWarmingUp(false), 2000);
     } catch (err) {
-      console.error("Critical Warm-Up Error:", err);
-      setWarmUpError("SYSTEM FATAL. RE-ATTEMPT SYNC MANUALLY.");
-      setTimeout(() => setIsWarmingUp(false), 5000);
+      setWarmUpError("System Error. Please try again.");
+      setTimeout(() => setIsWarmingUp(false), 3000);
     }
   };
 
@@ -188,7 +168,6 @@ function App() {
 
     const getStatus = (c) => {
       if (studyMode === 'traditional') return c.status_traditional || c.status || 'unseen';
-      if (studyMode === 'test') return c.status_test || c.status || 'unseen';
       if (studyMode === 'quiz') return c[`status_quiz_${quizType}`] || 'unseen';
       return c.status || 'unseen';
     };
@@ -197,8 +176,6 @@ function App() {
     let unseenCards = cardsToStudy.filter(c => getStatus(c) === 'unseen');
     let finalDeckCards = (cardsToStudy.length > 0 && unseenCards.length === 0) ? [...cardsToStudy] : [...seenCards, ...unseenCards];
     let initialIndex = (cardsToStudy.length > 0 && unseenCards.length === 0) ? 0 : seenCards.length;
-
-    if (cardsToStudy.length === 0) return alert("No cards selected.");
 
     if (studyOrder === 'random') {
       for (let i = finalDeckCards.length - 1; i > 0; i--) {
@@ -212,12 +189,10 @@ function App() {
   };
 
   const handleUpdateCardStatus = (cardId, status, historyData = {}) => {
-    const currentQuizType = historyData.quizType || quizType;
-    updateCardStatus(cardId, studyMode, status, { ...historyData, quizType: currentQuizType });
+    updateCardStatus(cardId, studyMode, status, { ...historyData, quizType: historyData.quizType || quizType });
     setDecks(loadDecksFromStorage());
   };
 
-  // Rendering Strategy: Conditional Overlays (Study/Analytics) vs Main Dashboard
   if (isStudying && activeStudyDeck) {
     return (
       <div className="app-container animate-fade-in" style={{ paddingTop: '2rem' }}>
@@ -238,170 +213,197 @@ function App() {
     );
   }
 
+  const totalCards = decks.reduce((sum, deck) => sum + deck.cards.length, 0);
+
   return (
     <div className="app-container animate-fade-in">
-      <ProjectHeader totalCards={totalCards} />
+      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3rem', padding: '1rem 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+          <h1 style={{ fontSize: '1.8rem', margin: 0 }} className="text-gradient">SHRM 2026</h1>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          {decks.length > 0 && (
+            <button onClick={() => setIsViewingAnalytics(true)} className="glass-panel" style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: 'white', border: '1px solid rgba(255,255,255,0.1)' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: '1.2rem', color: '#60a5fa' }}>analytics</span>
+              Insights
+            </button>
+          )}
+          <button onClick={() => setIsSettingsOpen(true)} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', padding: '0.5rem' }}>
+            <span className="material-symbols-outlined" style={{ fontSize: '1.8rem' }}>settings</span>
+          </button>
+        </div>
+      </header>
 
-      {isSettingsOpen && (
-        <SettingsModal 
-          onClose={() => setIsSettingsOpen(false)}
-          onExport={exportAppData}
-          onImport={async (e) => { await importAppData(e.target.files[0]); setDecks(loadDecksFromStorage()); }}
-          onNukeAi={() => { clearAiVault(); setDecks(loadDecksFromStorage()); setIsSettingsOpen(false); }}
-          onDeleteDeck={handleDeleteDeck}
-          onResetProgress={handleResetProgress}
-          decks={decks}
-        />
-      )}
-      
-      {isResetOpen && (
-        <ResetModal 
-          isOpen={isResetOpen} targetTitle={resetTarget} currentMode={studyMode} quizType={quizType}
-          onClose={() => setIsResetOpen(false)} onConfirm={handlePerformReset}
-        />
-      )}
+      {isSettingsOpen && <SettingsModal onClose={() => setIsSettingsOpen(false)} onExport={exportAppData} onImport={async (e) => { await importAppData(e.target.files[0]); setDecks(loadDecksFromStorage()); }} onNukeAi={() => { clearAiVault(); setDecks(loadDecksFromStorage()); }} onDeleteDeck={handleDeleteDeck} onResetProgress={handleResetProgress} decks={decks} />}
+      {isResetOpen && <ResetModal isOpen={isResetOpen} targetTitle={resetTarget} currentMode={studyMode} quizType={quizType} onClose={() => setIsResetOpen(false)} onConfirm={handlePerformReset} />}
+      <ConfirmationModal isOpen={confirmModal.isOpen} type={confirmModal.type} title={confirmModal.title} message={confirmModal.message} confirmText={confirmModal.confirmText} onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))} onConfirm={confirmModal.onConfirm} />
 
-      <ConfirmationModal 
-        isOpen={confirmModal.isOpen} type={confirmModal.type} title={confirmModal.title} message={confirmModal.message}
-        confirmText={confirmModal.confirmText} onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
-        onConfirm={confirmModal.onConfirm}
-      />
-
-      {/* Main Structural Layout Grid */}
-      <main style={{ display: 'grid', gridTemplateColumns: '80px 1fr', gap: '2.5rem' }}>
-        <NavigationSidebar 
-          onViewInsights={() => setIsViewingAnalytics(true)}
-          onViewSettings={() => setIsSettingsOpen(true)}
-          onTriggerWarmUp={handleBulkWarmUp}
-          isWarmingUp={isWarmingUp}
-          warmUpProgress={warmUpProgress}
-        />
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-          <DataImporter onDeckLoaded={handleDeckLoaded} />
-
-          {decks.length > 0 ? (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '2.5rem' }}>
-              
-              {/* Left Column: Topic Selection */}
-              <section style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                <h2 style={{ fontSize: '1.6rem', margin: 0, fontWeight: '800' }}>Select Study Topic</h2>
-                <div style={{ 
-                  display: 'grid', 
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', 
-                  gap: '1.2rem',
-                  maxHeight: 'calc(100vh - 400px)',
-                  overflowY: 'auto',
-                  paddingRight: '0.8rem'
-                }} className="custom-scrollbar">
-                  
-                  <TopicCard 
-                    title="All Study Material"
-                    cards={decks.flatMap(d => d.cards)}
-                    isActive={selectedDeckTitle === 'ALL'}
-                    onSelect={() => setSelectedDeckTitle('ALL')}
-                    onReset={() => handleResetProgress('ALL')}
-                    studyMode={studyMode}
-                    quizType={quizType}
-                    isAllCards={true}
-                  />
-
-                  {[...decks].sort((a,b) => a.title.localeCompare(b.title)).map(deck => (
-                    <TopicCard 
-                      key={deck.title}
-                      title={deck.title}
-                      cards={deck.cards}
-                      isActive={selectedDeckTitle === deck.title}
-                      onSelect={() => setSelectedDeckTitle(deck.title)}
-                      onReset={() => handleResetProgress(deck.title)}
-                      onDelete={() => handleDeleteDeck(deck.title)}
-                      studyMode={studyMode}
-                      quizType={quizType}
-                    />
-                  ))}
-                </div>
-              </section>
-
-              {/* Right Column: Execution Panel */}
-              <aside style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                <div className="glass-panel" style={{ 
-                  padding: '2.5rem', 
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '1.8rem'
-                }}>
-                  <h3 style={{ margin: 0, color: 'var(--secondary)', fontSize: '1.2rem', fontWeight: '800' }}>Study Configuration</h3>
-                  
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
-                    <div>
-                      <label style={{ fontSize: '0.7rem', fontWeight: 'bold', color: 'var(--text-muted)' }}>EXECUTION MODE</label>
-                      <select value={studyMode} onChange={(e) => setStudyMode(e.target.value)} className="glass-select">
-                        <option value="quiz">Multiple Choice Quiz</option>
-                        <option value="traditional">Traditional Flashcards</option>
-                      </select>
-                    </div>
-
-                    {studyMode === 'quiz' && (
-                      <div className="animate-fade-in">
-                        <label style={{ fontSize: '0.7rem', fontWeight: 'bold', color: 'var(--text-muted)' }}>ENGINE LEVEL</label>
-                        <select value={quizType} onChange={(e) => setQuizType(e.target.value)} className="glass-select">
-                          <option value="intelligent">Intelligent (Simulator)</option>
-                          <option value="simple">Simple (Recall)</option>
-                        </select>
+      <main>
+        <DataImporter onDeckLoaded={handleDeckLoaded} />
+        {decks.length > 0 ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 340px', gap: '2rem' }}>
+            <section style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <h2 style={{ fontSize: '1.5rem', margin: 0 }}>Select Topic</h2>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem', paddingRight: '0.5rem', marginBottom: '1rem' }}>
+                <div onClick={() => setSelectedDeckTitle('ALL')} className={`glass-panel topic-card ${selectedDeckTitle === 'ALL' ? 'active' : ''}`} style={{ padding: '1.5rem', position: 'relative' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div style={{ flex: 1 }}>
+                      <h3 style={{ margin: 0 }}>All Study Material</h3>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.3rem' }}>
+                        Comprehensive review of {totalCards} cards across all topics.
                       </div>
-                    )}
-
-                    <div>
-                      <label style={{ fontSize: '0.7rem', fontWeight: 'bold', color: 'var(--text-muted)' }}>QUESTION SEQUENCE</label>
-                      <select value={studyOrder} onChange={(e) => setStudyOrder(e.target.value)} className="glass-select">
-                        <option value="random">Randomized (Shuffled)</option>
-                        <option value="sequential">Sequential (In Order)</option>
-                      </select>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                      {selectedDeckTitle === 'ALL' && (
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); handleResetProgress('ALL'); }}
+                            style={{ background: 'transparent', border: 'none', padding: 0, color: 'rgba(255,255,255,0.3)', cursor: 'pointer' }}
+                            title="Reset Progress"
+                          >
+                            <span className="material-symbols-outlined" style={{ fontSize: '1.2rem' }}>restart_alt</span>
+                          </button>
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); handleDeleteDeck('ALL'); }}
+                            style={{ background: 'transparent', border: 'none', padding: 0, color: 'rgba(239, 68, 68, 0.4)', cursor: 'pointer' }}
+                            title="Nuke All Topics"
+                          >
+                            <span className="material-symbols-outlined" style={{ fontSize: '1.2rem' }}>delete</span>
+                          </button>
+                        </div>
+                      )}
+                      <span className="material-symbols-outlined" style={{ color: selectedDeckTitle === 'ALL' ? 'var(--secondary)' : 'rgba(255,255,255,0.1)' }}>
+                        {selectedDeckTitle === 'ALL' ? 'check_circle' : 'radio_button_unchecked'}
+                      </span>
                     </div>
                   </div>
-
-                  <button 
-                    onClick={handleStartStudying} 
-                    className="btn-primary" 
-                    style={{ width: '100%', padding: '1.2rem', fontSize: '1rem', fontWeight: '800' }}
-                  >
-                    START AUDIT SESSION
-                  </button>
-
-                  {warmUpError && (
-                    <div style={{ 
-                      padding: '0.8rem', 
-                      background: 'rgba(251, 191, 36, 0.1)', 
-                      border: '1px solid rgba(251, 191, 36, 0.3)', 
-                      borderRadius: '8px', 
-                      color: '#fbbf24', 
-                      fontSize: '0.75rem', 
-                      textAlign: 'center',
-                      fontWeight: 'bold'
-                    }}>
-                      {warmUpError}
-                    </div>
-                  )}
                 </div>
-              </aside>
+                {decks.map(deck => {
+                  const getStatus = (c) => {
+                    if (studyMode === 'traditional') return c.status_traditional || c.status || 'unseen';
+                    if (studyMode === 'quiz') return c[`status_quiz_${quizType}`] || 'unseen';
+                    return 'unseen';
+                  };
+                  const masteredCount = deck.cards.filter(c => getStatus(c) !== 'unseen').length;
+                  const percent = Math.round((masteredCount / deck.cards.length) * 100);
+                  return (
+                    <div key={deck.title} onClick={() => setSelectedDeckTitle(deck.title)} className={`glass-panel topic-card ${selectedDeckTitle === deck.title ? 'active' : ''}`} style={{ padding: '1.2rem', position: 'relative' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+                        <div style={{ flex: 1 }}>
+                          <h3 style={{ margin: 0 }}>{deck.title}</h3>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>{deck.cards.length} Flashcards</div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                          {selectedDeckTitle === deck.title && (
+                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); handleResetProgress(deck.title); }}
+                                style={{ background: 'transparent', border: 'none', padding: 0, color: 'rgba(255,255,255,0.3)', cursor: 'pointer' }}
+                                title="Reset Progress"
+                              >
+                                <span className="material-symbols-outlined" style={{ fontSize: '1.2rem' }}>restart_alt</span>
+                              </button>
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); handleDeleteDeck(deck.title); }}
+                                style={{ background: 'transparent', border: 'none', padding: 0, color: 'rgba(239, 68, 68, 0.4)', cursor: 'pointer' }}
+                                title="Delete Topic"
+                              >
+                                <span className="material-symbols-outlined" style={{ fontSize: '1.2rem' }}>delete</span>
+                              </button>
+                            </div>
+                          )}
+                          <span className="material-symbols-outlined" style={{ color: selectedDeckTitle === deck.title ? 'var(--secondary)' : 'rgba(255,255,255,0.1)' }}>
+                            {selectedDeckTitle === deck.title ? 'check_circle' : 'radio_button_unchecked'}
+                          </span>
+                        </div>
+                      </div>
+                      <div style={{ marginTop: 'auto' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '0.3rem' }}>
+                          <span>{masteredCount} mastered</span>
+                          <span>{percent}%</span>
+                        </div>
+                        <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.05)', borderRadius: '2px', overflow: 'hidden' }}>
+                          <div style={{ width: `${percent}%`, height: '100%', background: selectedDeckTitle === deck.title ? 'var(--secondary)' : 'rgba(255,255,255,0.2)' }} />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+                <label htmlFor="md-upload-main" style={{ cursor: 'pointer', display: 'block' }}>
+                  <div className="glass-panel topic-card" style={{ padding: '1.2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: '1px dashed rgba(255,255,255,0.1)', height: '140px' }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: '2rem', color: 'rgba(255,255,255,0.2)' }}>add_circle</span>
+                    <span style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)', marginTop: '0.5rem' }}>Add New Topic</span>
+                  </div>
+                </label>
+              </div>
             </div>
-          ) : (
-            <div style={{ textAlign: 'center', padding: '8rem 2rem', opacity: 0.5 }}>
-              <span className="material-symbols-outlined" style={{ fontSize: '5rem' }}>upload_file</span>
-              <h2>VAULT IS EMPTY</h2>
-              <p>Import SHRM 2026 BASK data to begin.</p>
-            </div>
-          )}
 
-          {/* AI Readiness Matrix (Full Width Bottom) */}
-          <VaultHealthMatrix 
-            decks={decks} 
-            onSmartSync={handleBulkWarmUp}
-            isSyncing={isWarmingUp}
-            syncProgress={warmUpProgress}
-          />
-        </div>
+              {/* Maintenance Row (The buttons that were moved today) */}
+              <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+                <button 
+                  onClick={handleBulkWarmUp} 
+                  disabled={isWarmingUp} 
+                  className="glass-panel" 
+                  style={{ flex: 1, padding: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.8rem', color: isWarmingUp ? '#fbbf24' : '#60a5fa', border: '1px solid rgba(96, 165, 250, 0.2)' }}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: '1.4rem' }}>{isWarmingUp ? 'sync' : 'bolt'}</span>
+                  <div style={{ textAlign: 'left' }}>
+                    <div style={{ fontWeight: 'bold' }}>{isWarmingUp ? `Syncing ${warmUpProgress}%` : 'Bulk Warm-Up'}</div>
+                    <div style={{ fontSize: '0.65rem', opacity: 0.6 }}>Populate {selectedDeckTitle === 'ALL' ? 'Full Vault' : 'Topic Gap'}</div>
+                  </div>
+                </button>
+
+                <button 
+                  onClick={() => setIsMatrixOpen(!isMatrixOpen)} 
+                  className={`glass-panel ${isMatrixOpen ? 'active' : ''}`}
+                  style={{ flex: 1, padding: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.8rem', color: '#60a5fa', border: '1px solid rgba(96, 165, 250, 0.2)' }}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: '1.4rem' }}>{isMatrixOpen ? 'visibility_off' : 'verified_user'}</span>
+                  <div style={{ textAlign: 'left' }}>
+                    <div style={{ fontWeight: 'bold' }}>{isMatrixOpen ? 'Hide Matrix' : 'Vault Health'}</div>
+                    <div style={{ fontSize: '0.65rem', opacity: 0.6 }}>Audit Readiness Data</div>
+                  </div>
+                </button>
+              </div>
+            </section>
+
+            <section style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              <div className="glass-panel" style={{ padding: '2rem', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                <h3 style={{ margin: 0, color: 'var(--secondary)' }}>Study Configuration</h3>
+                <select value={studyMode} onChange={(e) => setStudyMode(e.target.value)} className="glass-select"><option value="quiz">Multiple Choice Quiz</option><option value="traditional">Traditional Study</option></select>
+                {studyMode === 'quiz' && <select value={quizType} onChange={(e) => setQuizType(e.target.value)} className="glass-select"><option value="intelligent">Intelligent (Simulator)</option><option value="simple">Simple (Recall)</option></select>}
+                <button onClick={handleStartStudying} style={{ width: '100%', padding: '1rem', fontWeight: 'bold' }}>Start Studying</button>
+                {warmUpError && <div style={{ fontSize: '0.7rem', color: '#fbbf24', textAlign: 'center', marginTop: '0.5rem' }}>{warmUpError}</div>}
+              </div>
+            </section>
+          </div>
+        ) : (
+          <div style={{ textAlign: 'center', padding: '5rem 2rem' }}>
+            <span className="material-symbols-outlined" style={{ fontSize: '4rem', color: 'rgba(255,255,255,0.1)', marginBottom: '1.5rem' }}>upload_file</span>
+            <h2 style={{ marginBottom: '1rem' }}>No Study Material Found</h2>
+            <p style={{ color: 'var(--text-muted)', marginBottom: '2rem' }}>Please import your study material to begin.</p>
+            <label htmlFor="md-upload-main" className="btn-primary" style={{ cursor: 'pointer', padding: '1rem 2rem', borderRadius: '12px', display: 'inline-flex', alignItems: 'center', gap: '0.8rem' }}>
+              <span className="material-symbols-outlined">add_circle</span>
+              Add Your First Topic
+            </label>
+          </div>
+        )}
+        {decks.length > 0 && isMatrixOpen && (
+          <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(11, 15, 25, 0.9)', backdropFilter: 'blur(10px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
+            <div className="glass-panel animate-fade-in" style={{ width: '100%', maxWidth: '1100px', maxHeight: '90vh', overflowY: 'auto', position: 'relative', border: '1px solid rgba(255,255,255,0.1)' }}>
+              <button 
+                onClick={() => setIsMatrixOpen(false)} 
+                style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'rgba(0,0,0,0.2)', border: 'none', color: 'white', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 100, transition: 'all 0.2s' }}
+                onMouseEnter={(e) => e.target.style.background = 'rgba(0,0,0,0.4)'}
+                onMouseLeave={(e) => e.target.style.background = 'rgba(0,0,0,0.2)'}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '1.8rem' }}>close</span>
+              </button>
+              <VaultHealthMatrix decks={decks} onSmartSync={handleBulkWarmUp} isSyncing={isWarmingUp} syncProgress={warmUpProgress} />
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

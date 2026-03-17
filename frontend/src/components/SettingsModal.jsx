@@ -101,7 +101,11 @@ export default function SettingsModal({
                     <span style={{ fontWeight: '600' }}>Nuke AI Vault</span>
                   </div>
                   <button 
-                    onClick={onNukeAi}
+                    onClick={() => {
+                      if (window.confirm("FATAL ACTION: This will permanently delete ALL AI-generated scenarios, rationales, and distractors from your vault. Your study history will remain. Continue?")) {
+                        onNukeAi();
+                      }
+                    }}
                     style={{ 
                       background: 'rgba(239,68,68,0.1)', 
                       color: '#ef4444', 

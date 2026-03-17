@@ -85,7 +85,6 @@ const VaultHealthMatrix = ({ decks, onSmartSync, isSyncing, syncProgress }) => {
   return (
     <section className="glass-panel" style={{ 
       padding: '2rem', 
-      marginTop: '3rem', 
       overflowX: 'auto',
       border: '1px solid rgba(255,255,255,0.05)'
     }}>
