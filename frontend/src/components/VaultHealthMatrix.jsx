@@ -49,6 +49,7 @@ const TopicHealthCell = ({ count, total }) => {
  * Provides a granular view of AI content presence across all topics.
  */
 const VaultHealthMatrix = ({ decks, onSmartSync, isSyncing, syncProgress, certLevel = 'CP' }) => {
+  // Dynamic vault reload for real-time matrix updates during sync
   const vault = useMemo(() => loadVaultFromStorage(), [isSyncing, syncProgress]);
 
   // Structural Logic: Calculate health stats for each topic
@@ -103,7 +104,12 @@ const VaultHealthMatrix = ({ decks, onSmartSync, isSyncing, syncProgress, certLe
           {isSyncing ? `SYNCING ${syncProgress}%...` : 'SMART SYNC ALL'}
         </button>
       </div>
-      
+      {/* Dynamic progress bar for Smart Sync */}
+      {isSyncing && (
+        <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.08)', borderRadius: '10px', marginBottom: '1.5rem', overflow: 'hidden' }}>
+          <div style={{ width: `${syncProgress}%`, height: '100%', background: '#60a5fa', transition: 'width 0.3s' }} />
+        </div>
+      )}
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
           <tr style={{ borderBottom: '2px solid rgba(255,255,255,0.05)' }}>
