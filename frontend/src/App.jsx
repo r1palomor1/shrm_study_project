@@ -138,7 +138,7 @@ function App() {
       try {
         // MODE 1: Intelligent (Simulator)
         let { missingCards: missingIntel } = await getQuizDataForDeck({ cards: targetCards }, 'intelligent');
-        const intelBatches = Math.ceil(missingIntel.length / 15);
+        const intelBatches = Math.ceil(missingIntel.length / 5);
         let currentBatch = 0;
 
         while (missingIntel.length > 0) {
@@ -165,7 +165,7 @@ function App() {
 
         // MODE 2: Simple (Recall)
         let { missingCards: missingSimple } = await getQuizDataForDeck({ cards: targetCards }, 'simple');
-        const simpleBatches = Math.ceil(missingSimple.length / 15);
+        const simpleBatches = Math.ceil(missingSimple.length / 5);
         currentBatch = 0;
 
         while (missingSimple.length > 0) {
