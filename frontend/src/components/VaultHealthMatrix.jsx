@@ -76,7 +76,7 @@ const VaultHealthMatrix = ({ decks, onSmartSync, isSyncing, syncProgress }) => {
 
       return stats;
     });
-  }, [decks, vault]);
+  }, [decks, vault, isSyncing, syncProgress]); // Re-calculate when sync moves
 
   const headers = ['Simple Distractors', 'Intelligent Scenarios', 'Strategic Rationales', 'Behavioral Bridge Tags'];
   const dataKeys = ['simple', 'scenarios', 'rationales', 'tags'];

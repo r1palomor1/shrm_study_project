@@ -144,9 +144,10 @@ function App() {
         while (missingIntel.length > 0) {
           let rateLimited = false;
           currentBatch++;
+          const batchToProcess = missingIntel.slice(0, 5); // Take only 5
           setWarmUpStatus(`SJI SYNC: Batch ${currentBatch} of ${intelBatches}...`);
 
-          await generateDistractorsBatch(missingIntel, 'intelligent', (p, error) => {
+          await generateDistractorsBatch(batchToProcess, 'intelligent', (p, error) => {
             setWarmUpProgress(Math.round(p * 0.5)); // First half of bar
             if (error === 'RATE_LIMIT') rateLimited = true;
           });
@@ -171,9 +172,10 @@ function App() {
         while (missingSimple.length > 0) {
           let rateLimited = false;
           currentBatch++;
+          const batchToProcess = missingSimple.slice(0, 5); // Take only 5
           setWarmUpStatus(`RECALL SYNC: Batch ${currentBatch} of ${simpleBatches}...`);
 
-          await generateDistractorsBatch(missingSimple, 'simple', (p, error) => {
+          await generateDistractorsBatch(batchToProcess, 'simple', (p, error) => {
             setWarmUpProgress(50 + Math.round(p * 0.5)); // Second half of bar
             if (error === 'RATE_LIMIT') rateLimited = true;
           });
