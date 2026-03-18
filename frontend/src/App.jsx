@@ -170,7 +170,7 @@ function App() {
             await new Promise(r => setTimeout(r, 15000));
             setWarmUpError(null);
           }
-          const updated = await getQuizDataForDeck({ cards: targetCards }, 'intelligent');
+          const updated = await getQuizDataForDeck({ cards: targetCards }, 'intelligent', certLevel);
           missingIntel = updated.missingCards;
         }
 
@@ -202,7 +202,7 @@ function App() {
             await new Promise(r => setTimeout(r, 15000));
             setWarmUpError(null);
           }
-          const updated = await getQuizDataForDeck({ cards: targetCards }, 'simple');
+          const updated = await getQuizDataForDeck({ cards: targetCards }, 'simple', certLevel);
           missingSimple = updated.missingCards;
         }
 
