@@ -138,8 +138,10 @@ export default function SettingsModal({
                     md += `Generated: ${new Date().toLocaleString()}\n\n---\n\n`;
                     
                     Object.entries(vault).forEach(([key, data]) => {
+                      const levelLabel = data.certLevel || 'CP';
+                      
                       if (data.quizType === 'intelligent' && data.scenario) {
-                        const levelLabel = data.certLevel || 'CP';
+                        // --- SJI SIMULATOR ITEM ---
                         md += `## [SHRM-${levelLabel}] SJI: ${data.question}\n\n`;
                         md += `> **Scenario:** ${data.scenario}\n\n`;
                         md += `*   **Correct (Boss-Mode Action):** ${data.correct_answer}\n`;
@@ -150,6 +152,16 @@ export default function SettingsModal({
                         }
                         md += `\n**🎓 Tutor Rationale:**\n${data.rationale}\n\n`;
                         md += `---\n\n`;
+                      } else if (data.quizType === 'simple' && data.correct_answer) {
+                        // --- SIMPLE RECALL ITEM ---
+                        md += `## [SHRM-${levelLabel}] RECALL: ${data.question}\n\n`;
+                        md += `*   **Correct (Knowledge Match):** ${data.correct_answer}\n`;
+                        if (data.distractors && Array.isArray(data.distractors)) {
+                          data.distractors.forEach((d, i) => {
+                            md += `*   **Trap ${i+1}:** ${d}\n`;
+                          });
+                        }
+                        md += `\n---\n\n`;
                       }
                     });
 
@@ -157,7 +169,7 @@ export default function SettingsModal({
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
-                    a.download = `shrm_dual_sji_audit_${new Date().toISOString().split('T')[0]}.md`;
+                    a.download = `shrm_dual_audit_${new Date().toISOString().split('T')[0]}.md`;
                     a.click();
                   }}
                   style={{ 
