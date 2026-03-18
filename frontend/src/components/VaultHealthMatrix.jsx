@@ -98,8 +98,14 @@ const VaultHealthMatrix = ({ decks, onSmartSync, isSyncing, syncProgress, certLe
         <button 
           onClick={onSmartSync} 
           disabled={isSyncing} 
-          className="btn-primary" 
-          style={{ padding: '0.6rem 1.2rem', fontSize: '0.8rem', fontWeight: 'bold' }}
+          className={isSyncing ? "glass-panel" : "btn-primary"} 
+          style={{ 
+            padding: '0.6rem 1.2rem', 
+            fontSize: '0.8rem', 
+            fontWeight: 'bold',
+            color: isSyncing ? '#fbbf24' : 'white',
+            border: isSyncing ? '1px solid rgba(251,191,36,0.3)' : 'none'
+          }}
         >
           {isSyncing ? `SYNCING ${syncProgress}%...` : 'SMART SYNC ALL'}
         </button>
@@ -107,7 +113,7 @@ const VaultHealthMatrix = ({ decks, onSmartSync, isSyncing, syncProgress, certLe
       {/* Dynamic progress bar for Smart Sync */}
       {isSyncing && (
         <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.08)', borderRadius: '10px', marginBottom: '1.5rem', overflow: 'hidden' }}>
-          <div style={{ width: `${syncProgress}%`, height: '100%', background: '#60a5fa', transition: 'width 0.3s' }} />
+          <div style={{ width: `${syncProgress}%`, height: '100%', background: '#fbbf24', transition: 'width 0.3s' }} />
         </div>
       )}
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>

@@ -10,9 +10,20 @@ import { getDistractorFromVault, saveDistractorToVault } from './storage';
  */
 export async function getQuizDataForDeck(deck, requestedQuizType = 'intelligent', certLevel = 'CP') {
     const cardsWithData = deck.cards.map(card => {
+        // PHYSICAL CONTENT AUDIT: We only count it if the actual payload is present
         const vaultData = getDistractorFromVault(card.id, requestedQuizType, certLevel);
-        // We only count it as "having data" if it exists AND matches the requested type and cert
-        const isValid = vaultData && vaultData.quizType === requestedQuizType;
+        
+        let isValid = false;
+        if (vaultData && vaultData.quizType === requestedQuizType) {
+            if (requestedQuizType === 'intelligent') {
+                // Intelligent mode requires a scenario and rationale
+                isValid = !!vaultData.scenario && !!vaultData.rationale;
+            } else {
+                // Simple mode requires at least one distractor
+                isValid = Array.isArray(vaultData.distractors) && vaultData.distractors.length > 0;
+            }
+        }
+        
         return {
             ...card,
             aiData: isValid ? vaultData : null

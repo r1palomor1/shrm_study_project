@@ -368,9 +368,9 @@ function App() {
                            const vault = loadVaultFromStorage();
                            const allCards = decks.flatMap(d => d.cards);
                            const isAllReady = allCards.length > 0 && allCards.every(c => {
-                             const keyI = `${c.id}:intelligent:${certLevel}`;
-                             const keyS = `${c.id}:simple:${certLevel}`;
-                             return vault[keyI] && vault[keyS];
+                             const dataI = vault[`${c.id}:intelligent:${certLevel}`];
+                             const dataS = vault[`${c.id}:simple:${certLevel}`];
+                             return (dataI?.scenario && dataI.rationale) && (dataS?.distractors?.length > 0);
                            });
                            if (isAllReady) {
                              return (
@@ -387,7 +387,7 @@ function App() {
                         const v = loadVaultFromStorage();
                         return v[`${c.id}:intelligent:${certLevel}`] && v[`${c.id}:simple:${certLevel}`];
                       }) && (
-                        <div style={{ color: warmUpError ? '#fbbf24' : '#60a5fa', fontSize: '0.8rem', fontWeight: 'bold', marginTop: '1rem', fontFamily: 'monospace' }}>
+                        <div style={{ color: '#fbbf24', fontSize: '0.8rem', fontWeight: 'bold', marginTop: '1rem', fontFamily: 'monospace' }}>
                           {warmUpStatus}
                         </div>
                       )}
@@ -427,9 +427,9 @@ function App() {
                   const percent = Math.round((masteredCount / deck.cards.length) * 100);
                   const vault = loadVaultFromStorage();
                   const isDeckReady = deck.cards.every(c => {
-                    const keyI = `${c.id}:intelligent:${certLevel}`;
-                    const keyS = `${c.id}:simple:${certLevel}`;
-                    return vault[keyI] && vault[keyS];
+                    const dataI = vault[`${c.id}:intelligent:${certLevel}`];
+                    const dataS = vault[`${c.id}:simple:${certLevel}`];
+                    return (dataI?.scenario && dataI.rationale) && (dataS?.distractors?.length > 0);
                   });
                   return (
                     <div key={deck.title} onClick={() => setSelectedDeckTitle(deck.title)} className={`glass-panel topic-card ${selectedDeckTitle === deck.title ? 'active' : ''}`} style={{ padding: '1.2rem', position: 'relative' }}>
@@ -474,11 +474,11 @@ function App() {
                         </div>
                         {warmUpStatus && !isDeckReady && (
                           <>
-                            <div style={{ color: warmUpError ? '#fbbf24' : '#60a5fa', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '1.2rem', fontFamily: 'monospace' }}>
+                            <div style={{ color: '#fbbf24', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '1.2rem', fontFamily: 'monospace' }}>
                               {warmUpStatus}
                             </div>
                             <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '10px', overflow: 'hidden', marginBottom: '1.5rem' }}>
-                              <div style={{ width: `${percent}%`, height: '100%', background: selectedDeckTitle === deck.title ? 'var(--secondary)' : 'rgba(255,255,255,0.2)' }} />
+                              <div style={{ width: `${percent}%`, height: '100%', background: '#fbbf24' }} />
                             </div>
                           </>
                         )}
