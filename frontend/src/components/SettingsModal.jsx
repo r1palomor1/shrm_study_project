@@ -139,12 +139,15 @@ export default function SettingsModal({
                     
                     Object.entries(vault).forEach(([key, data]) => {
                       if (data.quizType === 'intelligent' && data.scenario) {
-                        md += `## SJI: ${data.question}\n\n`;
+                        const levelLabel = data.certLevel || 'CP';
+                        md += `## [SHRM-${levelLabel}] SJI: ${data.question}\n\n`;
                         md += `> **Scenario:** ${data.scenario}\n\n`;
                         md += `*   **Correct (Boss-Mode Action):** ${data.correct_answer}\n`;
-                        data.distractors.forEach((d, i) => {
-                          md += `*   **Trap ${i+1}:** ${d}\n`;
-                        });
+                        if (data.distractors && Array.isArray(data.distractors)) {
+                          data.distractors.forEach((d, i) => {
+                            md += `*   **Trap ${i+1}:** ${d}\n`;
+                          });
+                        }
                         md += `\n**🎓 Tutor Rationale:**\n${data.rationale}\n\n`;
                         md += `---\n\n`;
                       }
@@ -154,7 +157,7 @@ export default function SettingsModal({
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
-                    a.download = `shrm_sji_audit_v3_${new Date().toISOString().split('T')[0]}.md`;
+                    a.download = `shrm_dual_sji_audit_${new Date().toISOString().split('T')[0]}.md`;
                     a.click();
                   }}
                   style={{ 

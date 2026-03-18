@@ -47,6 +47,10 @@ function App() {
 
   useEffect(() => {
     localStorage.setItem('shrm_cert_level', certLevel);
+    // Clear sync indicators when switching levels to prevent "ghost" completion status
+    setWarmUpStatus(null);
+    setWarmUpProgress(0);
+    setWarmUpError(null);
   }, [certLevel]);
   const [warmUpProgress, setWarmUpProgress] = useState(0);
   const [warmUpError, setWarmUpError] = useState(null);
