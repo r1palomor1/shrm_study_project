@@ -373,7 +373,9 @@ function App() {
                              return vault[keyI] && vault[keyS];
                            });
                            if (isAllReady) {
-                             return <div style={{ fontSize: '0.6rem', color: '#60a5fa', border: '1px solid rgba(96,165,250,0.3)', background: 'rgba(96,165,250,0.1)', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>{certLevel} READY</div>;
+                             return (
+                               <div id="badge-all-ready" style={{ fontSize: '0.6rem', color: '#60a5fa', border: '1px solid rgba(96,165,250,0.3)', background: 'rgba(96,165,250,0.1)', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>{certLevel} READY</div>
+                             );
                            }
                            return null;
                         })()}
@@ -381,6 +383,14 @@ function App() {
                       <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.3rem' }}>
                         Comprehensive review of {totalCards} cards across all topics.
                       </div>
+                      {warmUpStatus && !decks.flatMap(d => d.cards).every(c => {
+                        const v = loadVaultFromStorage();
+                        return v[`${c.id}:intelligent:${certLevel}`] && v[`${c.id}:simple:${certLevel}`];
+                      }) && (
+                        <div style={{ color: warmUpError ? '#fbbf24' : '#60a5fa', fontSize: '0.8rem', fontWeight: 'bold', marginTop: '1rem', fontFamily: 'monospace' }}>
+                          {warmUpStatus}
+                        </div>
+                      )}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
                       {selectedDeckTitle === 'ALL' && (
@@ -415,24 +425,21 @@ function App() {
                   };
                   const masteredCount = deck.cards.filter(c => getStatus(c) !== 'unseen').length;
                   const percent = Math.round((masteredCount / deck.cards.length) * 100);
+                  const vault = loadVaultFromStorage();
+                  const isDeckReady = deck.cards.every(c => {
+                    const keyI = `${c.id}:intelligent:${certLevel}`;
+                    const keyS = `${c.id}:simple:${certLevel}`;
+                    return vault[keyI] && vault[keyS];
+                  });
                   return (
                     <div key={deck.title} onClick={() => setSelectedDeckTitle(deck.title)} className={`glass-panel topic-card ${selectedDeckTitle === deck.title ? 'active' : ''}`} style={{ padding: '1.2rem', position: 'relative' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
                         <div style={{ flex: 1 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
                             <h3 style={{ margin: 0 }}>{deck.title}</h3>
-                            {(() => {
-                               const vault = loadVaultFromStorage();
-                               const isDeckReady = deck.cards.every(c => {
-                                 const keyI = `${c.id}:intelligent:${certLevel}`;
-                                 const keyS = `${c.id}:simple:${certLevel}`;
-                                 return vault[keyI] && vault[keyS];
-                               });
-                               if (isDeckReady) {
-                                 return <div style={{ fontSize: '0.6rem', color: '#60a5fa', border: '1px solid rgba(96,165,250,0.3)', background: 'rgba(96,165,250,0.1)', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>{certLevel} READY</div>;
-                               }
-                               return null;
-                            })()}
+                            {isDeckReady && (
+                              <div style={{ fontSize: '0.6rem', color: '#60a5fa', border: '1px solid rgba(96,165,250,0.3)', background: 'rgba(96,165,250,0.1)', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>{certLevel} READY</div>
+                            )}
                           </div>
                           <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>{deck.cards.length} Flashcards</div>
                         </div>
@@ -465,12 +472,16 @@ function App() {
                           <span>{masteredCount} mastered</span>
                           <span>{percent}%</span>
                         </div>
-                        <div style={{ color: warmUpError ? '#ef4444' : '#60a5fa', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '1.2rem', fontFamily: 'monospace' }}>
-                  {warmUpStatus}
-                </div>
-                <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '10px', overflow: 'hidden', marginBottom: '1.5rem' }}>
-                          <div style={{ width: `${percent}%`, height: '100%', background: selectedDeckTitle === deck.title ? 'var(--secondary)' : 'rgba(255,255,255,0.2)' }} />
-                        </div>
+                        {warmUpStatus && !isDeckReady && (
+                          <>
+                            <div style={{ color: warmUpError ? '#fbbf24' : '#60a5fa', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '1.2rem', fontFamily: 'monospace' }}>
+                              {warmUpStatus}
+                            </div>
+                            <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '10px', overflow: 'hidden', marginBottom: '1.5rem' }}>
+                              <div style={{ width: `${percent}%`, height: '100%', background: selectedDeckTitle === deck.title ? 'var(--secondary)' : 'rgba(255,255,255,0.2)' }} />
+                            </div>
+                          </>
+                        )}
                       </div>
                     </div>
                   );
@@ -490,7 +501,7 @@ function App() {
                   onClick={handleBulkWarmUp} 
                   disabled={isWarmingUp} 
                   className="glass-panel" 
-                  style={{ flex: 1, padding: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.8rem', color: isWarmingUp ? '#fbbf24' : (warmUpError ? '#f87171' : '#60a5fa'), border: `1px solid ${isWarmingUp ? 'rgba(251,191,36,0.2)' : (warmUpError ? 'rgba(248,113,113,0.3)' : 'rgba(96, 165, 250, 0.2)')}` }}
+                  style={{ flex: 1, padding: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.8rem', color: (isWarmingUp || warmUpError) ? '#fbbf24' : '#60a5fa', border: `1px solid ${(isWarmingUp || warmUpError) ? 'rgba(251,191,36,0.3)' : 'rgba(96, 165, 250, 0.2)'}` }}
                 >
                   <span className="material-symbols-outlined" style={{ fontSize: '1.4rem' }}>{isWarmingUp ? 'sync' : (warmUpError ? 'replay' : 'bolt')}</span>
                   <div style={{ textAlign: 'left' }}>
@@ -547,16 +558,16 @@ function App() {
                 
                 <button onClick={handleStartStudying} style={{ width: '100%', padding: '1rem', fontWeight: 'bold', marginTop: '1rem' }} className="btn-primary" disabled={isWarmingUp}>Start Studying</button>
                 {warmUpError && (
-                  <div style={{ marginTop: '1rem', padding: '1rem', background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: '12px' }}>
-                    <div style={{ fontSize: '0.75rem', color: '#f87171', display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                  <div style={{ marginTop: '1rem', padding: '1rem', background: 'rgba(251,191,36,0.05)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: '12px' }}>
+                    <div style={{ fontSize: '0.75rem', color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
                       <span className="material-symbols-outlined" style={{ fontSize: '1.1rem' }}>warning</span>
                       {warmUpError}
                     </div>
                     <button 
                       onClick={handleBulkWarmUp}
-                      style={{ width: '100%', background: 'rgba(248,113,113,0.2)', color: '#f87171', border: '1px solid rgba(248,113,113,0.3)', padding: '0.5rem', borderRadius: '8px', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 'bold' }}
+                      style={{ width: '100%', background: 'rgba(251,191,36,0.1)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.2)', padding: '0.5rem', borderRadius: '8px', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 'bold' }}
                     >
-                      Retry Block Now
+                      Resume Block Now
                     </button>
                   </div>
                 )}
