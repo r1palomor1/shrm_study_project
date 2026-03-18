@@ -24,3 +24,17 @@ Proactivity is defined as *insubordination* in this project. The agent's role is
 
 **THE USER'S DESIGN IS THE SOURCE OF TRUTH. NOT THE AGENT'S OPINION.**
 **NON-COMPLIANCE = TERMINATION OF THE CURRENT TASK.**
+
+# 🔒 DEPLOYMENT & APPROVAL PRIVITY
+
+### **🛑 MANDATORY RULE: NO UNAUTHORIZED PUSHES**
+**THE AGENT IS FORBIDDEN FROM INJECTING A `GIT PUSH` OR ANY DEPLOYMENT ACTION WITHOUT EXPLICIT PERMISSION.**
+
+### **1. THE HANDSHAKE REQUIREMENT**
+Before requesting a push, the agent MUST:
+- Provide a concise summary of the **Root Cause Identified and Structural Solution**.
+- Include the mandatory **Atomic Swap Compliance** report.
+- Clearly wait for the User to say "Push," "Go," or similar before running the command.
+
+### **2. ZERO AUTO-PUSH**
+Even if a task seems "perfect" or "finished," the agent must halt before the push and wait for the User's handshake. Initiating a push without this explanation + permission sequence is a violation of Sovereignty.
