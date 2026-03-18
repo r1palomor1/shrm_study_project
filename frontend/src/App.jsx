@@ -1,3 +1,4 @@
+// --- SHRM 2026: RESTORATION BASELINE (Ver: 1.0.0) ---
 import { useState, useEffect } from 'react';
 import DataImporter from './components/DataImporter';
 import FlashcardStudyMode from './components/FlashcardStudyMode';
