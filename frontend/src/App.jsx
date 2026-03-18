@@ -100,8 +100,16 @@ function App() {
             const updated = { ...c };
             if (modesToReset.traditional) { updated.status_traditional = 'unseen'; updated.status = 'unseen'; }
             if (modesToReset.test) { updated.status_test = 'unseen'; updated.history_test = null; }
-            if (modesToReset.quiz_simple) { updated.status_quiz_simple = 'unseen'; updated.selected_option_simple = null; updated.history_quiz_simple = null; }
-            if (modesToReset.quiz_intelligent) { updated.status_quiz_intelligent = 'unseen'; updated.selected_option_intelligent = null; updated.history_quiz_intelligent = null; }
+            if (modesToReset.quiz_simple) { 
+              updated[`status_quiz_simple_${certLevel}`] = 'unseen'; 
+              updated[`selected_option_simple_${certLevel}`] = null; 
+              updated[`history_quiz_simple_${certLevel}`] = null; 
+            }
+            if (modesToReset.quiz_intelligent) { 
+              updated[`status_quiz_intelligent_${certLevel}`] = 'unseen'; 
+              updated[`selected_option_intelligent_${certLevel}`] = null; 
+              updated[`history_quiz_intelligent_${certLevel}`] = null; 
+            }
             if (Object.values(modesToReset).every(v => v)) { updated.score = 0; }
             return updated;
           });
@@ -257,7 +265,7 @@ function App() {
       }
     }
 
-    setActiveStudyDeck({ title: studyTitle, cards: finalDeckCards, totalOriginalCards, initialIndex, quizType });
+    setActiveStudyDeck({ title: studyTitle, cards: finalDeckCards, totalOriginalCards, initialIndex, quizType, certLevel });
     setIsStudying(true);
   };
 

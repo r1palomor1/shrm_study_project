@@ -165,6 +165,12 @@ export function clearAiVault() {
 }
 
 export function updateCardStatus(cardId, studyMode, newStatus, historyData = null) {
+    const certLevel = historyData?.certLevel || 'CP';
+    const quizType = historyData?.quizType || 'intelligent';
+    const statusKey = `status_quiz_${quizType}_${certLevel}`;
+    const historyKey = `history_quiz_${quizType}_${certLevel}`;
+    const optionKey = `selected_option_${quizType}_${certLevel}`;
+
     const decks = loadDecksFromStorage();
     if (decks && decks.length > 0) {
         let updated = false;
@@ -176,11 +182,10 @@ export function updateCardStatus(cardId, studyMode, newStatus, historyData = nul
                 } else if (studyMode === 'test') {
                     deck.cards[cardIndex].status_test = newStatus;
                 } else if (studyMode === 'quiz') {
-                    const quizType = historyData?.quizType || 'intelligent';
-                    deck.cards[cardIndex][`status_quiz_${quizType}`] = newStatus;
+                    deck.cards[cardIndex][statusKey] = newStatus;
                     // Persist the specific option selected by the user
                     if (historyData?.selectedOption) {
-                        deck.cards[cardIndex][`selected_option_${quizType}`] = historyData.selectedOption;
+                        deck.cards[cardIndex][optionKey] = historyData.selectedOption;
                     }
                 }
 
@@ -195,8 +200,7 @@ export function updateCardStatus(cardId, studyMode, newStatus, historyData = nul
                             timestamp: new Date().toISOString()
                         };
                     } else if (studyMode === 'quiz') {
-                        const quizType = historyData?.quizType || 'intelligent';
-                        deck.cards[cardIndex][`history_quiz_${quizType}`] = {
+                        deck.cards[cardIndex][historyKey] = {
                             grade: newStatus,
                             timestamp: new Date().toISOString()
                         };

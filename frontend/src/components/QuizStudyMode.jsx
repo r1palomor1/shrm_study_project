@@ -21,7 +21,7 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
     // Check for missing distractor data on mount
     useEffect(() => {
         const missing = deck.cards.filter(c => {
-            const vaultData = getDistractorFromVault(c.id, deck.quizType);
+            const vaultData = getDistractorFromVault(c.id, deck.quizType, deck.certLevel);
             return !vaultData || vaultData.quizType !== deck.quizType;
         });
         
@@ -40,7 +40,7 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
             await generateDistractorsBatch(cardsLeft, deck.quizType, (p, error) => {
                 setProgress(p);
                 if (error === 'RATE_LIMIT') rateLimited = true;
-            });
+            }, deck.certLevel);
 
             if (rateLimited) {
                 setQuizError('Limit reached. Switching to Fallback Engine...');
@@ -48,7 +48,7 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
                 setQuizError(null);
                 
                 const missing = deck.cards.filter(c => {
-                    const vaultData = getDistractorFromVault(c.id, deck.quizType);
+                    const vaultData = getDistractorFromVault(c.id, deck.quizType, deck.certLevel);
                     return !vaultData || vaultData.quizType !== deck.quizType;
                 });
                 cardsLeft = missing;
@@ -82,7 +82,7 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
     useEffect(() => {
         if (isProcessing) return;
 
-        const aiData = getDistractorFromVault(card.id, deck.quizType);
+        const aiData = getDistractorFromVault(card.id, deck.quizType, deck.certLevel);
         
         if (aiData && aiData.distractors && aiData.quizType === deck.quizType) {
             // CHALLENGE MODE: Use the AI-transformed correct answer for Intelligent mode
@@ -103,7 +103,7 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
         const alreadyAnswered = currentStatus !== 'unseen';
         
         if (alreadyAnswered) {
-            const savedOption = card[`selected_option_${deck.quizType}`];
+            const savedOption = card[`selected_option_${deck.quizType}_${deck.certLevel}`];
             const savedOptionIndex = options.indexOf(savedOption);
             setUserSelectedIdx(savedOptionIndex !== -1 ? savedOptionIndex : null);
             setIsConfirmed(true);
@@ -132,11 +132,12 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
         if (onUpdateCardStatus) {
             onUpdateCardStatus(card.id, isCorrect ? 'difficulty-5' : 'difficulty-1', {
                 quizType: deck.quizType,
+                certLevel: deck.certLevel,
                 selectedOption: options[userSelectedIdx]
             });
             
-            const quizKey = `status_quiz_${deck.quizType}`;
-            const optionKey = `selected_option_${deck.quizType}`;
+            const quizKey = `status_quiz_${deck.quizType}_${deck.certLevel}`;
+            const optionKey = `selected_option_${deck.quizType}_${deck.certLevel}`;
             card[quizKey] = isCorrect ? 'difficulty-5' : 'difficulty-1';
             card[optionKey] = options[userSelectedIdx];
         }
@@ -157,7 +158,7 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
     };
 
     const getQuizStatus = (c) => {
-        const s = c[`status_quiz_${deck.quizType}`] || 'unseen';
+        const s = c[`status_quiz_${deck.quizType}_${deck.certLevel}`] || 'unseen';
         if (s === 'difficulty-5') return 'correct';
         if (s === 'difficulty-1') return 'incorrect';
         return 'unseen';
@@ -188,7 +189,7 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
         );
     }
 
-    const currentAiData = getDistractorFromVault(card.id, deck.quizType);
+    const currentAiData = getDistractorFromVault(card.id, deck.quizType, deck.certLevel);
 
     return (
         <div style={{ maxWidth: '850px', margin: '0 auto', width: '100%', minHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
