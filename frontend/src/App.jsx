@@ -16,7 +16,9 @@ import {
   updateCardStatus,
   exportAppData,
   importAppData,
-  clearAiVault
+  clearAiVault,
+  getDistractorFromVault,
+  loadVaultFromStorage
 } from './utils/storage';
 import { 
   getQuizDataForDeck,
@@ -360,7 +362,22 @@ function App() {
                 <div onClick={() => setSelectedDeckTitle('ALL')} className={`glass-panel topic-card ${selectedDeckTitle === 'ALL' ? 'active' : ''}`} style={{ padding: '1.5rem', position: 'relative' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div style={{ flex: 1 }}>
-                      <h3 style={{ margin: 0 }}>All Study Material</h3>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                        <h3 style={{ margin: 0 }}>All Study Material</h3>
+                        {(() => {
+                           const vault = loadVaultFromStorage();
+                           const allCards = decks.flatMap(d => d.cards);
+                           const isAllReady = allCards.length > 0 && allCards.every(c => {
+                             const keyI = `${c.id}:intelligent:${certLevel}`;
+                             const keyS = `${c.id}:simple:${certLevel}`;
+                             return vault[keyI] && vault[keyS];
+                           });
+                           if (isAllReady) {
+                             return <div style={{ fontSize: '0.6rem', color: '#60a5fa', border: '1px solid rgba(96,165,250,0.3)', background: 'rgba(96,165,250,0.1)', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>{certLevel} READY</div>;
+                           }
+                           return null;
+                        })()}
+                      </div>
                       <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.3rem' }}>
                         Comprehensive review of {totalCards} cards across all topics.
                       </div>
@@ -402,7 +419,21 @@ function App() {
                     <div key={deck.title} onClick={() => setSelectedDeckTitle(deck.title)} className={`glass-panel topic-card ${selectedDeckTitle === deck.title ? 'active' : ''}`} style={{ padding: '1.2rem', position: 'relative' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
                         <div style={{ flex: 1 }}>
-                          <h3 style={{ margin: 0 }}>{deck.title}</h3>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                            <h3 style={{ margin: 0 }}>{deck.title}</h3>
+                            {(() => {
+                               const vault = loadVaultFromStorage();
+                               const isDeckReady = deck.cards.every(c => {
+                                 const keyI = `${c.id}:intelligent:${certLevel}`;
+                                 const keyS = `${c.id}:simple:${certLevel}`;
+                                 return vault[keyI] && vault[keyS];
+                               });
+                               if (isDeckReady) {
+                                 return <div style={{ fontSize: '0.6rem', color: '#60a5fa', border: '1px solid rgba(96,165,250,0.3)', background: 'rgba(96,165,250,0.1)', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>{certLevel} READY</div>;
+                               }
+                               return null;
+                            })()}
+                          </div>
                           <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>{deck.cards.length} Flashcards</div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
