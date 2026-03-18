@@ -321,7 +321,7 @@ function App() {
   if (isViewingAnalytics) {
     return (
       <div className="app-container animate-fade-in" style={{ paddingTop: '2rem' }}>
-        <AnalyticsDashboard decks={decks} initialMode={quizType} onBack={() => setIsViewingAnalytics(false)} />
+        <AnalyticsDashboard decks={decks} initialMode={quizType} certLevel={certLevel} onBack={() => setIsViewingAnalytics(false)} />
       </div>
     );
   }

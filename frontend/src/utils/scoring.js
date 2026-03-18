@@ -111,7 +111,7 @@ export function getWeightedMastery(status) {
  * Aggregates mastery data across the 2026 BASK framework.
  * Returns an object with isolated stats for 'simple' and 'intelligent' modes.
  */
-export function calculateBASKAnalytics(decks, vault) {
+export function calculateBASKAnalytics(decks, vault, certLevel = 'CP') {
     const uniqueQuestions = new Set();
     
     const createStatTemplate = () => ({
@@ -138,13 +138,13 @@ export function calculateBASKAnalytics(decks, vault) {
             uniqueQuestions.add(card.id);
             
             ['intelligent', 'simple'].forEach(mode => {
-                const aiData = vault[`${card.id}:${mode}`];
+                const aiData = vault[`${card.id}:${mode}:${certLevel}`];
                 if (!aiData) return;
 
                 // Track total unique cards available for this mode
                 modes[mode].uniqueIds.add(card.id);
 
-                const statusKey = `status_quiz_${mode}`;
+                const statusKey = `status_quiz_${mode}_${certLevel}`;
                 const status = card[statusKey];
                 
                 // If not attempted, we still count it for "total" availability, 
