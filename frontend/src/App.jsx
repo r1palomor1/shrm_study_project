@@ -85,6 +85,22 @@ function App() {
       }
     });
   };
+  
+  const handleNukeAi = () => {
+    setIsSettingsOpen(false);
+    setConfirmModal({
+      isOpen: true,
+      type: 'danger',
+      title: 'Wipe AI Distractor Vault?',
+      message: 'This will permanently delete all AI-generated scenarios and distractors. Study history and flashcards remain unaffected. Continue?',
+      confirmText: 'Wipe Vault',
+      onConfirm: () => {
+        clearAiVault();
+        setDecks(loadDecksFromStorage());
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+      }
+    });
+  };
 
   const handleResetProgress = (title) => {
     setIsSettingsOpen(false);
@@ -167,7 +183,7 @@ function App() {
           }, certLevel);
 
           if (result && result.success === false) {
-            setWarmUpError(`FATAL: ${result.error || 'AI Provider Failed'}`);
+            setWarmUpError(`Sync Interrupted: Provider Timeout (Transient)`);
             setIsWarmingUp(false);
             return;
           }
@@ -199,7 +215,7 @@ function App() {
           }, certLevel);
 
           if (result && result.success === false) {
-            setWarmUpError(`FATAL: ${result.error || 'AI Provider Failed'}`);
+            setWarmUpError(`Sync Interrupted: Provider Timeout (Transient)`);
             setIsWarmingUp(false);
             return;
           }
@@ -219,7 +235,7 @@ function App() {
         setTimeout(() => setIsWarmingUp(false), 2000);
       } catch (err) {
         console.error("Bulk Generation Error:", err);
-        setWarmUpError("System Error. Please try again later.");
+        setWarmUpError("Connection Interrupted. Please Resume.");
         setTimeout(() => setIsWarmingUp(false), 3000);
       }
     };
@@ -315,7 +331,7 @@ function App() {
         </div>
       </header>
 
-      {isSettingsOpen && <SettingsModal onClose={() => setIsSettingsOpen(false)} onExport={exportAppData} onImport={async (e) => { await importAppData(e.target.files[0]); setDecks(loadDecksFromStorage()); }} onNukeAi={() => { clearAiVault(); setDecks(loadDecksFromStorage()); }} onDeleteDeck={handleDeleteDeck} onResetProgress={handleResetProgress} decks={decks} />}
+      {isSettingsOpen && <SettingsModal onClose={() => setIsSettingsOpen(false)} onExport={exportAppData} onImport={async (e) => { await importAppData(e.target.files[0]); setDecks(loadDecksFromStorage()); }} onNukeAi={handleNukeAi} onDeleteDeck={handleDeleteDeck} onResetProgress={handleResetProgress} decks={decks} />}
       {isResetOpen && <ResetModal isOpen={isResetOpen} targetTitle={resetTarget} currentMode={studyMode} quizType={quizType} onClose={() => setIsResetOpen(false)} onConfirm={handlePerformReset} />}
       <ConfirmationModal isOpen={confirmModal.isOpen} type={confirmModal.type} title={confirmModal.title} message={confirmModal.message} confirmText={confirmModal.confirmText} onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))} onConfirm={confirmModal.onConfirm} />
 
@@ -429,11 +445,13 @@ function App() {
                   onClick={handleBulkWarmUp} 
                   disabled={isWarmingUp} 
                   className="glass-panel" 
-                  style={{ flex: 1, padding: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.8rem', color: isWarmingUp ? '#fbbf24' : '#60a5fa', border: '1px solid rgba(96, 165, 250, 0.2)' }}
+                  style={{ flex: 1, padding: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.8rem', color: isWarmingUp ? '#fbbf24' : (warmUpError ? '#f87171' : '#60a5fa'), border: `1px solid ${isWarmingUp ? 'rgba(251,191,36,0.2)' : (warmUpError ? 'rgba(248,113,113,0.3)' : 'rgba(96, 165, 250, 0.2)')}` }}
                 >
-                  <span className="material-symbols-outlined" style={{ fontSize: '1.4rem' }}>{isWarmingUp ? 'sync' : 'bolt'}</span>
+                  <span className="material-symbols-outlined" style={{ fontSize: '1.4rem' }}>{isWarmingUp ? 'sync' : (warmUpError ? 'replay' : 'bolt')}</span>
                   <div style={{ textAlign: 'left' }}>
-                    <div style={{ fontWeight: 'bold' }}>{isWarmingUp ? `Syncing ${warmUpProgress}%` : 'Bulk Warm-Up'}</div>
+                    <div style={{ fontWeight: 'bold', textTransform: 'uppercase', fontSize: '0.8rem', letterSpacing: '1px' }}>
+                      {isWarmingUp ? `Syncing ${warmUpProgress}%` : (warmUpError ? 'Resume Sync' : 'Bulk Warm-Up')}
+                    </div>
                     <div style={{ fontSize: '0.9rem', opacity: 0.9 }}>{warmUpStatus || `Populate ${selectedDeckTitle === 'ALL' ? 'Full Vault' : 'Topic Gap'}`}</div>
                   </div>
                 </button>
@@ -482,8 +500,21 @@ function App() {
                   </div>
                 )}
                 
-                <button onClick={handleStartStudying} style={{ width: '100%', padding: '1rem', fontWeight: 'bold', marginTop: '1rem' }} className="btn-primary">Start Studying</button>
-                {warmUpError && <div style={{ fontSize: '0.7rem', color: '#fbbf24', textAlign: 'center', marginTop: '0.5rem' }}>{warmUpError}</div>}
+                <button onClick={handleStartStudying} style={{ width: '100%', padding: '1rem', fontWeight: 'bold', marginTop: '1rem' }} className="btn-primary" disabled={isWarmingUp}>Start Studying</button>
+                {warmUpError && (
+                  <div style={{ marginTop: '1rem', padding: '1rem', background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: '12px' }}>
+                    <div style={{ fontSize: '0.75rem', color: '#f87171', display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: '1.1rem' }}>warning</span>
+                      {warmUpError}
+                    </div>
+                    <button 
+                      onClick={handleBulkWarmUp}
+                      style={{ width: '100%', background: 'rgba(248,113,113,0.2)', color: '#f87171', border: '1px solid rgba(248,113,113,0.3)', padding: '0.5rem', borderRadius: '8px', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 'bold' }}
+                    >
+                      Retry Block Now
+                    </button>
+                  </div>
+                )}
               </div>
             </section>
           </div>

@@ -80,9 +80,9 @@ const VaultHealthMatrix = ({ decks, onSmartSync, isSyncing, syncProgress, certLe
     });
   }, [decks, vault, certLevel]); 
 
-  const headers = ['Simple Distractors', 'Intelligent Scenarios', 'Strategic Rationales', 'Behavioral Bridge Tags'];
-  const dataKeys = ['simple', 'scenarios', 'rationales', 'tags'];
-  const icons = ['format_list_bulleted', 'psychology', 'description', 'join_inner'];
+  const headers = ['Intelligent Scenarios', 'Strategic Rationales', 'Behavioral Bridge Tags', 'Simple Distractors'];
+  const dataKeys = ['scenarios', 'rationales', 'tags', 'simple'];
+  const icons = ['psychology', 'description', 'join_inner', 'format_list_bulleted'];
 
   return (
     <section className="glass-panel" style={{ 
