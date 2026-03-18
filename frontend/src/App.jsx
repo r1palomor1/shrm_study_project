@@ -168,8 +168,14 @@ function App() {
       try {
         // MODE 1: Intelligent (Simulator)
         let { missingCards: missingIntel } = await getQuizDataForDeck({ cards: targetCards }, 'intelligent', certLevel);
+        let { missingCards: missingSimple } = await getQuizDataForDeck({ cards: targetCards }, 'simple', certLevel);
+        
+        const totalToSync = missingIntel.length + missingSimple.length;
+        let syncedCount = 0;
+        
         const intelBatches = Math.ceil(missingIntel.length / 5);
         let currentBatch = 0;
+
 
         while (missingIntel.length > 0) {
           let rateLimited = false;
@@ -178,7 +184,10 @@ function App() {
           setWarmUpStatus(`SJI SYNC: Batch ${currentBatch} of ${intelBatches}...`);
 
           const result = await generateDistractorsBatch(batchToProcess, 'intelligent', (p, error) => {
-            setWarmUpProgress(Math.round(p * 0.5)); // First half of bar
+            // p is batch-level; we want global level for totalToSync
+            const batchDone = Math.round((p / 100) * batchToProcess.length);
+            const globalP = Math.round(((syncedCount + batchDone) / totalToSync) * 100);
+            setWarmUpProgress(globalP);
             if (error === 'RATE_LIMIT') rateLimited = true;
           }, certLevel);
 
@@ -194,12 +203,14 @@ function App() {
             await new Promise(r => setTimeout(r, 15000));
             setWarmUpError(null);
           }
+          syncedCount += batchToProcess.length;
           const updated = await getQuizDataForDeck({ cards: targetCards }, 'intelligent', certLevel);
           missingIntel = updated.missingCards;
         }
 
         // MODE 2: Simple (Recall)
-        let { missingCards: missingSimple } = await getQuizDataForDeck({ cards: targetCards }, 'simple', certLevel);
+        const updatedSimple = await getQuizDataForDeck({ cards: targetCards }, 'simple', certLevel);
+        missingSimple = updatedSimple.missingCards;
         const simpleBatches = Math.ceil(missingSimple.length / 5);
         currentBatch = 0;
 
@@ -210,7 +221,9 @@ function App() {
           setWarmUpStatus(`RECALL SYNC: Batch ${currentBatch} of ${simpleBatches}...`);
 
           const result = await generateDistractorsBatch(batchToProcess, 'simple', (p, error) => {
-            setWarmUpProgress(50 + Math.round(p * 0.5)); // Second half of bar
+            const batchDone = Math.round((p / 100) * batchToProcess.length);
+            const globalP = Math.round(((syncedCount + batchDone) / totalToSync) * 100);
+            setWarmUpProgress(globalP);
             if (error === 'RATE_LIMIT') rateLimited = true;
           }, certLevel);
 
@@ -226,6 +239,7 @@ function App() {
             await new Promise(r => setTimeout(r, 15000));
             setWarmUpError(null);
           }
+          syncedCount += batchToProcess.length;
           const updated = await getQuizDataForDeck({ cards: targetCards }, 'simple', certLevel);
           missingSimple = updated.missingCards;
         }
