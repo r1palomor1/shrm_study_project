@@ -76,33 +76,6 @@ export default function SettingsModal({
     URL.revokeObjectURL(url);
   };
 
-  const performBossModeCalibration = () => {
-    const vault = JSON.parse(localStorage.getItem('shrm_distractor_vault') || '{}');
-    let patched = false;
-
-    // Recommendation 1: Surgical Fixes
-    Object.keys(vault).forEach(key => {
-        const entry = vault[key];
-        // Digital Transformation CP
-        if ((entry.question || '').includes('Digital Transformation') && entry.certLevel === 'CP') {
-            entry.correct_answer = "Process a review of internal records and coordinate with managers to identify tactical process gaps in current workflows.";
-            patched = true;
-        }
-        // AI Ethics SCP
-        if ((entry.question || '').includes('AI Ethics Friction') && entry.certLevel === 'SCP') {
-            entry.correct_answer = "Evaluate the current reporting structure by conducting stakeholder interviews to identify strategic risks in AI governance.";
-            patched = true;
-        }
-    });
-
-    if (patched) {
-        localStorage.setItem('shrm_distractor_vault', JSON.stringify(vault));
-        alert('Boss-Mode Calibration Successful: Audit Entries Synced.');
-    } else {
-        alert('Calibration Complete: No legacy entries required patching.');
-    }
-  };
-
   return (
     <div style={{
       position: 'fixed',
@@ -167,9 +140,9 @@ export default function SettingsModal({
         <div style={{ padding: '2rem', overflowY: 'auto' }} className="custom-scrollbar">
           
           <div style={{ marginBottom: '2.5rem' }}>
-            <h4 style={{ color: 'var(--secondary)', fontSize: '0.75rem', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '1.2rem' }}>Audit & Calibration</h4>
+            <h4 style={{ color: 'var(--secondary)', fontSize: '0.75rem', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '1.2rem' }}>Audit & Recovery</h4>
             
-            <div style={{ display: grid, gap: '1rem' }}>
+            <div style={{ display: 'grid', gap: '1rem' }}>
               <div style={{
                 background: 'rgba(59,130,246,0.05)',
                 borderRadius: '16px',
@@ -201,33 +174,30 @@ export default function SettingsModal({
               </div>
 
               <div style={{
-                background: 'rgba(245,158,11,0.05)',
+                background: 'rgba(255,255,255,0.03)',
                 borderRadius: '16px',
                 padding: '1.2rem',
-                border: '1px solid rgba(245,158,11,0.2)'
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
               }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-                    <span className="material-symbols-outlined" style={{ color: '#f59e0b' }}>precision_manufacturing</span>
-                    <span style={{ fontWeight: '600' }}>Boss-Mode Calibration</span>
-                  </div>
-                  <button 
-                    onClick={performBossModeCalibration}
-                    style={{ 
-                      background: 'rgba(245,158,11,0.1)', 
-                      color: '#f59e0b', 
-                      border: '1px solid #f59e0b', 
-                      padding: '0.4rem 1rem', 
-                      fontSize: '0.8rem',
-                      borderRadius: '8px'
-                    }}
-                  >
-                    Apply Patches
-                  </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                  <span className="material-symbols-outlined" style={{ color: 'var(--secondary)' }}>cloud_download</span>
+                  <span style={{ fontWeight: '600' }}>Import Data Backup</span>
                 </div>
-                <p style={{ margin: 0, fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)' }}>
-                  Surgically corrects legacy audit entries to align with 2026 standards.
-                </p>
+                <button 
+                  onClick={onImport}
+                  style={{ 
+                    background: 'rgba(255,255,255,0.05)', 
+                    color: 'white', 
+                    border: '1px solid rgba(255,255,255,0.1)', 
+                    padding: '0.4rem 1rem', 
+                    fontSize: '0.8rem',
+                    borderRadius: '8px'
+                  }}
+                >
+                  Import JSON
+                </button>
               </div>
             </div>
           </div>
