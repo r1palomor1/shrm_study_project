@@ -100,6 +100,9 @@ async function handleGenerateDistractors(req, res) {
     - All Behavioral tags MUST use "Inclusive Mindset" instead of "Diversity" or "Global Effectiveness" or "Inclusion".
     - METADATA POLISH: If the scenario or term involves global teams, social networks, diverse demographics, or cultural effectiveness, automatically tag "tag_behavior" as "Inclusive Mindset" to ensure unified analytics.
     
+    STRICT CHARACTER RULE: All returned strings must be JSON-safe. Escape all special characters, specifically ampersands (&), dashes (–), and quotation marks within rationale texts. Ensure the output is a raw JSON string without markdown code blocks (e.g., no \`\`\`json).
+    LEGAL TOPIC PROTOCOL: Provide direct, factual content only. Do not provide legal disclaimers or conversational text. Any non-JSON text will result in a system failure.
+
     Cards:
     ${cards.map(c => `ID: ${c.id}\nQ: ${c.question}\nA: ${c.answer}`).join('\n---\n')}
     
@@ -131,7 +134,13 @@ async function handleGenerateDistractors(req, res) {
         console.info(`[GEMINI REQUEST] Mode: ${quizType} | Level: ${certLevel} | Cards: ${cards.length}`);
         
         const genAI = new GoogleGenerativeAI(geminiKey);
-        const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite-preview" });
+        const model = genAI.getGenerativeModel({ 
+            model: "gemini-3.1-flash-lite-preview",
+            generationConfig: {
+                responseMimeType: "application/json",
+                temperature: 0.1
+            }
+        });
         const result = await model.generateContent(prompt);
         const responseText = result.response.text();
 
@@ -151,11 +160,27 @@ async function handleGenerateDistractors(req, res) {
 
 function parseAIResponse(text) {
     try {
-        let cleanText = text;
+        let cleanText = text.trim();
+        
+        // --- SILENT SANITIZER PROTOCOL ---
+        // 1. Remove markdown backticks if present
         if (cleanText.includes('```')) {
             const matches = cleanText.match(/```(?:json)?([\s\S]*?)```/);
-            if (matches && matches[1]) cleanText = matches[1].trim();
+            if (matches && matches[1]) {
+                cleanText = matches[1].trim();
+            } else {
+                cleanText = cleanText.replace(/```json/g, "").replace(/```/g, "").trim();
+            }
         }
+        
+        // 2. Locate first '{' and last '}' to strip "noise" or conversational text
+        const startIdx = cleanText.indexOf('{');
+        const endIdx = cleanText.lastIndexOf('}');
+        
+        if (startIdx !== -1 && endIdx !== -1) {
+            cleanText = cleanText.substring(startIdx, endIdx + 1);
+        }
+        
         return JSON.parse(cleanText);
     } catch (e) {
         console.error("Parsing Failed:", e.message);
