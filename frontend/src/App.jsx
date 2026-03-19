@@ -516,17 +516,38 @@ function App() {
                   </div>
                 </button>
 
-                <button 
-                  onClick={() => setIsMatrixOpen(!isMatrixOpen)} 
-                  className={`glass-panel ${isMatrixOpen ? 'active' : ''}`}
-                  style={{ flex: 1, padding: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.8rem', color: '#60a5fa', border: '1px solid rgba(96, 165, 250, 0.2)' }}
-                >
-                  <span className="material-symbols-outlined" style={{ fontSize: '1.4rem' }}>{isMatrixOpen ? 'visibility_off' : 'verified_user'}</span>
-                  <div style={{ textAlign: 'left' }}>
-                    <div style={{ fontWeight: 'bold' }}>{isMatrixOpen ? 'Hide Matrix' : 'Vault Health'}</div>
-                    <div style={{ fontSize: '0.9rem', opacity: 0.9 }}>Audit Readiness Data</div>
-                  </div>
-                </button>
+                {(() => {
+                  const vault = loadVaultFromStorage();
+                  const allCards = decks.flatMap(d => d.cards);
+                  const isAllReady = allCards.length > 0 && allCards.every(c => {
+                    const dataI = vault[`${c.id}:intelligent:${certLevel}`];
+                    const dataS = vault[`${c.id}:simple:${certLevel}`];
+                    return (dataI?.scenario && dataI.rationale) && (dataS?.distractors?.length > 0);
+                  });
+                  
+                  return (
+                    <button 
+                      onClick={() => setIsMatrixOpen(!isMatrixOpen)} 
+                      className={`glass-panel ${isMatrixOpen ? 'active' : ''}`}
+                      style={{ 
+                        flex: 1, 
+                        padding: '1rem', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        gap: '0.8rem', 
+                        color: isAllReady ? '#60a5fa' : '#fbbf24', 
+                        border: `1px solid ${isAllReady ? 'rgba(96, 165, 250, 0.2)' : 'rgba(251, 191, 36, 0.2)'}` 
+                      }}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: '1.4rem' }}>{isMatrixOpen ? 'visibility_off' : (isAllReady ? 'verified_user' : 'report_problem')}</span>
+                      <div style={{ textAlign: 'left' }}>
+                        <div style={{ fontWeight: 'bold' }}>{isMatrixOpen ? 'Hide Matrix' : 'Vault Health'}</div>
+                        <div style={{ fontSize: '0.9rem', opacity: 0.9 }}>{isAllReady ? 'Audit Readiness Data' : 'Sync Required'}</div>
+                      </div>
+                    </button>
+                  );
+                })()}
               </div>
             </section>
 

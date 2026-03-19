@@ -85,6 +85,7 @@ async function handleGenerateDistractors(req, res) {
         3. CONCEPTUAL PROXIMITY: Distractors must be 'Neighboring Concepts' from the same 2026 Domain.
         4. RATIONALE: Focus on the fine lines between the correct term and distractors.
         5. COMPLIANCE: Use "Inclusive Mindset" instead of "Diversity" or "Global HR".
+        6. METADATA POLISH: If the term involves social networks or group clustering, automatically tag with "Inclusive Mindset".
         `;
     }
 
@@ -95,7 +96,9 @@ async function handleGenerateDistractors(req, res) {
     Official 2026 Domains: [People, Organization, Workplace]
     Official 2026 Competencies: [Leadership, Interpersonal, Business, Inclusive Mindset]
     
-    MANDATORY 2026 MAPPING: All Behavioral tags MUST use "Inclusive Mindset" instead of "Diversity" or "Global Effectiveness" or "Inclusion".
+    MANDATORY 2026 MAPPING:
+    - All Behavioral tags MUST use "Inclusive Mindset" instead of "Diversity" or "Global Effectiveness" or "Inclusion".
+    - METADATA POLISH: If the scenario or term involves global teams, social networks, diverse demographics, or cultural effectiveness, automatically tag "tag_behavior" as "Inclusive Mindset" to ensure unified analytics.
     
     Cards:
     ${cards.map(c => `ID: ${c.id}\nQ: ${c.question}\nA: ${c.answer}`).join('\n---\n')}
@@ -168,11 +171,23 @@ async function handleCoachingInsight(req, res) {
         const genAI = new GoogleGenerativeAI(geminiKey);
         const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite-preview" });
 
-        const prompt = `Provide a 1-sentence tactical SHRM coach tip. Stats: ${masteryPercent}% done, Index: ${masteryIndex}. Struggling count: ${counts['difficulty-1'] || 0}. Plain text only. Use 2026 terminology like "Inclusive Mindset".`;
-        
+        const prompt = `
+        ROLE: Senior SHRM 2026 Study Coach
+        CONTEXT: User has ${masteryPercent}% overall mastery (Index: ${masteryIndex}/100) across People, Organization, and Workplace domains.
+        COUNTS: ${JSON.stringify(counts)}
+
+        TASK: Provide a single "Boss-Mode" coaching bridge.
+        1. TERMINOLOGY: Use "Inclusive Mindset" instead of "Diversity" or "Global HR".
+        2. VERB-LOGIC: Remind the user that CP items require TACTICAL implementation while SCP requires STRATEGIC discovery.
+        3. TONE: Professional, encouraging, and razor-sharp on 2026 mandates.
+        `;
+
         const result = await model.generateContent(prompt);
-        return res.status(200).json({ insight: result.response.text().trim() });
-    } catch (e) {
-        return res.status(200).json({ insight: "Great consistency! Keep polishing those 'Growing' cards to reach your mastery goal." });
+        const responseText = result.response.text();
+
+        return res.status(200).json({ insight: responseText });
+    } catch (err) {
+        console.error("Coaching Error:", err.message);
+        return res.status(500).json({ insight: "Keep pushing. The 2026 BASK requires both tactical precision and strategic foresight." });
     }
 }
