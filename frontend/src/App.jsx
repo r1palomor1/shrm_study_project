@@ -334,7 +334,7 @@ function App() {
 
   return (
     <div className="app-container animate-fade-in">
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3rem', padding: '1rem 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', padding: '0.5rem 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
           <h1 style={{ fontSize: '1.8rem', margin: 0 }} className="text-gradient">SHRM 2026</h1>
         </div>
@@ -362,7 +362,7 @@ function App() {
             <section style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <h2 style={{ fontSize: '1.5rem', margin: 0 }}>Select Topic</h2>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem', paddingRight: '0.5rem', marginBottom: '1rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem', paddingRight: '0.5rem', marginBottom: '0.5rem' }}>
                 <div onClick={() => setSelectedDeckTitle('ALL')} className={`glass-panel topic-card ${selectedDeckTitle === 'ALL' ? 'active' : ''}`} style={{ padding: '1.5rem', position: 'relative' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div style={{ flex: 1 }}>
@@ -500,7 +500,7 @@ function App() {
             </div>
 
               {/* Maintenance Row (The buttons that were moved today) */}
-              <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+              <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
                 <button 
                   onClick={handleBulkWarmUp} 
                   disabled={isWarmingUp} 
@@ -543,7 +543,7 @@ function App() {
                       <span className="material-symbols-outlined" style={{ fontSize: '1.4rem' }}>{isMatrixOpen ? 'visibility_off' : (isAllReady ? 'verified_user' : 'report_problem')}</span>
                       <div style={{ textAlign: 'left' }}>
                         <div style={{ fontWeight: 'bold' }}>{isMatrixOpen ? 'Hide Matrix' : 'Vault Health'}</div>
-                        <div style={{ fontSize: '0.9rem', opacity: 0.9 }}>{isAllReady ? 'Audit Readiness Data' : 'Sync Required'}</div>
+                        <div style={{ fontSize: '0.9rem', opacity: 0.9 }}>Audit Readiness Data</div>
                       </div>
                     </button>
                   );
@@ -621,7 +621,7 @@ function App() {
               >
                 <span className="material-symbols-outlined" style={{ fontSize: '1.8rem' }}>close</span>
               </button>
-              <VaultHealthMatrix decks={decks} onSmartSync={handleBulkWarmUp} isSyncing={isWarmingUp} syncProgress={warmUpProgress} certLevel={certLevel} />
+              <VaultHealthMatrix decks={decks} onSmartSync={handleBulkWarmUp} isSyncing={isWarmingUp} syncProgress={warmUpProgress} syncStatus={warmUpStatus} certLevel={certLevel} />
             </div>
           </div>
         )}

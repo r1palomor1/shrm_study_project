@@ -48,7 +48,7 @@ const TopicHealthCell = ({ count, total }) => {
  * VaultHealthMatrix: Structural Component for AI Readiness Audit.
  * Provides a granular view of AI content presence across all topics.
  */
-const VaultHealthMatrix = ({ decks, onSmartSync, isSyncing, syncProgress, certLevel = 'CP' }) => {
+const VaultHealthMatrix = ({ decks, onSmartSync, isSyncing, syncProgress, syncStatus, certLevel = 'CP' }) => {
   // Dynamic vault reload for real-time matrix updates during sync
   const vault = useMemo(() => loadVaultFromStorage(), [isSyncing, syncProgress]);
 
@@ -90,8 +90,8 @@ const VaultHealthMatrix = ({ decks, onSmartSync, isSyncing, syncProgress, certLe
       overflowX: 'auto',
       border: '1px solid rgba(255,255,255,0.05)'
     }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-        <h3 style={{ margin: 0, fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.8rem', fontWeight: '800' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', gap: '1rem' }}>
+        <h3 style={{ margin: 0, fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.8rem', fontWeight: '800', flexShrink: 0 }}>
           <span className="material-symbols-outlined" style={{ color: '#60a5fa' }}>verified_user</span>
           AI READINESS MATRIX
         </h3>
@@ -104,10 +104,11 @@ const VaultHealthMatrix = ({ decks, onSmartSync, isSyncing, syncProgress, certLe
             fontSize: '0.8rem', 
             fontWeight: 'bold',
             color: isSyncing ? '#fbbf24' : 'white',
-            border: isSyncing ? '1px solid rgba(251,191,36,0.3)' : 'none'
+            border: isSyncing ? '1px solid rgba(251,191,36,0.3)' : 'none',
+            whiteSpace: 'nowrap'
           }}
         >
-          {isSyncing ? `SYNCING ${syncProgress}%...` : 'SMART SYNC ALL'}
+          {isSyncing ? `SYNCING ${syncProgress}% - ${syncStatus || 'Processing...'}` : 'SMART SYNC ALL'}
         </button>
       </div>
       {/* Dynamic progress bar for Smart Sync */}
