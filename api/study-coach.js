@@ -128,6 +128,8 @@ async function handleGenerateDistractors(req, res) {
     }
 
     try {
+        console.info(`[GEMINI REQUEST] Mode: ${quizType} | Level: ${certLevel} | Cards: ${cards.length}`);
+        
         const genAI = new GoogleGenerativeAI(geminiKey);
         const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite-preview" });
         const result = await model.generateContent(prompt);

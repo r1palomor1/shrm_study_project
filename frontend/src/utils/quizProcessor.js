@@ -53,6 +53,9 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
     for (let i = 0; i < cards.length; i += MAX_BATCH_SIZE) {
         const batch = cards.slice(i, i + MAX_BATCH_SIZE);
         
+        // --- DEBUG INSTRUMENTATION ---
+        console.info(`[SHRM BATCH SYNC] Starting ${quizType} batch for topics: ${[...new Set(batch.map(c => c.topic))]}`, batch.map(c => ({ id: c.id, q: c.question.substring(0, 50) + '...' })));
+        
         try {
             const response = await fetch('/api/study-coach', {
                 method: 'POST',
