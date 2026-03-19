@@ -201,7 +201,7 @@ export default function AnalyticsDashboard({ decks, onBack, initialMode = 'intel
                                             <div style={{ fontSize: '0.55rem', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Attempted Questions</div>
                                             <div style={{ display: 'grid', gap: '0.4rem' }}>
                                                 {(domain.attempts || []).map((attempt, idx2) => {
-                                                    const attemptData = vault[`${attempt.id}:intelligent:${certLevel}`] || vault[`${attempt.id}:simple:${certLevel}`];
+                                                    const attemptData = vault[`${attempt.id}:${activeMode}:${certLevel}`];
                                                     const isExpanded = expandedAttempt === attempt.id;
                                                     return (
                                                         <div key={idx2} style={{ background: 'rgba(255,255,255,0.02)', borderRadius: '6px', overflow: 'hidden' }}>
@@ -253,7 +253,7 @@ export default function AnalyticsDashboard({ decks, onBack, initialMode = 'intel
                                                 </h4>
                                                 <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)', marginTop: '0.5rem', lineHeight: '1.3' }}>
                                                     {cluster.name.includes('Leadership') && 'Integrity and value-driven decisions.'}
-                                                    {cluster.name.includes('Interpersonal') && 'Networking and synergy development.'}
+                                                    {cluster.name.includes('Interpersonal') && 'Networking and Inclusive Mindset adaptation.'}
                                                     {cluster.name.includes('Business') && 'Economic logic and organizational strategy.'}
                                                 </div>
                                             </div>
@@ -286,14 +286,30 @@ export default function AnalyticsDashboard({ decks, onBack, initialMode = 'intel
                                             <div style={{ fontSize: '0.55rem', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Attempted Questions</div>
                                             <div style={{ display: 'grid', gap: '0.4rem' }}>
                                                 {(cluster.attempts || []).map((attempt, idx2) => {
-                                                    const attemptData = vault[`${attempt.id}:intelligent:${certLevel}`] || vault[`${attempt.id}:simple:${certLevel}`];
+                                                    const attemptData = vault[`${attempt.id}:${activeMode}:${certLevel}`];
                                                     const isExpanded = expandedAttempt === attempt.id;
                                                     return (
                                                         <div key={idx2} style={{ background: 'rgba(255,255,255,0.02)', borderRadius: '6px', overflow: 'hidden' }}>
                                                             <div onClick={(e) => { e.stopPropagation(); setExpandedAttempt(isExpanded ? null : attempt.id); }} style={{ padding: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}>
                                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.65rem' }}>
                                                                     <span className="material-symbols-outlined" style={{ fontSize: '0.8rem', color: attempt.mastery >= 3.0 ? 'var(--secondary)' : '#ef4444' }}>{attempt.mastery >= 3.0 ? 'check_circle' : 'error'}</span>
-                                                                    <span>{attempt.title.length > 40 ? attempt.title.substring(0, 40) + '...' : attempt.title}</span>
+                                                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                                        <span>{attempt.title.length > 40 ? attempt.title.substring(0, 40) + '...' : attempt.title}</span>
+                                                                        {attempt.mastery < 3.0 && attempt.gap_analysis && (
+                                                                            <div style={{ 
+                                                                                fontSize: '0.55rem', 
+                                                                                color: '#fbbf24', 
+                                                                                fontWeight: 'bold', 
+                                                                                marginTop: '0.2rem',
+                                                                                display: 'flex',
+                                                                                alignItems: 'center',
+                                                                                gap: '0.2rem'
+                                                                            }}>
+                                                                                <span className="material-symbols-outlined" style={{ fontSize: '0.7rem' }}>warning</span>
+                                                                                Gap: {attempt.gap_analysis}
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
                                                                 </div>
                                                                 <div style={{ fontSize: '0.6rem', fontWeight: 'bold' }}>{attempt.mastery.toFixed(1)}</div>
                                                             </div>

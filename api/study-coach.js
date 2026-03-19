@@ -35,12 +35,16 @@ async function handleGenerateDistractors(req, res) {
             ROLE: Senior SHRM-SCP Exam Architect (2026 BASK Standards)
             TASK: Transform the [Term] into a Strategic Situational Judgment Item (SJI).
             
+            VERB-LOGIC GUARDRAIL (SCP):
+            - The CORRECT answer MUST favor: Stakeholder Discovery, Systems Strategy, Evaluating Governance Frameworks, or Conducting Interviews.
+            - Focus on identifying strategic risks and aligning with leadership objectives.
+            
             MANDATORY CONSTRAINTS:
             1. ROLE FOCUS: Strategic Governance, Stakeholder Alignment, and Global Risk.
-            2. DISCOVERY PRIORITY: The correct answer MUST favor 'Stakeholder Interviews,' 'Analyzing Governance frameworks,' or 'Evaluating Organizational Impact' before action.
+            2. DISCOVERY PRIORITY: The correct answer MUST favor discovery/analysis before action.
             3. AI ETHICS MANDATE: Include scenarios involving AI Ethics, Algorithmic Bias, and Technology Governance.
             4. VERB MANDATE: Start choices with: Analyze, Facilitate, Advise, Audit, Evaluate, Formulate.
-            5. BOSS-MODE TRAPS: Distractors must be professionally sound but "Prematurely Strategic" or skip initial discovery.
+            5. BOSS-MODE TRAPS: Distractors must be professionally sound but "Symptomatic/Operational" (CP-level) or skip initial discovery.
             `;
         } else {
             // --- SHRM-CP: OPERATIONAL IMPLEMENTATION ---
@@ -48,12 +52,16 @@ async function handleGenerateDistractors(req, res) {
             ROLE: SHRM-CP 2026 Implementation Specialist (BASK Standards)
             TASK: Transform the [Term] into an Operational Situational Judgment Item (SJI).
             
+            VERB-LOGIC GUARDRAIL (CP):
+            - The CORRECT answer MUST favor: Reviewing Records, Applying Policies, Fact-Finding, or Coordinating Implementation.
+            - Focus on consistent application of established rules and tactical resolution.
+            
             MANDATORY CONSTRAINTS:
             1. ROLE FOCUS: Policy Application, Manager Coordination, and Operational Compliance.
             2. TACTICAL FACT-FINDING: The correct action favors reviewing internal records (attendance, performance, handbooks) to confirm facts before applying policy.
             3. AI ACCOUNTABILITY: Include 'Unverified reliance on AI tools' or 'Data Privacy gaps' as high-plausibility traps.
             4. VERB MANDATE: Start choices with: Implement, Coordinate, Apply, Resolve, Process, Communicate.
-            5. COMPLIANCE TRAPS: Distractors should represent inconsistent application or "Premature Escalation to Legal."
+            5. COMPLIANCE TRAPS: Distractors should represent inconsistent application or "Premature Escalation to Leadership/Legal" (skipping tactical steps).
             `;
         }
 
@@ -63,6 +71,7 @@ async function handleGenerateDistractors(req, res) {
         - question: Ends with "What is the BEST action?" or "What is the FIRST step?"
         - NO LABELING: The name of the [Term] must NOT appear in the Correct Answer or Distractors.
         - SYMMETRY: All 4 options must be similar in length and complexity.
+        - RATIONALE MANDATE: Explicitly explain why the 'Boss-Mode' action is superior to 'Premature Escalation' or 'Symptomatic/Operational' fixes.
         `;
     } else {
         // --- SIMPLE RECALL MODE (Both Levels) ---
@@ -73,8 +82,9 @@ async function handleGenerateDistractors(req, res) {
         MANDATORY RULES:
         1. CORRECT ANSWER: Use exact input definition.
         2. SYMMETRY RULE: All 4 options MUST be similar in length, professional tone, and complexity.
-        3. CONCEPTUAL PROXIMITY: Distractors must be 'Neighboring Concepts' from the same domain.
+        3. CONCEPTUAL PROXIMITY: Distractors must be 'Neighboring Concepts' from the same 2026 Domain.
         4. RATIONALE: Focus on the fine lines between the correct term and distractors.
+        5. COMPLIANCE: Use "Inclusive Mindset" instead of "Diversity" or "Global HR".
         `;
     }
 
@@ -85,7 +95,7 @@ async function handleGenerateDistractors(req, res) {
     Official 2026 Domains: [People, Organization, Workplace]
     Official 2026 Competencies: [Leadership, Interpersonal, Business, Inclusive Mindset]
     
-    MANDATORY 2026 MAPPING: All Behavioral tags MUST use "Inclusive Mindset" instead of "Diversity" or "Global Effectiveness".
+    MANDATORY 2026 MAPPING: All Behavioral tags MUST use "Inclusive Mindset" instead of "Diversity" or "Global Effectiveness" or "Inclusion".
     
     Cards:
     ${cards.map(c => `ID: ${c.id}\nQ: ${c.question}\nA: ${c.answer}`).join('\n---\n')}
@@ -94,15 +104,16 @@ async function handleGenerateDistractors(req, res) {
     {
         "results": [
             {
-                "id": "MUST match input ID (e.g., card_1)",
+                "id": "MUST match input ID",
                 "scenario": "string",
                 "question": "string",
                 "correct_answer": "string",
                 "distractors": ["3 items"],
                 "rationale": "string",
+                "gap_analysis": "Identify the primary failing: e.g., 'Premature Escalation' or 'Symptomatic Fix'.",
                 "shrm_principle": "string",
-                "tag_bask": "Domain",
-                "tag_behavior": "Competency"
+                "tag_bask": "People | Organization | Workplace",
+                "tag_behavior": "Leadership | Interpersonal | Business | Inclusive Mindset"
             }
         ]
     }
@@ -157,7 +168,7 @@ async function handleCoachingInsight(req, res) {
         const genAI = new GoogleGenerativeAI(geminiKey);
         const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite-preview" });
 
-        const prompt = `Provide a 1-sentence tactical SHRM coach tip. Stats: ${masteryPercent}% done, Index: ${masteryIndex}. Struggling count: ${counts['difficulty-1'] || 0}. Plain text only.`;
+        const prompt = `Provide a 1-sentence tactical SHRM coach tip. Stats: ${masteryPercent}% done, Index: ${masteryIndex}. Struggling count: ${counts['difficulty-1'] || 0}. Plain text only. Use 2026 terminology like "Inclusive Mindset".`;
         
         const result = await model.generateContent(prompt);
         return res.status(200).json({ insight: result.response.text().trim() });

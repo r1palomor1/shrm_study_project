@@ -147,10 +147,14 @@ export function calculateBASKAnalytics(decks, vault, certLevel = 'CP') {
                 const statusKey = `status_quiz_${mode}_${certLevel}`;
                 const status = card[statusKey];
                 
-                // If not attempted, we still count it for "total" availability, 
-                // but not for "attempted" score tracking
+                // --- 2026 Terminology Pivot & Cleanup ---
                 const domainKey = (aiData.tag_bask || '').split('|')[0].trim();
-                const compKey = aiData.tag_behavior;
+                let compKey = aiData.tag_behavior;
+                
+                // Map legacy/incorrect tags to 'Inclusive Mindset' (Relational Pivot)
+                if (compKey === 'Diversity' || compKey === 'Inclusion' || compKey === 'Global & Cultural Effectiveness' || compKey === 'Global HR') {
+                    compKey = 'Inclusive Mindset';
+                }
 
                 if (modes[mode].domains[domainKey]) {
                     modes[mode].domains[domainKey].total++;
@@ -170,7 +174,8 @@ export function calculateBASKAnalytics(decks, vault, certLevel = 'CP') {
                                 id: card.id,
                                 title: card.question || card.front,
                                 mastery: mastery, // 4.0 Scale
-                                status: status
+                                status: status,
+                                gap_analysis: aiData.gap_analysis || null // Forward the gap for the UI
                             });
                         }
                         
@@ -192,7 +197,8 @@ export function calculateBASKAnalytics(decks, vault, certLevel = 'CP') {
                                 title: card.question || card.front,
                                 mastery: mastery, // 4.0 Scale
                                 status: status,
-                                domainLink: domainKey
+                                domainLink: domainKey,
+                                gap_analysis: aiData.gap_analysis || null // Forward the gap for the UI
                             });
                         }
                     }
