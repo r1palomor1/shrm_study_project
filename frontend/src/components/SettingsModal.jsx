@@ -38,7 +38,6 @@ export default function SettingsModal({
       const levelLabel = data.certLevel || 'CP';
       
       if (data.quizType === 'intelligent' && data.scenario) {
-        // --- SJI SIMULATOR ITEM ---
         md += `## [SHRM-${levelLabel}] SJI: ${data.question}\n\n`;
         md += `> **Scenario:** ${data.scenario}\n\n`;
         md += `*   **Correct (Boss-Mode Action):** ${data.correct_answer}\n`;
@@ -53,7 +52,6 @@ export default function SettingsModal({
         }
         md += `---\n\n`;
       } else if (data.quizType === 'simple' && data.correct_answer) {
-        // --- SIMPLE RECALL ITEM ---
         md += `## [SHRM-${levelLabel}] RECALL: ${data.question}\n\n`;
         md += `*   **Correct (Knowledge Match):** ${data.correct_answer}\n`;
         if (data.distractors && Array.isArray(data.distractors)) {
@@ -74,6 +72,17 @@ export default function SettingsModal({
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  };
+
+  const cardStyle = {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '1.2rem',
+    background: 'rgba(255,255,255,0.03)',
+    border: '1px solid rgba(255,255,255,0.05)',
+    borderRadius: '16px',
+    transition: 'all 0.3s ease'
   };
 
   return (
@@ -112,130 +121,151 @@ export default function SettingsModal({
         {/* Header */}
         <div style={{
           padding: '1.5rem 2rem',
-          borderBottom: '1px solid rgba(255,255,255,0.05)',
+          borderBottom: '1px solid rgba(255,255,255,0.1)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center'
         }}>
-          <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '700' }}>Settings & Audit</h2>
-          <button 
-            onClick={onClose}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: 'rgba(255,255,255,0.5)',
-              cursor: 'pointer',
-              padding: '0.5rem',
-              borderRadius: '50%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-          >
-            <span className="material-symbols-outlined">close</span>
+          <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '700' }}>Settings</h2>
+          <button onClick={onClose} style={{
+            background: 'rgba(255,255,255,0.05)',
+            border: 'none',
+            color: 'white',
+            width: '32px',
+            height: '32px',
+            borderRadius: '50%',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <span className="material-symbols-outlined" style={{ fontSize: '1.2rem' }}>close</span>
           </button>
         </div>
 
         {/* Content */}
         <div style={{ padding: '2rem', overflowY: 'auto' }} className="custom-scrollbar">
           
+          {/* AI COMPANION & DATA */}
           <div style={{ marginBottom: '2.5rem' }}>
-            <h4 style={{ color: 'var(--secondary)', fontSize: '0.75rem', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '1.2rem' }}>Audit & Recovery</h4>
+            <h4 style={{ color: 'var(--secondary)', fontSize: '0.75rem', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '1.2rem' }}>AI COMPANION & DATA</h4>
             
             <div style={{ display: 'grid', gap: '1rem' }}>
-              <div style={{
-                background: 'rgba(59,130,246,0.05)',
-                borderRadius: '16px',
-                padding: '1.2rem',
-                border: '1px solid rgba(59,130,246,0.2)'
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-                    <span className="material-symbols-outlined" style={{ color: 'var(--primary)' }}>assignment_turned_in</span>
-                    <span style={{ fontWeight: '600' }}>Export Dual-Engine Audit</span>
+              {/* Nuke AI Vault */}
+              <div style={{ ...cardStyle, border: '1px solid rgba(239, 68, 68, 0.2)', background: 'rgba(239, 68, 68, 0.05)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <span className="material-symbols-outlined" style={{ color: '#ef4444' }}>cancel</span>
+                  <div>
+                    <div style={{ fontWeight: '600', marginBottom: '0.2rem' }}>Nuke AI Vault</div>
+                    <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', lineHeight: '1.4' }}>
+                      Wipe all generated rationales and distractors. Study history is preserved.
+                    </div>
                   </div>
-                  <button 
-                    onClick={handleAuditExport}
-                    style={{ 
-                      background: 'rgba(59,130,246,0.1)', 
-                      color: 'var(--primary)', 
-                      border: '1px solid var(--primary)', 
-                      padding: '0.4rem 1rem', 
-                      fontSize: '0.8rem',
-                      borderRadius: '8px'
-                    }}
-                  >
-                    Export Log
-                  </button>
                 </div>
-                <p style={{ margin: 0, fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)' }}>
-                  Generates 2026 Audit Log with CP/SCP labels and Rationale Gaps.
-                </p>
+                <button onClick={onNukeAi} style={{ 
+                  padding: '0.5rem 1rem', 
+                  borderRadius: '12px',
+                  background: 'transparent',
+                  border: '1px solid #ef4444',
+                  color: '#ef4444',
+                  fontSize: '0.8rem',
+                  fontWeight: '500'
+                }}>Delete Data</button>
               </div>
 
-              <div style={{
-                background: 'rgba(255,255,255,0.03)',
-                borderRadius: '16px',
-                padding: '1.2rem',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-                  <span className="material-symbols-outlined" style={{ color: 'var(--secondary)' }}>cloud_download</span>
-                  <span style={{ fontWeight: '600' }}>Import Data Backup</span>
+              {/* Export SJI Audit Log */}
+              <div style={cardStyle}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <span className="material-symbols-outlined" style={{ color: '#f59e0b' }}>description</span>
+                  <div style={{ fontWeight: '600' }}>Export SJI Audit Log</div>
                 </div>
-                <button 
-                  onClick={onImport}
-                  style={{ 
-                    background: 'rgba(255,255,255,0.05)', 
-                    color: 'white', 
-                    border: '1px solid rgba(255,255,255,0.1)', 
-                    padding: '0.4rem 1rem', 
-                    fontSize: '0.8rem',
-                    borderRadius: '8px'
-                  }}
-                >
-                  Import JSON
-                </button>
+                <button onClick={handleAuditExport} style={{ 
+                  padding: '0.5rem 1rem', 
+                  borderRadius: '12px',
+                  background: 'transparent',
+                  border: '1px solid #f59e0b',
+                  color: '#f59e0b',
+                  fontSize: '0.8rem',
+                  fontWeight: '500',
+                  boxShadow: '0 0 15px rgba(245, 158, 11, 0.2)'
+                }}>Export MD</button>
+              </div>
+
+              {/* Export Backup */}
+              <div style={cardStyle}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <span className="material-symbols-outlined" style={{ color: '#3b82f6' }}>cloud_download</span>
+                  <div style={{ fontWeight: '600' }}>Export Backup</div>
+                </div>
+                <button onClick={onExport} style={{ 
+                  padding: '0.5rem 1rem', 
+                  borderRadius: '12px',
+                  background: '#3b82f6',
+                  border: 'none',
+                  color: 'white',
+                  fontSize: '0.8rem',
+                  fontWeight: '600'
+                }}>Download</button>
+              </div>
+
+              {/* Restore Backup */}
+              <div style={cardStyle}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <span className="material-symbols-outlined" style={{ color: '#10b981' }}>cloud_upload</span>
+                  <div style={{ fontWeight: '600' }}>Restore Backup</div>
+                </div>
+                <button onClick={onImport} style={{ 
+                  padding: '0.5rem 1rem', 
+                  borderRadius: '12px',
+                  background: 'rgba(255,255,255,0.05)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  color: 'white',
+                  fontSize: '0.8rem',
+                  fontWeight: '500'
+                }}>Upload File</button>
               </div>
             </div>
           </div>
 
-          <div style={{ marginBottom: '2.5rem' }}>
-            <h4 style={{ color: 'var(--secondary)', fontSize: '0.75rem', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '1.2rem' }}>Dangerous Territory</h4>
+          {/* TOPIC MANAGEMENT */}
+          <div style={{ marginBottom: '2rem' }}>
+            <h4 style={{ color: 'var(--secondary)', fontSize: '0.75rem', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '1.2rem' }}>TOPIC MANAGEMENT</h4>
             
-            <div style={{ display: 'grid', gap: '1rem' }}>
-              <div style={{
-                background: 'rgba(255,100,100,0.05)',
-                borderRadius: '16px',
-                padding: '1.2rem',
-                border: '1px solid rgba(239, 68, 68, 0.2)'
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-                    <span className="material-symbols-outlined" style={{ color: '#ef4444' }}>dangerous</span>
-                    <span style={{ fontWeight: '600' }}>Nuke AI Vault</span>
-                  </div>
-                  <button 
-                    onClick={onNukeAi}
-                    style={{ 
-                      background: 'rgba(239,68,68,0.1)', 
-                      color: '#ef4444', 
-                      border: '1px solid #ef4444', 
-                      padding: '0.4rem 1rem', 
-                      fontSize: '0.8rem',
-                      borderRadius: '8px'
-                    }}
-                  >
-                    Delete Data
-                  </button>
-                </div>
-                <p style={{ margin: 0, fontSize: '0.8rem', color: 'rgba(255,255,255,0.4)' }}>
-                  Wipe all generated rationales and distractors. Study history is preserved.
-                </p>
+            {decks.length === 0 ? (
+              <div style={{ opacity: 0.3, textAlign: 'center', fontSize: '0.7rem', padding: '2rem' }}>
+                No topics loaded.
               </div>
-            </div>
+            ) : (
+              <div style={{ display: 'grid', gap: '1rem' }}>
+                {decks.map(deck => (
+                  <div key={deck.title} style={cardStyle}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                      <span className="material-symbols-outlined" style={{ color: 'var(--secondary)', opacity: 0.5 }}>folder</span>
+                      <div>
+                        <div style={{ fontWeight: '600', fontSize: '0.9rem' }}>{deck.title}</div>
+                        <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)' }}>{deck.cards?.length || 0} cards</div>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => onResetProgress(deck.title)}
+                      style={{ 
+                        padding: '0.4rem 0.8rem', 
+                        borderRadius: '8px',
+                        background: 'rgba(255,255,255,0.03)',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        color: 'rgba(255,255,255,0.6)',
+                        fontSize: '0.75rem'
+                      }}
+                    >Reset</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div style={{ opacity: 0.2, textAlign: 'center', fontSize: '0.65rem', marginTop: '2rem' }}>
+            SHRM Study Project v1.2.0 • Build ID: PRODUCTION
           </div>
 
         </div>
