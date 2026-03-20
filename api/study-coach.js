@@ -138,7 +138,8 @@ async function handleGenerateDistractors(req, res) {
             model: "gemini-3.1-flash-lite-preview",
             generationConfig: {
                 responseMimeType: "application/json",
-                temperature: 0.1
+                temperature: 0.1,
+                maxOutputTokens: 8192
             }
         });
         const result = await model.generateContent(prompt);

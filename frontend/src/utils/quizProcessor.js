@@ -45,7 +45,7 @@ export async function getQuizDataForDeck(deck, requestedQuizType = 'intelligent'
  * Now supports dual-mode generation and actual success tracking with certLevel isolation.
  */
 export async function generateDistractorsBatch(cards, quizType = 'intelligent', onProgress, certLevel = 'CP') {
-    const MAX_BATCH_SIZE = 5; 
+    const MAX_BATCH_SIZE = 4; 
     let successfulCount = 0;
     const totalRequests = cards.length;
     
