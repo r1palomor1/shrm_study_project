@@ -72,6 +72,9 @@ async function handleGenerateDistractors(req, res) {
         - NO LABELING: The name of the [Term] must NOT appear in the Correct Answer or Distractors.
         - SYMMETRY: All 4 options must be similar in length and complexity.
         - RATIONALE MANDATE: Explicitly explain why the 'Boss-Mode' action is superior to 'Premature Escalation' or 'Symptomatic/Operational' fixes.
+        
+        UI SYNC MANDATE: The 'gap_analysis' key is STRICTLY MANDATORY for all SJI objects. It must contain a 2-3 word label identifying the specific behavioral failure found in the distractors (e.g., 'Premature Escalation', 'Symptomatic Fix', 'Policy Non-Compliance', or 'Unverified AI Reliance').
+        TETHERING RULE: This label MUST also serve as the 'header' for the 'rationale' field (e.g., 'gap_analysis': 'Premature Escalation', 'rationale': 'Premature Escalation: The candidate failed by...') to ensure the Gap Accordion UI functions correctly.
         `;
     } else {
         // --- SIMPLE RECALL MODE (Both Levels) ---

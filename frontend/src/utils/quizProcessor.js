@@ -88,6 +88,7 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
                         correct_answer: res.correct_answer,
                         distractors: res.distractors,
                         rationale: res.rationale,
+                        gap_analysis: res.gap_analysis,
                         tag_bask: res.tag_bask,
                         tag_behavior: res.tag_behavior
                     }, certLevel); // Pass to storage
