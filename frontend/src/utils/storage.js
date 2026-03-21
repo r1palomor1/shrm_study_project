@@ -107,6 +107,45 @@ export async function importAppData(jsonFile) {
     });
 }
 
+/**
+ * Merges backup data into the current store WITHOUT wiping student progress.
+ * Adds new vault entries (CP/SCP) and only Appends new deck topics.
+ */
+export async function mergeAppData(jsonFile) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const snapshot = JSON.parse(e.target.result);
+                
+                if (!snapshot.decks || !snapshot.vault) {
+                    throw new Error('Invalid backup file format');
+                }
+
+                // 1. Merge the AI Distractor Vault (Key-level isolation allows CP + SCP coexistence)
+                const currentVault = loadVaultFromStorage();
+                const mergedVault = { ...currentVault, ...snapshot.vault };
+                localStorage.setItem(VAULT_KEY, JSON.stringify(mergedVault));
+
+                // 2. Merge Decks Selective: Keep existing cards/progress, only add missing topics
+                const currentDecks = loadDecksFromStorage();
+                const existingTitles = new Set(currentDecks.map(d => d.title));
+                const newDecks = snapshot.decks.filter(d => !existingTitles.has(d.title));
+                
+                if (newDecks.length > 0) {
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify([...currentDecks, ...newDecks]));
+                }
+                
+                resolve(true);
+            } catch (error) {
+                reject(error);
+            }
+        };
+        reader.onerror = () => reject(new Error('File reading error'));
+        reader.readAsText(jsonFile);
+    });
+}
+
 export function saveDeckToStorage(deck) {
     try {
         const decks = loadDecksFromStorage() || [];

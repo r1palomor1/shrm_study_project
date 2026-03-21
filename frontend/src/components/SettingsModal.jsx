@@ -7,6 +7,7 @@ export default function SettingsModal({
   onNukeAi, 
   onDeleteDeck,
   onResetProgress,
+  onMerge,
   decks,
   isRestoring 
 }) {
@@ -208,32 +209,59 @@ export default function SettingsModal({
                 }}>Download</button>
               </div>
 
-              {/* Restore Backup */}
+              {/* Restore / Merge Backup */}
               <div style={cardStyle}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                   <span className="material-symbols-outlined" style={{ color: '#10b981' }}>cloud_upload</span>
-                  <div style={{ fontWeight: '600' }}>Restore Backup</div>
+                  <div>
+                    <div style={{ fontWeight: '600' }}>Import & Sync</div>
+                    <div style={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)' }}>Merge new levels or restore everything.</div>
+                  </div>
                 </div>
-                <input 
-                  type="file" 
-                  id="restore-backup-upload" 
-                  style={{ display: 'none' }} 
-                  onChange={onImport} 
-                />
-                <button 
-                  onClick={() => document.getElementById('restore-backup-upload').click()} 
-                  style={{ 
-                    padding: '0.5rem 1rem', 
-                    borderRadius: '12px',
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    color: 'white',
-                    fontSize: '0.8rem',
-                    fontWeight: '500'
-                  }}
-                >
-                  Upload File
-                </button>
+
+                <div style={{ display: 'flex', gap: '0.6rem' }}>
+                  <input 
+                    type="file" 
+                    id="merge-backup-upload" 
+                    style={{ display: 'none' }} 
+                    onChange={onMerge} 
+                  />
+                  <button 
+                    onClick={() => document.getElementById('merge-backup-upload').click()} 
+                    style={{ 
+                      padding: '0.5rem 1rem', 
+                      borderRadius: '12px',
+                      background: 'rgba(16, 185, 129, 0.1)',
+                      border: '1px solid rgba(16, 185, 129, 0.3)',
+                      color: '#10b981',
+                      fontSize: '0.8rem',
+                      fontWeight: '700'
+                    }}
+                  >
+                    Merge (Keep Progress)
+                  </button>
+
+                  <input 
+                    type="file" 
+                    id="restore-backup-upload" 
+                    style={{ display: 'none' }} 
+                    onChange={onImport} 
+                  />
+                  <button 
+                    onClick={() => document.getElementById('restore-backup-upload').click()} 
+                    style={{ 
+                      padding: '0.5rem 1rem', 
+                      borderRadius: '12px',
+                      background: 'rgba(255,255,255,0.05)',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      color: 'white',
+                      fontSize: '0.8rem',
+                      fontWeight: '500'
+                    }}
+                  >
+                    Full Restore
+                  </button>
+                </div>
               </div>
             </div>
           </div>
