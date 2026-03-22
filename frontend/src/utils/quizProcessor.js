@@ -10,9 +10,6 @@ import { getDistractorFromVault, saveDistractorToVault } from './storage';
  */
 export async function getQuizDataForDeck(deck, requestedQuizType = 'intelligent', certLevel = 'CP') {
     const cardsWithData = deck.cards.map(card => {
-        // DIAGNOSTIC LOG: Cross-reference this with VAULT SAVE log
-        console.log("MATRIX LOOKUP - ID:", card.id, "CLEANED:", String(card.id).replace(/[\s\n\r]/g, ''));
-
         // PHYSICAL CONTENT AUDIT: We only count it if the actual payload is present
         const vaultData = getDistractorFromVault(card.id, requestedQuizType, certLevel);
 

@@ -17,8 +17,6 @@ export function saveDistractorToVault(fingerprint, data, certLevel = 'CP') {
         const quizType = data.quizType || (data.scenario ? 'intelligent' : 'simple');
         const key = `${cleanId}:${quizType}:${certLevel}`;
 
-        console.log("VAULT SAVE - FINAL KEY:", key);
-
         // MERGE LOGIC: Preserve existing data (like scenario from seed stage) when adding new fields
         const existingData = vault[key] || {};
         vault[key] = {

@@ -126,7 +126,7 @@ const VaultHealthMatrix = ({ decks, onSmartSync, isSyncing, syncProgress, syncSt
             </th>
             {topicStats.map(t => (
               <th key={t.name} style={{ padding: '1rem', fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-                {t.name}
+                {t.name} <span style={{ color: '#60a5fa', opacity: 0.8 }}>- {certLevel}</span>
               </th>
             ))}
           </tr>
