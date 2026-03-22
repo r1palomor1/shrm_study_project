@@ -147,36 +147,53 @@ function parseAIResponse(text) {
     try {
         let cleanText = text.trim();
 
-        // --- SILENT SANITIZER PROTOCOL ---
-        // 1. Remove markdown backticks if present
-        if (cleanText.includes('```')) {
-            const matches = cleanText.match(/```(?:json)?([\s\S]*?)```/);
-            if (matches && matches[1]) {
-                cleanText = matches[1].trim();
-            } else {
-                cleanText = cleanText.replace(/```json/g, "").replace(/```/g, "").trim();
-            }
-        }
-
-        // 2. Locate first '{' and last '}' to strip "noise" or conversational text
+        // 1. SILENT SANITIZER: Identify the JSON payload
+        // Locate first '{' and last '}' to strip markdown backticks or conversational noise
         const startIdx = cleanText.indexOf('{');
         const endIdx = cleanText.lastIndexOf('}');
 
-        if (startIdx !== -1 && endIdx !== -1) {
-            cleanText = cleanText.substring(startIdx, endIdx + 1);
+        if (startIdx === -1 || endIdx === -1) {
+            console.error("AI Context Error: No JSON boundaries found.");
+            return null;
         }
 
-        // --- PRE-PARSE SANITIZER (Task 2) ---
-        // Force-normalize AI output to protect JSON.parse from common syntax crashes
-        const sanitizedText = cleanText
-            .replace(/[\u201C\u201D]/g, '"') // Convert smart double quotes
-            .replace(/[\u2018\u2019]/g, "'") // Convert smart single quotes
-            .replace(/\n/g, "\\n")          // Escape literal newlines
-            .replace(/\r/g, "\\r");
+        // Isolate the core JSON string
+        cleanText = cleanText.substring(startIdx, endIdx + 1);
 
-        return JSON.parse(sanitizedText);
+        // 2. CHARACTER NORMALIZATION (Standardize quotes)
+        cleanText = cleanText
+            .replace(/[\u201C\u201D]/g, '"') // Smart double quotes
+            .replace(/[\u2018\u2019]/g, "'"); // Smart single quotes
+
+        // 3. STRUCTURAL SAFETY: Removed global \n replacement.
+        // Valid JSON can (and often does) contain newlines for readability.
+        // Replacing them globally turned them into literal '\' and 'n' chars, 
+        // which breaks parsing at position 1 (immediately after the opening brace).
+
+        try {
+            return JSON.parse(cleanText);
+        } catch (jsonErr) {
+            // 4. TRUNCATION HEALING (Class-level Fix)
+            // If the AI response was cut off, try to close the array and object
+            // This prevents a total sync failure for 1-2 bad cards in a batch.
+            console.warn("Attempting Truncation Healing...");
+
+            // Check if it looks like an array of results that just cut out
+            if (cleanText.includes('"results": [') && !cleanText.endsWith(']}')) {
+                const healedText = cleanText + (cleanText.endsWith('}') ? ']}' : '}]}');
+                try {
+                    return JSON.parse(healedText);
+                } catch (e) {
+                    // Fall through to error
+                }
+            }
+            throw jsonErr;
+        }
     } catch (e) {
         console.error("Parsing Failed:", e.message);
+        // Log a more useful snippet for the logs to reveal the exact syntax error
+        const snippet = text.length > 500 ? text.substring(0, 500) + "..." : text;
+        console.error("Malformed Payload Snippet:", snippet);
         return null;
     }
 }
