@@ -99,7 +99,7 @@ async function handleGenerateDistractors(req, res) {
     STRICT MECHANICAL RULES:
     1. STRICT ID MATCHING: You MUST return the 'id' in the JSON exactly as it appears in the input. Do not add prefixes (like 'card-'), do not add suffixes, and do not add any whitespace. If the input ID is '101', the output ID must be '101'.
     2. DIRECT JSON ONLY: Return only the RAW JSON object. Do not include any conversational text, explanations, or "Sure, here are the results".
-    3. CHARACTER SAFETY: Escape all ampersands (&), dashes (– or —), and quotes. 
+    3. CHARACTER SAFETY: You MUST use only standard straight quotes (") and apostrophes ('). You MUST NOT use smart/curly quotes (“ ” ‘ ’). You MUST NOT include literal newlines within JSON strings; use '\n' for any required line breaks. Ensure all output is strictly valid, minified JSON.
 
     Input Cards:
     ${cards.map(c => `ID: ${c.id}\nTerm: ${c.question}\nDefinition: ${c.answer}\n${c.scenario ? `Scenario: ${c.scenario}\nFixed Answer: ${c.correct_answer}` : ''}`).join('\n---\n')}
@@ -166,7 +166,15 @@ function parseAIResponse(text) {
             cleanText = cleanText.substring(startIdx, endIdx + 1);
         }
 
-        return JSON.parse(cleanText);
+        // --- PRE-PARSE SANITIZER (Task 2) ---
+        // Force-normalize AI output to protect JSON.parse from common syntax crashes
+        const sanitizedText = cleanText
+            .replace(/[\u201C\u201D]/g, '"') // Convert smart double quotes
+            .replace(/[\u2018\u2019]/g, "'") // Convert smart single quotes
+            .replace(/\n/g, "\\n")          // Escape literal newlines
+            .replace(/\r/g, "\\r");
+
+        return JSON.parse(sanitizedText);
     } catch (e) {
         console.error("Parsing Failed:", e.message);
         return null;

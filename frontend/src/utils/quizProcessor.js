@@ -53,10 +53,11 @@ const INTEL_BATCH_SIZE = 4;
 export async function generateDistractorsBatch(cards, quizType = 'intelligent', onProgress, certLevel = 'CP') {
     let successfulCount = 0;
     const totalRequests = cards.length;
-    
+
     // VARIABLE BATCHING: Turbo-charge Simple mode while protecting Scenarios
     const MAX_BATCH_SIZE = quizType === 'simple' ? SIMPLE_BATCH_SIZE : INTEL_BATCH_SIZE;
-    const STAGGER_TIME = quizType === 'simple' ? 8000 : 5000; 
+    // TASK 3: 12-second stagger for Intelligent mode ensures a Safe Zone of 5 RPM
+    const STAGGER_TIME = quizType === 'simple' ? 8000 : 12000;
 
     for (let i = 0; i < cards.length; i += MAX_BATCH_SIZE) {
         const batch = cards.slice(i, i + MAX_BATCH_SIZE);
@@ -182,6 +183,9 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
 
         } catch (error) {
             console.error('Hardened Sync Error:', error);
+            // TASK 4: Circuit Breaker cooldown to prevent rapid-fire RPM spikes
+            await new Promise(r => setTimeout(r, 5000));
+
             if (onProgress) onProgress(Math.round((successfulCount / totalRequests) * 100), error.message);
             return { success: false, error: error.message };
         }
