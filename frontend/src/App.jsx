@@ -208,7 +208,10 @@ function App() {
           setWarmUpStatus(`SJI SYNC: Batch ${currentBatch} of ${intelBatches}...`);
 
           const result = await generateDistractorsBatch(batchToProcess, 'intelligent', (p, error) => {
-            // ...
+            // UI SYNC: Use functional update to ensure real-time re-renders
+            const batchDone = Math.round((p / 100) * batchToProcess.length);
+            const currentP = Math.round(((syncedCount + batchDone) / totalToSync) * 100);
+            setWarmUpProgress(prev => currentP);
             if (error === 'RATE_LIMIT') rateLimited = true;
           }, certLevel);
 
@@ -242,9 +245,10 @@ function App() {
           setWarmUpStatus(`RECALL SYNC: Batch ${currentBatch} of ${simpleBatches}...`);
 
           const result = await generateDistractorsBatch(batchToProcess, 'simple', (p, error) => {
+            // UI SYNC: Use functional update to ensure real-time re-renders
             const batchDone = Math.round((p / 100) * batchToProcess.length);
-            const globalP = Math.round(((syncedCount + batchDone) / totalToSync) * 100);
-            setWarmUpProgress(globalP);
+            const currentP = Math.round(((syncedCount + batchDone) / totalToSync) * 100);
+            setWarmUpProgress(prev => currentP);
             if (error === 'RATE_LIMIT') rateLimited = true;
           }, certLevel);
 
