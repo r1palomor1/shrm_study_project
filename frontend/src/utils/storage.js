@@ -11,14 +11,20 @@ const VAULT_KEY = 'shrm_distractor_vault';
 export function saveDistractorToVault(fingerprint, data, certLevel = 'CP') {
     try {
         const vault = loadVaultFromStorage();
-        // ISOLATED KEY STRATEGY: Key includes fingerprint, quizType, AND certLevel
-        const key = `${fingerprint}:${data.quizType || 'intelligent'}:${certLevel}`;
-        
+
+        // HARDENING & HANDSHAKE: Strict ID anchoring and quizType inference
+        const cleanId = String(fingerprint).trim();
+        const quizType = data.quizType || (data.scenario ? 'intelligent' : 'simple');
+        const key = `${cleanId}:${quizType}:${certLevel}`;
+
+        console.log("FINAL KEY CHECK:", key);
+
         // MERGE LOGIC: Preserve existing data (like scenario from seed stage) when adding new fields
         const existingData = vault[key] || {};
         vault[key] = {
             ...existingData,
             ...data,
+            quizType, // Ensure it's explicitly saved for Matrix checks
             certLevel, // Explicitly store for debugging/consistency
             timestamp: new Date().toISOString()
         };
@@ -34,16 +40,16 @@ export function saveDistractorToVault(fingerprint, data, certLevel = 'CP') {
  * Retrieves AI-generated data from the vault for a specific fingerprint, mode, and cert.
  */
 export function getDistractorFromVault(fingerprint, quizType = 'intelligent', certLevel = 'CP') {
-    const rawVault = localStorage.getItem('shrm_ai_vault_2026') || '{}';
+    const rawVault = localStorage.getItem(VAULT_KEY) || '{}';
     const vault = JSON.parse(rawVault);
-    
+
     // HARDENING: Clean the lookup ID to match the saved ID
     const cleanId = String(fingerprint).trim();
     const key = `${cleanId}:${quizType}:${certLevel}`;
-    
+
     // Fallback logic for transitioning existing data (assumes old data is CP)
     const oldKey = `${cleanId}:${quizType}`;
-    
+
     const data = vault[key] || (certLevel === 'CP' ? vault[oldKey] : null) || (vault[cleanId]?.quizType === quizType ? vault[cleanId] : null);
     return data;
 }
@@ -64,7 +70,7 @@ export function loadVaultFromStorage() {
 export function exportAppData() {
     const decks = loadDecksFromStorage() || [];
     const vault = loadVaultFromStorage() || {};
-    
+
     const snapshot = {
         version: '1.0',
         timestamp: new Date().toISOString(),
@@ -74,7 +80,7 @@ export function exportAppData() {
 
     const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
-    
+
     const date = new Date();
     const ts = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}_${String(date.getHours()).padStart(2, '0')}${String(date.getMinutes()).padStart(2, '0')}`;
     const filename = `SHRM_Backup_${ts}.json`;
@@ -97,7 +103,7 @@ export async function importAppData(jsonFile) {
         reader.onload = (e) => {
             try {
                 const snapshot = JSON.parse(e.target.result);
-                
+
                 if (!snapshot.decks || !snapshot.vault) {
                     throw new Error('Invalid backup file format');
                 }
@@ -124,7 +130,7 @@ export async function mergeAppData(jsonFile) {
         reader.onload = (e) => {
             try {
                 const snapshot = JSON.parse(e.target.result);
-                
+
                 if (!snapshot.decks || !snapshot.vault) {
                     throw new Error('Invalid backup file format');
                 }
@@ -138,11 +144,11 @@ export async function mergeAppData(jsonFile) {
                 const currentDecks = loadDecksFromStorage();
                 const existingTitles = new Set(currentDecks.map(d => d.title));
                 const newDecks = snapshot.decks.filter(d => !existingTitles.has(d.title));
-                
+
                 if (newDecks.length > 0) {
                     localStorage.setItem(STORAGE_KEY, JSON.stringify([...currentDecks, ...newDecks]));
                 }
-                
+
                 resolve(true);
             } catch (error) {
                 reject(error);

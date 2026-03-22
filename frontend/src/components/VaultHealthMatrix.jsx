@@ -7,33 +7,33 @@ import { loadVaultFromStorage } from '../utils/storage';
  */
 const TopicHealthCell = ({ count, total }) => {
   const isComplete = count === total && total > 0;
-  
+
   return (
     <td style={{ textAlign: 'center', padding: '1rem 0.5rem' }}>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem' }}>
         {isComplete ? (
           <span className="material-symbols-outlined" style={{ fontSize: '1.4rem', color: '#60a5fa' }}>verified</span>
         ) : (
-          <span className="material-symbols-outlined" style={{ 
-            fontSize: '1.4rem', 
-            color: '#fbbf24', 
-            animation: 'pulse 2s infinite' 
+          <span className="material-symbols-outlined" style={{
+            fontSize: '1.4rem',
+            color: '#fbbf24',
+            animation: 'pulse 2s infinite'
           }}>bolt</span>
         )}
-        
-        <div style={{ 
-          fontSize: '0.85rem', 
-          fontWeight: '900', 
+
+        <div style={{
+          fontSize: '0.85rem',
+          fontWeight: '900',
           color: isComplete ? '#60a5fa' : '#fbbf24',
           fontFamily: 'monospace'
         }}>
           {count} / {total}
         </div>
-        
-        <div style={{ 
-          fontSize: '0.55rem', 
-          textTransform: 'uppercase', 
-          color: isComplete ? '#60a5fa' : '#fbbf24', 
+
+        <div style={{
+          fontSize: '0.55rem',
+          textTransform: 'uppercase',
+          color: isComplete ? '#60a5fa' : '#fbbf24',
           fontWeight: '900',
           letterSpacing: '0.1em'
         }}>
@@ -65,9 +65,10 @@ const VaultHealthMatrix = ({ decks, onSmartSync, isSyncing, syncProgress, syncSt
       };
 
       deck.cards.forEach(card => {
-        // Updated to use the ISOATED KEY STRATEGY (fingerprint:quizType:certLevel)
-        const sData = vault[`${card.id}:simple:${certLevel}`];
-        const iData = vault[`${card.id}:intelligent:${certLevel}`];
+        // HANDSHAKE: Align Matrix audit with Defensive Storage (trimming IDs)
+        const cleanId = String(card.id).trim();
+        const sData = vault[`${cleanId}:simple:${certLevel}`];
+        const iData = vault[`${cleanId}:intelligent:${certLevel}`];
 
         // PHYSICAL DATA CHECK: No shadow logic, just existence check
         if (sData?.distractors) stats.simple++;
@@ -78,15 +79,15 @@ const VaultHealthMatrix = ({ decks, onSmartSync, isSyncing, syncProgress, syncSt
 
       return stats;
     });
-  }, [decks, vault, certLevel]); 
+  }, [decks, vault, certLevel]);
 
   const headers = ['Intelligent Scenarios', 'Strategic Rationales', 'Behavioral Bridge Tags', 'Simple Distractors'];
   const dataKeys = ['scenarios', 'rationales', 'tags', 'simple'];
   const icons = ['psychology', 'description', 'join_inner', 'format_list_bulleted'];
 
   return (
-    <section className="glass-panel" style={{ 
-      padding: '2rem', 
+    <section className="glass-panel" style={{
+      padding: '2rem',
       overflowX: 'auto',
       border: '1px solid rgba(255,255,255,0.05)'
     }}>
@@ -95,13 +96,13 @@ const VaultHealthMatrix = ({ decks, onSmartSync, isSyncing, syncProgress, syncSt
           <span className="material-symbols-outlined" style={{ color: '#60a5fa' }}>verified_user</span>
           AI READINESS MATRIX
         </h3>
-        <button 
-          onClick={onSmartSync} 
-          disabled={isSyncing} 
-          className={isSyncing ? "glass-panel" : "btn-primary"} 
-          style={{ 
-            padding: '0.6rem 1.2rem', 
-            fontSize: '0.8rem', 
+        <button
+          onClick={onSmartSync}
+          disabled={isSyncing}
+          className={isSyncing ? "glass-panel" : "btn-primary"}
+          style={{
+            padding: '0.6rem 1.2rem',
+            fontSize: '0.8rem',
             fontWeight: 'bold',
             color: isSyncing ? '#fbbf24' : 'white',
             border: isSyncing ? '1px solid rgba(251,191,36,0.3)' : 'none',
