@@ -18,6 +18,7 @@ import {
   importAppData,
   mergeAppData,
   clearAiVault,
+  clearSimpleVaultData,
   getDistractorFromVault,
   loadVaultFromStorage
 } from './utils/storage';
@@ -103,6 +104,22 @@ function App() {
       confirmText: 'Wipe Vault',
       onConfirm: () => {
         clearAiVault();
+        setDecks(loadDecksFromStorage());
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+      }
+    });
+  };
+
+  const handleNukeSimple = () => {
+    setIsSettingsOpen(false);
+    setConfirmModal({
+      isOpen: true,
+      type: 'danger',
+      title: 'Structural Purge: Simple Recall?',
+      message: 'This will wipe ONLY the Simple Recall distractors. Your Intelligent mode scenarios, behavioral tags, and history will be preserved. Continue?',
+      confirmText: 'Surgical Nuke',
+      onConfirm: () => {
+        clearSimpleVaultData();
         setDecks(loadDecksFromStorage());
         setConfirmModal(prev => ({ ...prev, isOpen: false }));
       }
@@ -352,7 +369,7 @@ function App() {
         </div>
       </header>
 
-      {isSettingsOpen && <SettingsModal onClose={() => setIsSettingsOpen(false)} onExport={exportAppData} onImport={async (e) => { await importAppData(e.target.files[0]); setDecks(loadDecksFromStorage()); }} onMerge={async (e) => { await mergeAppData(e.target.files[0]); setDecks(loadDecksFromStorage()); }} onNukeAi={handleNukeAi} onDeleteDeck={handleDeleteDeck} onResetProgress={handleResetProgress} decks={decks} />}
+      {isSettingsOpen && <SettingsModal onClose={() => setIsSettingsOpen(false)} onExport={exportAppData} onImport={async (e) => { await importAppData(e.target.files[0]); setDecks(loadDecksFromStorage()); }} onMerge={async (e) => { await mergeAppData(e.target.files[0]); setDecks(loadDecksFromStorage()); }} onNukeAi={handleNukeAi} onNukeSimple={handleNukeSimple} onDeleteDeck={handleDeleteDeck} onResetProgress={handleResetProgress} decks={decks} />}
       {isResetOpen && <ResetModal isOpen={isResetOpen} targetTitle={resetTarget} currentMode={studyMode} quizType={quizType} onClose={() => setIsResetOpen(false)} onConfirm={handlePerformReset} />}
       <ConfirmationModal isOpen={confirmModal.isOpen} type={confirmModal.type} title={confirmModal.title} message={confirmModal.message} confirmText={confirmModal.confirmText} onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))} onConfirm={confirmModal.onConfirm} />
 

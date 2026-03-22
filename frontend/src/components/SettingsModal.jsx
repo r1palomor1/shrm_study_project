@@ -8,6 +8,7 @@ export default function SettingsModal({
   onDeleteDeck,
   onResetProgress,
   onMerge,
+  onNukeSimple,
   decks,
   isRestoring 
 }) {
@@ -152,26 +153,37 @@ export default function SettingsModal({
             <h4 style={{ color: 'var(--secondary)', fontSize: '0.75rem', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '1.2rem' }}>AI COMPANION & DATA</h4>
             
             <div style={{ display: 'grid', gap: '1rem' }}>
-              {/* Nuke AI Vault */}
+              {/* Nuke AI Vault (Surgical + Full) */}
               <div style={{ ...cardStyle, border: '1px solid rgba(239, 68, 68, 0.2)', background: 'rgba(239, 68, 68, 0.05)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                   <span className="material-symbols-outlined" style={{ color: '#ef4444' }}>cancel</span>
                   <div>
-                    <div style={{ fontWeight: '600', marginBottom: '0.2rem' }}>Nuke AI Vault</div>
+                    <div style={{ fontWeight: '600', marginBottom: '0.2rem' }}>Wipe AI Vault Data</div>
                     <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', lineHeight: '1.4' }}>
-                      Wipe all generated rationales and distractors. Study history is preserved.
+                      Clear generated data. Study history remains safe.
                     </div>
                   </div>
                 </div>
-                <button onClick={onNukeAi} style={{ 
-                  padding: '0.5rem 1rem', 
-                  borderRadius: '12px',
-                  background: 'transparent',
-                  border: '1px solid #ef4444',
-                  color: '#ef4444',
-                  fontSize: '0.8rem',
-                  fontWeight: '500'
-                }}>Delete Data</button>
+                <div style={{ display: 'flex', gap: '0.6rem' }}>
+                  <button onClick={onNukeSimple} style={{ 
+                    padding: '0.5rem 0.8rem', 
+                    borderRadius: '12px',
+                    background: 'rgba(245, 158, 11, 0.1)',
+                    border: '1px solid rgba(245, 158, 11, 0.3)',
+                    color: '#f59e0b',
+                    fontSize: '0.75rem',
+                    fontWeight: '700'
+                  }}>Nuke Simple Only</button>
+                  <button onClick={onNukeAi} style={{ 
+                    padding: '0.5rem 0.8rem', 
+                    borderRadius: '12px',
+                    background: 'transparent',
+                    border: '1px solid #ef4444',
+                    color: '#ef4444',
+                    fontSize: '0.75rem',
+                    fontWeight: '700'
+                  }}>Full Wipe</button>
+                </div>
               </div>
 
               {/* Export SJI Audit Log */}

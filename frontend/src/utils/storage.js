@@ -203,6 +203,33 @@ export function clearAiVault() {
     }
 }
 
+/**
+ * SURGICAL NUKE: Purges ONLY simple recall data while keeping Intelligent scenarios.
+ * Scans the vault for keys containing ":simple:" and deletes them.
+ */
+export function clearSimpleVaultData() {
+    try {
+        const vault = JSON.parse(localStorage.getItem(VAULT_KEY) || '{}');
+        const keys = Object.keys(vault);
+        let count = 0;
+
+        keys.forEach(key => {
+            // Check for the ':simple:' flag in the isolated key pattern
+            if (key.includes(':simple:')) {
+                delete vault[key];
+                count++;
+            }
+        });
+
+        localStorage.setItem(VAULT_KEY, JSON.stringify(vault));
+        console.info(`[SURGICAL PURGE] Removed ${count} Simple Distractor items.`);
+        return true;
+    } catch (error) {
+        console.error('Error in Surgical Purge:', error);
+        return false;
+    }
+}
+
 export function updateCardStatus(cardId, studyMode, newStatus, historyData = null) {
     const certLevel = historyData?.certLevel || 'CP';
     const quizType = historyData?.quizType || 'intelligent';
