@@ -232,16 +232,16 @@ function App() {
           missingIntel = updated.missingCards;
         }
 
-        // MODE 2: Simple (Recall)
+        // MODE 2: Simple (Recall) - TURBO BATCHING (8 CARDS)
         const updatedSimple = await getQuizDataForDeck({ cards: targetCards }, 'simple', certLevel);
         missingSimple = updatedSimple.missingCards;
-        const simpleBatches = Math.ceil(missingSimple.length / 4);
+        const simpleBatches = Math.ceil(missingSimple.length / 8);
         currentBatch = 0;
 
         while (missingSimple.length > 0) {
           let rateLimited = false;
           currentBatch++;
-          const batchToProcess = missingSimple.slice(0, 4); // Take 4 for consistency
+          const batchToProcess = missingSimple.slice(0, 8); // Turbo batch for RPD insurance
           setWarmUpStatus(`RECALL SYNC: Batch ${currentBatch} of ${simpleBatches}...`);
 
           const result = await generateDistractorsBatch(batchToProcess, 'simple', (p, error) => {

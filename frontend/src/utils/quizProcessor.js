@@ -43,8 +43,9 @@ export async function getQuizDataForDeck(deck, requestedQuizType = 'intelligent'
     };
 }
 
-// MASTER HARDENING: Hard-Locked Batch Size (The 4-Card Mandate)
-const MAX_BATCH_SIZE = 4;
+// MASTER HARDENING: Supporting Variable Batching for RPD optimization
+const SIMPLE_BATCH_SIZE = 8;
+const INTEL_BATCH_SIZE = 4;
 
 /**
  * Calls the backend to generate distractors for a batch of cards.
@@ -52,10 +53,14 @@ const MAX_BATCH_SIZE = 4;
 export async function generateDistractorsBatch(cards, quizType = 'intelligent', onProgress, certLevel = 'CP') {
     let successfulCount = 0;
     const totalRequests = cards.length;
+    
+    // VARIABLE BATCHING: Turbo-charge Simple mode while protecting Scenarios
+    const MAX_BATCH_SIZE = quizType === 'simple' ? SIMPLE_BATCH_SIZE : INTEL_BATCH_SIZE;
+    const STAGGER_TIME = quizType === 'simple' ? 8000 : 5000; 
 
     for (let i = 0; i < cards.length; i += MAX_BATCH_SIZE) {
         const batch = cards.slice(i, i + MAX_BATCH_SIZE);
-        console.info(`[SHRM BATCH SYNC] Starting ${quizType} batch (Topics: ${[...new Set(batch.map(c => c.topic))].join(', ')})`);
+        console.info(`[SHRM BATCH SYNC] Starting ${quizType} batch of ${MAX_BATCH_SIZE}`);
 
         try {
             if (quizType === 'intelligent') {
@@ -170,9 +175,9 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
                 onProgress(percent, null);
             }
 
-            // STAGGER: 5-second cooldown to stay safely within 15 RPM
+            // STAGGER: Dynamic cooldown to stay safely within 15 RPM
             if (i + MAX_BATCH_SIZE < cards.length) {
-                await new Promise(r => setTimeout(r, 5000));
+                await new Promise(r => setTimeout(r, STAGGER_TIME));
             }
 
         } catch (error) {

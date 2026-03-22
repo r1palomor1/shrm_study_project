@@ -73,9 +73,14 @@ async function handleGenerateDistractors(req, res) {
     } else {
         // --- SHRM 2026: KNOWLEDGE DESIGNER (Simple Recall) ---
         promptSystemInstructions = `
-        ROLE: SHRM 2026 Knowledge Designer.
-        TASK: Generate 3 high-plausibility definition-only distractors for the provided SHRM definition.
-        LENGTH PARITY: Distractors must match the Correct Answer's word count within +/- 5 words.
+        ROLE: SHRM 2026 Knowledge Designer (High-Fidelity Distractors).
+        TASK: Generate 3 high-plausibility distractors for the provided SHRM definition.
+
+        STRICT SYMMETRY MANDATE:
+        1. VISUAL PARITY: Each distractor MUST match the Correct Answer's word count and academic complexity (within +/- 3 words). 
+        2. NO SHORT-FORMING: If the correct answer is 25 words with multiple clauses, the distractors MUST also be 25 words with multiple clauses.
+        3. TERMINOLOGY: Use SHRM 2026 BASK terminology (e.g., "Stakeholder Impact" vs "People's feelings").
+        4. QUALITY: Distractors should be "Symptomatic Traps"—definitions of related but incorrect HR concepts.
         `;
     }
 
