@@ -17,7 +17,7 @@ export default async function handler(req, res) {
 }
 
 async function handleGenerateDistractors(req, res) {
-    const { cards, quizType = 'intelligent', certLevel = 'CP' } = req.body;
+    const { cards, quizType = 'intelligent', certLevel = 'CP', pipelineStage = 'monolithic' } = req.body;
 
     if (!cards || !Array.isArray(cards)) {
         return res.status(400).json({ message: 'Invalid card data' });
@@ -25,115 +25,79 @@ async function handleGenerateDistractors(req, res) {
 
     const geminiKey = process.env.GEMINI_API_KEY;
 
-    // 1. System Instructions for SHRM 2026 BASK (Dual-Certification Engine)
+    // 1. System Instructions for SHRM 2026 BASK (Two-Stage Pipeline)
     let promptSystemInstructions = "";
 
     if (quizType === 'intelligent') {
-        if (certLevel === 'SCP') {
-            // --- SHRM-SCP: STRATEGIC GOVERNANCE ---
+        if (pipelineStage === 'seed') {
+            // --- STAGE 1: THE SCENARIO & ANSWER SEED (The "Heavy" Logic) ---
+            const verbTaxonomy = certLevel === 'SCP'
+                ? "[Design, Evaluate, Analyze, Interpret, Champion]"
+                : "[Implement, Coordinate, Apply, Review, Identify]";
+
             promptSystemInstructions = `
-            ROLE: Senior SHRM-SCP Exam Architect (2026 BASK Standards)
-            TASK: Transform the [Term] into a Strategic Situational Judgment Item (SJI).
-            
-            VERB-LOGIC GUARDRAIL (SCP):
-            - The CORRECT answer MUST favor: Stakeholder Discovery, Systems Strategy, Evaluating Governance Frameworks, or Conducting Interviews.
-            - Focus on identifying strategic risks and aligning with leadership objectives.
-            
+            ROLE: SHRM 2026 SJI Architect (Seed Stage)
+            TASK: Generate a Situation and a "Tethered-Action" Correct Answer for the provided SHRM definition.
+
+            TETHERED-ACTION RULE:
+            - The 'correct_answer' MUST be a functional, verbed translation of the flashcard definition.
+            - Do NOT hallucinate new concepts. If the definition is 'Variance Analysis', the answer MUST involve 'Reviewing actual vs planned budget'.
+
+            2026 VERB TAXONOMY (${certLevel}):
+            - You MUST start the 'correct_answer' with one of these verbs: ${verbTaxonomy}.
+
             MANDATORY CONSTRAINTS:
-            1. ROLE FOCUS: Strategic Governance, Stakeholder Alignment, and Global Risk.
-            2. DISCOVERY PRIORITY: The correct answer MUST favor discovery/analysis before action.
-            3. AI ETHICS MANDATE: Include scenarios involving AI Ethics, Algorithmic Bias, and Technology Governance.
-            4. VERB MANDATE: Start choices with: Analyze, Facilitate, Advise, Audit, Evaluate, Formulate.
-            5. BOSS-MODE TRAPS: Distractors must be professionally sound but "Symptomatic/Operational" (CP-level) or skip initial discovery.
+            1. SCENARIO: 3-4 sentence workplace conflict identifying a specific challenge related to the [Term].
+            2. FOCUS: ${certLevel === 'SCP' ? 'Strategic Governance and Stakeholder Analysis.' : 'Operational Policy and Tactical Fact-Finding.'}
+            3. NO LABELING: The name of the [Term] must NOT appear in the scenario or answer.
+            `;
+        } else if (pipelineStage === 'expand') {
+            // --- STAGE 2: THE LOGIC EXPANSION (The "Detail" Work) ---
+            promptSystemInstructions = `
+            ROLE: SHRM 2026 Logic Expander (Expansion Stage)
+            TASK: Generate high-plausibility traps and a professional rationale for the provided Scenario and Correct Answer.
+
+            MANDATORY CONSTRAINTS:
+            1. TRAP LOGIC: Distractors must be professionally sound but "Symptomatic/Operational" (for CP) or "Premature Escalation" (skipping discovery).
+            2. SYMMETRY: All options must match the 'correct_answer' in length (within +/- 5 words) and professional tone.
+            3. RATIONALE: Explain why the 'correct_answer' is superior using SHRM 2026 logic.
+
+            UI SYNC MANDATE:
+            - Provide a 2-word label for 'gap_analysis' (e.g., 'Premature Escalation', 'Symptomatic Fix').
+            - TETHERING RULE: This label MUST be the header of the 'rationale' field.
             `;
         } else {
-            // --- SHRM-CP: OPERATIONAL IMPLEMENTATION ---
-            promptSystemInstructions = `
-            ROLE: SHRM-CP 2026 Implementation Specialist (BASK Standards)
-            TASK: Transform the [Term] into an Operational Situational Judgment Item (SJI).
-            
-            VERB-LOGIC GUARDRAIL (CP):
-            - The CORRECT answer MUST favor: Reviewing Records, Applying Policies, Fact-Finding, or Coordinating Implementation.
-            - Focus on consistent application of established rules and tactical resolution.
-            
-            MANDATORY CONSTRAINTS:
-            1. ROLE FOCUS: Policy Application, Manager Coordination, and Operational Compliance.
-            2. TACTICAL FACT-FINDING: The correct action favors reviewing internal records (attendance, performance, handbooks) to confirm facts before applying policy.
-            3. AI ACCOUNTABILITY: Include 'Unverified reliance on AI tools' or 'Data Privacy gaps' as high-plausibility traps.
-            4. VERB MANDATE: Start choices with: Implement, Coordinate, Apply, Resolve, Process, Communicate.
-            5. COMPLIANCE TRAPS: Distractors should represent inconsistent application or "Premature Escalation to Leadership/Legal" (skipping tactical steps).
-            `;
+            // Legacy/Monolithic (Kept for safety)
+            promptSystemInstructions = `ROLE: SHRM 2026 Architect. Generate Scenario, Answer, Traps, and Rationale in one call.`;
         }
-
-        promptSystemInstructions += `
-        GLOBAL 2026 SJI RULES:
-        - scenario: 3-4 sentence workplace conflict.
-        - question: Ends with "What is the BEST action?" or "What is the FIRST step?"
-        - NO LABELING: The name of the [Term] must NOT appear in the Correct Answer or Distractors.
-        - SYMMETRY: All 4 options must be similar in length and complexity.
-        - RATIONALE MANDATE: Explicitly explain why the 'Boss-Mode' action is superior to 'Premature Escalation' or 'Symptomatic/Operational' fixes.
-        
-        TETHERING RULE: This label MUST also serve as the 'header' for the 'rationale' field (e.g., 'gap_analysis': 'Premature Escalation', 'rationale': 'Premature Escalation: The candidate failed by...') to ensure the Gap Accordion UI functions correctly.
-        `;
     } else {
         // --- SHRM 2026: KNOWLEDGE DESIGNER (Simple Recall) ---
-        // TUNED FOR: Gemini 3.1 Flash Lite Preview (Force Symmetry)
         promptSystemInstructions = `
         ROLE: SHRM 2026 Knowledge Designer.
-        TASK: Generate 3 high-plausibility distractors for the provided SHRM definition.
-
-        STRICT MECHANICAL CONSTRAINTS:
-        1. DEFINITION-ONLY RULE: All 3 distractors MUST be full-sentence definitions. 
-        2. NO LABELS/NAMES: Never use the "Name" or "Title" of a concept as a distractor. (Example: If the answer is a definition of 'Local Responsiveness', you must provide the full DEFINITION of a neighboring concept, NOT the words 'Global Integration').
-        3. LENGTH PARITY (+/- 5 WORDS): Every distractor MUST match the word count of the Correct Answer within a 5-word margin. If the correct answer is 30 words, every distractor must be 25-35 words.
-        4. CONCEPTUAL PROXIMITY: Distractors must be 'Neighboring Concepts' from the same 2026 SHRM Domain cluster.
-
-        MANDATORY 2026 BRANDING:
-        - Use "Inclusive Mindset" instead of "Diversity".
-        - If the term involves social networks, tag "tag_behavior" as "Inclusive Mindset".
+        TASK: Generate 3 high-plausibility definition-only distractors for the provided SHRM definition.
+        LENGTH PARITY: Distractors must match the Correct Answer's word count within +/- 5 words.
         `;
     }
+
+    const outputFormat = pipelineStage === 'seed'
+        ? `{ "results": [{ "id": "string", "scenario": "string", "correct_answer": "string", "tag_bask": "string", "tag_behavior": "string" }] }`
+        : `{ "results": [{ "id": "string", "distractors": ["3 items"], "rationale": "string", "gap_analysis": "string" }] }`;
 
     const prompt = `
     ${promptSystemInstructions}
-    
-    Format: JSON Array labeled "results".
-    Official 2026 Domains: [People, Organization, Workplace]
-    Official 2026 Competencies: [Leadership, Interpersonal, Business, Inclusive Mindset]
-    
+
     MANDATORY 2026 MAPPING:
-    - All Behavioral tags MUST use "Inclusive Mindset" instead of "Diversity" or "Global Effectiveness" or "Inclusion".
-    - METADATA POLISH: If the scenario or term involves global teams, social networks, diverse demographics, or cultural effectiveness, automatically tag "tag_behavior" as "Inclusive Mindset" to ensure unified analytics.
-    
-    STRICT CHARACTER RULE: All returned strings must be JSON-safe. Escape all special characters, specifically ampersands (&), dashes (– or —), and quotation marks within rationale texts. Ensure the output is a raw JSON string without markdown code blocks (e.g., no \`\`\`json).
-    LEGAL TOPIC PROTOCOL: Provide direct, factual content only. Do not provide legal disclaimers or conversational text. Any non-JSON text will result in a system failure.
+    - Domains: [People, Organization, Workplace]
+    - Competencies: [Leadership, Interpersonal, Business, Inclusive Mindset]
+    - Always use "Inclusive Mindset" instead of "Diversity".
 
-    UI SYNC MANDATE: The 'gap_analysis' key is STRICTLY MANDATORY. 
-    - For SJIs: Provide a 2-word label of the behavioral failure (e.g., 'Symptomatic Fix').
-    - For Simple Recall: Populate with 'Knowledge Match'.
+    STRICT CHARACTER RULE: Escape &, –, and quotes. Output RAW JSON only.
 
-    TETHERING RULE: Use this label as the header of the 'rationale' field (e.g., 'gap_analysis': 'Symptomatic Fix', 'rationale': 'Symptomatic Fix: The candidate failed by...') to ensure UI consistency.
+    Input Cards:
+    ${cards.map(c => `ID: ${c.id}\nTerm: ${c.question}\nDefinition: ${c.answer}\n${c.scenario ? `Scenario: ${c.scenario}\nFixed Answer: ${c.correct_answer}` : ''}`).join('\n---\n')}
 
-    Cards:
-    ${cards.map(c => `ID: ${c.id}\nQ: ${c.question}\nA: ${c.answer}`).join('\n---\n')}
-    
-    Return JSON:
-    {
-        "results": [
-            {
-                "id": "MUST match input ID",
-                "scenario": "string",
-                "question": "string",
-                "correct_answer": "string",
-                "distractors": ["3 items"],
-                "rationale": "string",
-                "gap_analysis": "Identify the primary failing: e.g., 'Premature Escalation' or 'Symptomatic Fix'.",
-                "shrm_principle": "string",
-                "tag_bask": "People | Organization | Workplace",
-                "tag_behavior": "Leadership | Interpersonal | Business | Inclusive Mindset"
-            }
-        ]
-    }
+    Return JSON format:
+    ${outputFormat}
     `;
 
     // 2. Try Gemini (Primary)

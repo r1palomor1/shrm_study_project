@@ -14,7 +14,10 @@ export function saveDistractorToVault(fingerprint, data, certLevel = 'CP') {
         // ISOLATED KEY STRATEGY: Key includes fingerprint, quizType, AND certLevel
         const key = `${fingerprint}:${data.quizType || 'intelligent'}:${certLevel}`;
         
+        // MERGE LOGIC: Preserve existing data (like scenario from seed stage) when adding new fields
+        const existingData = vault[key] || {};
         vault[key] = {
+            ...existingData,
             ...data,
             certLevel, // Explicitly store for debugging/consistency
             timestamp: new Date().toISOString()

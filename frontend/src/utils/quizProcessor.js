@@ -49,72 +49,110 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
     let successfulCount = 0;
     const totalRequests = cards.length;
 
-    // We process in batches to respect the Gemini reasoning window (5 items is the sweet spot)
     for (let i = 0; i < cards.length; i += MAX_BATCH_SIZE) {
         const batch = cards.slice(i, i + MAX_BATCH_SIZE);
-
-        // --- DEBUG INSTRUMENTATION ---
-        console.info(`[SHRM BATCH SYNC] Starting ${quizType} batch for topics: ${[...new Set(batch.map(c => c.topic))]}`, batch.map(c => ({ id: c.id, q: c.question.substring(0, 50) + '...' })));
+        console.info(`[SHRM BATCH SYNC] Starting ${quizType} batch (Topics: ${[...new Set(batch.map(c => c.topic))].join(', ')})`);
 
         try {
-            const response = await fetch('/api/study-coach', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    mode: 'generate-distractors',
-                    quizType: quizType,
-                    certLevel: certLevel, // Pass to backend
-                    cards: batch.map(c => ({ id: c.id, topic: c.topic, question: c.question, answer: c.answer }))
-                })
-            });
-
-            if (response.status === 429) {
-                throw new Error('RATE_LIMIT');
-            }
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                console.error('API Error Response:', errorData);
-                throw new Error(errorData.message || 'API_ERROR');
-            }
-
-            const data = await response.json();
-
-            if (data.results) {
-                data.results.forEach(res => {
-                    saveDistractorToVault(res.id, {
+            if (quizType === 'intelligent') {
+                // --- STAGE 1: SEED (Scenario & Correct Answer) ---
+                const seedResponse = await fetch('/api/study-coach', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        mode: 'generate-distractors',
                         quizType: quizType,
-                        scenario: res.scenario,
-                        question: res.question,
-                        correct_answer: res.correct_answer,
-                        distractors: res.distractors,
-                        rationale: res.rationale,
-                        gap_analysis: res.gap_analysis,
-                        tag_bask: res.tag_bask,
-                        tag_behavior: res.tag_behavior
-                    }, certLevel); // Pass to storage
+                        certLevel: certLevel,
+                        pipelineStage: 'seed',
+                        cards: batch.map(c => ({ id: c.id, topic: c.topic, question: c.question, answer: c.answer }))
+                    })
                 });
-                successfulCount += data.results.length;
+
+                if (!seedResponse.ok) throw new Error('SEED_STAGE_FAILED');
+                const seedData = await seedResponse.json();
+
+                // Save Seed Data (Scenario + Answer + Tags)
+                if (seedData.results) {
+                    seedData.results.forEach(res => {
+                        saveDistractorToVault(res.id, {
+                            quizType: quizType,
+                            scenario: res.scenario,
+                            correct_answer: res.correct_answer,
+                            tag_bask: res.tag_bask,
+                            tag_behavior: res.tag_behavior
+                        }, certLevel);
+                    });
+                }
+
+                // --- STAGE 2: EXPAND (Traps & Rationale) ---
+                const expandResponse = await fetch('/api/study-coach', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        mode: 'generate-distractors',
+                        quizType: quizType,
+                        certLevel: certLevel,
+                        pipelineStage: 'expand',
+                        cards: seedData.results.map(res => ({
+                            id: res.id,
+                            scenario: res.scenario,
+                            correct_answer: res.correct_answer
+                        }))
+                    })
+                });
+
+                if (!expandResponse.ok) throw new Error('EXPAND_STAGE_FAILED');
+                const expandData = await expandResponse.json();
+
+                // Save Expansion Data (Distractors + Rationale + Gap Analysis)
+                if (expandData.results) {
+                    expandData.results.forEach(res => {
+                        saveDistractorToVault(res.id, {
+                            quizType: quizType,
+                            distractors: res.distractors,
+                            rationale: res.rationale,
+                            gap_analysis: res.gap_analysis
+                        }, certLevel);
+                    });
+                    successfulCount += expandData.results.length;
+                }
+            } else {
+                // --- SIMPLE MODE (Monolithic Recall) ---
+                const response = await fetch('/api/study-coach', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        mode: 'generate-distractors',
+                        quizType: quizType,
+                        certLevel: certLevel,
+                        cards: batch.map(c => ({ id: c.id, topic: c.topic, question: c.question, answer: c.answer }))
+                    })
+                });
+
+                if (!response.ok) throw new Error('SIMPLE_SYNC_FAILED');
+                const data = await response.json();
+
+                if (data.results) {
+                    data.results.forEach(res => {
+                        saveDistractorToVault(res.id, res, certLevel);
+                    });
+                    successfulCount += data.results.length;
+                }
             }
 
-            // Report ACTUAL progress based on successful vault commits
             if (onProgress) {
                 const percent = Math.round((successfulCount / totalRequests) * 100);
                 onProgress(percent, null);
             }
 
-            // STAGGER LOGIC: Wait 3 seconds before next batch to stay under 15 RPM limit
+            // STAGGER: 5-second cooldown to stay safely within 15 RPM
             if (i + MAX_BATCH_SIZE < cards.length) {
-                await new Promise(r => setTimeout(r, 3000));
+                await new Promise(r => setTimeout(r, 5000));
             }
 
         } catch (error) {
-            console.error('Batch Generation Error:', error);
-            // FATAL ERROR DETECTED: Immediately stop current batch processing
-            // This prevents the "fake progress" 0-100% loop when the API is down/keys missing
-            if (onProgress) {
-                onProgress(Math.round((successfulCount / totalRequests) * 100), error.message);
-            }
-            // Return failure status so App.jsx can halt the entire Bulk Sync
+            console.error('Two-Stage Generation Error:', error);
+            if (onProgress) onProgress(Math.round((successfulCount / totalRequests) * 100), error.message);
             return { success: false, error: error.message };
         }
     }
