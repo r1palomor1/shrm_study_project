@@ -65,8 +65,8 @@ const VaultHealthMatrix = ({ decks, onSmartSync, isSyncing, syncProgress, syncSt
       };
 
       deck.cards.forEach(card => {
-        // HANDSHAKE: Align Matrix audit with Defensive Storage (trimming IDs)
-        const cleanId = String(card.id).trim();
+        // HANDSHAKE V2: Extreme ID Sanitization (strip all whitespace/control chars)
+        const cleanId = String(card.id).replace(/[\s\n\r]/g, '');
         const sData = vault[`${cleanId}:simple:${certLevel}`];
         const iData = vault[`${cleanId}:intelligent:${certLevel}`];
 

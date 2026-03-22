@@ -12,12 +12,12 @@ export function saveDistractorToVault(fingerprint, data, certLevel = 'CP') {
     try {
         const vault = loadVaultFromStorage();
 
-        // HARDENING & HANDSHAKE: Strict ID anchoring and quizType inference
-        const cleanId = String(fingerprint).trim();
+        // EXTREME HARDENING & HANDSHAKE: Strip all whitespace/control characters
+        const cleanId = String(fingerprint).replace(/[\s\n\r]/g, '');
         const quizType = data.quizType || (data.scenario ? 'intelligent' : 'simple');
         const key = `${cleanId}:${quizType}:${certLevel}`;
 
-        console.log("FINAL KEY CHECK:", key);
+        console.log("VAULT SAVE - FINAL KEY:", key);
 
         // MERGE LOGIC: Preserve existing data (like scenario from seed stage) when adding new fields
         const existingData = vault[key] || {};
@@ -43,8 +43,8 @@ export function getDistractorFromVault(fingerprint, quizType = 'intelligent', ce
     const rawVault = localStorage.getItem(VAULT_KEY) || '{}';
     const vault = JSON.parse(rawVault);
 
-    // HARDENING: Clean the lookup ID to match the saved ID
-    const cleanId = String(fingerprint).trim();
+    // EXTREME HARDENING: Clean the lookup ID to match the saved ID
+    const cleanId = String(fingerprint).replace(/[\s\n\r]/g, '');
     const key = `${cleanId}:${quizType}:${certLevel}`;
 
     // Fallback logic for transitioning existing data (assumes old data is CP)

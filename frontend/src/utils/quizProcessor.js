@@ -10,6 +10,9 @@ import { getDistractorFromVault, saveDistractorToVault } from './storage';
  */
 export async function getQuizDataForDeck(deck, requestedQuizType = 'intelligent', certLevel = 'CP') {
     const cardsWithData = deck.cards.map(card => {
+        // DIAGNOSTIC LOG: Cross-reference this with VAULT SAVE log
+        console.log("MATRIX LOOKUP - ID:", card.id, "CLEANED:", String(card.id).replace(/[\s\n\r]/g, ''));
+
         // PHYSICAL CONTENT AUDIT: We only count it if the actual payload is present
         const vaultData = getDistractorFromVault(card.id, requestedQuizType, certLevel);
 
@@ -59,7 +62,7 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
                 // --- STAGE 1: SEED (Scenario & Correct Answer) ---
                 let seedData = null;
                 let attempts = 0;
-                
+
                 // AUTO-RETRY: specifically for SEED_STAGE_FAILED
                 while (attempts < 2) {
                     try {
@@ -92,8 +95,8 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
                 // Save Seed Data (Scenario + Answer + Tags)
                 if (seedData && seedData.results) {
                     seedData.results.forEach(res => {
-                        // SANITIZATION: Force clean ID before it hits the storage
-                        const cleanId = String(res.id).trim();
+                        // EXTREME SANITIZATION: Force clean ID before it hits the storage
+                        const cleanId = String(res.id).replace(/[\s\n\r]/g, '');
                         saveDistractorToVault(cleanId, {
                             quizType: quizType,
                             scenario: res.scenario,
@@ -114,7 +117,7 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
                         certLevel: certLevel,
                         pipelineStage: 'expand',
                         cards: seedData.results.map(res => ({
-                            id: String(res.id).trim(), // SANITIZE BEFORE EXPANSION
+                            id: String(res.id).replace(/[\s\n\r]/g, ''), // EXTREME SANITIZE
                             scenario: res.scenario,
                             correct_answer: res.correct_answer
                         }))
@@ -127,7 +130,7 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
                 // Save Expansion Data (Distractors + Rationale + Gap Analysis)
                 if (expandData.results) {
                     expandData.results.forEach(res => {
-                        const cleanId = String(res.id).trim();
+                        const cleanId = String(res.id).replace(/[\s\n\r]/g, '');
                         saveDistractorToVault(cleanId, {
                             quizType: quizType,
                             distractors: res.distractors,
@@ -155,7 +158,7 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
 
                 if (data.results) {
                     data.results.forEach(res => {
-                        const cleanId = String(res.id).trim();
+                        const cleanId = String(res.id).replace(/[\s\n\r]/g, '');
                         saveDistractorToVault(cleanId, res, certLevel);
                     });
                     successfulCount += data.results.length;
