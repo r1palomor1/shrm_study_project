@@ -34,13 +34,17 @@ export function saveDistractorToVault(fingerprint, data, certLevel = 'CP') {
  * Retrieves AI-generated data from the vault for a specific fingerprint, mode, and cert.
  */
 export function getDistractorFromVault(fingerprint, quizType = 'intelligent', certLevel = 'CP') {
-    const vault = loadVaultFromStorage();
-    const key = `${fingerprint}:${quizType}:${certLevel}`;
+    const rawVault = localStorage.getItem('shrm_ai_vault_2026') || '{}';
+    const vault = JSON.parse(rawVault);
+    
+    // HARDENING: Clean the lookup ID to match the saved ID
+    const cleanId = String(fingerprint).trim();
+    const key = `${cleanId}:${quizType}:${certLevel}`;
     
     // Fallback logic for transitioning existing data (assumes old data is CP)
-    const oldKey = `${fingerprint}:${quizType}`;
+    const oldKey = `${cleanId}:${quizType}`;
     
-    const data = vault[key] || (certLevel === 'CP' ? vault[oldKey] : null) || (vault[fingerprint]?.quizType === quizType ? vault[fingerprint] : null);
+    const data = vault[key] || (certLevel === 'CP' ? vault[oldKey] : null) || (vault[cleanId]?.quizType === quizType ? vault[cleanId] : null);
     return data;
 }
 

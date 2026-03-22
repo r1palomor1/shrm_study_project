@@ -197,26 +197,23 @@ function App() {
         const totalToSync = missingIntel.length + missingSimple.length;
         let syncedCount = 0;
         
-        const intelBatches = Math.ceil(missingIntel.length / 5);
+        const intelBatches = Math.ceil(missingIntel.length / 4);
         let currentBatch = 0;
 
 
         while (missingIntel.length > 0) {
           let rateLimited = false;
           currentBatch++;
-          const batchToProcess = missingIntel.slice(0, 5); // Take only 5
+          const batchToProcess = missingIntel.slice(0, 4); // Take 4 for optimal balancing
           setWarmUpStatus(`SJI SYNC: Batch ${currentBatch} of ${intelBatches}...`);
 
           const result = await generateDistractorsBatch(batchToProcess, 'intelligent', (p, error) => {
-            // p is batch-level; we want global level for totalToSync
-            const batchDone = Math.round((p / 100) * batchToProcess.length);
-            const globalP = Math.round(((syncedCount + batchDone) / totalToSync) * 100);
-            setWarmUpProgress(globalP);
+            // ...
             if (error === 'RATE_LIMIT') rateLimited = true;
           }, certLevel);
 
           if (result && result.success === false) {
-            setWarmUpError(`Sync Interrupted: Provider Timeout (Transient)`);
+            setWarmUpError(`Sync Interrupted: ${result.error || 'Provider Timeout'}`);
             setIsWarmingUp(false);
             return;
           }
@@ -235,13 +232,13 @@ function App() {
         // MODE 2: Simple (Recall)
         const updatedSimple = await getQuizDataForDeck({ cards: targetCards }, 'simple', certLevel);
         missingSimple = updatedSimple.missingCards;
-        const simpleBatches = Math.ceil(missingSimple.length / 5);
+        const simpleBatches = Math.ceil(missingSimple.length / 4);
         currentBatch = 0;
 
         while (missingSimple.length > 0) {
           let rateLimited = false;
           currentBatch++;
-          const batchToProcess = missingSimple.slice(0, 5); // Take only 5
+          const batchToProcess = missingSimple.slice(0, 4); // Take 4 for consistency
           setWarmUpStatus(`RECALL SYNC: Batch ${currentBatch} of ${simpleBatches}...`);
 
           const result = await generateDistractorsBatch(batchToProcess, 'simple', (p, error) => {

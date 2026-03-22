@@ -80,8 +80,8 @@ async function handleGenerateDistractors(req, res) {
     }
 
     const outputFormat = pipelineStage === 'seed'
-        ? `{ "results": [{ "id": "string", "scenario": "string", "correct_answer": "string", "tag_bask": "string", "tag_behavior": "string" }] }`
-        : `{ "results": [{ "id": "string", "distractors": ["3 items"], "rationale": "string", "gap_analysis": "string" }] }`;
+        ? `{ "results": [{ "id": "MUST match input ID", "scenario": "string", "correct_answer": "string", "tag_bask": "string", "tag_behavior": "string" }] }`
+        : `{ "results": [{ "id": "MUST match input ID", "distractors": ["3 items"], "rationale": "string", "gap_analysis": "string" }] }`;
 
     const prompt = `
     ${promptSystemInstructions}
@@ -91,7 +91,10 @@ async function handleGenerateDistractors(req, res) {
     - Competencies: [Leadership, Interpersonal, Business, Inclusive Mindset]
     - Always use "Inclusive Mindset" instead of "Diversity".
 
-    STRICT CHARACTER RULE: Escape &, –, and quotes. Output RAW JSON only.
+    STRICT MECHANICAL RULES:
+    1. STRICT ID MATCHING: You MUST return the 'id' in the JSON exactly as it appears in the input. Do not add prefixes (like 'card-'), do not add suffixes, and do not add any whitespace. If the input ID is '101', the output ID must be '101'.
+    2. DIRECT JSON ONLY: Return only the RAW JSON object. Do not include any conversational text, explanations, or "Sure, here are the results".
+    3. CHARACTER SAFETY: Escape all ampersands (&), dashes (– or —), and quotes. 
 
     Input Cards:
     ${cards.map(c => `ID: ${c.id}\nTerm: ${c.question}\nDefinition: ${c.answer}\n${c.scenario ? `Scenario: ${c.scenario}\nFixed Answer: ${c.correct_answer}` : ''}`).join('\n---\n')}
@@ -123,13 +126,14 @@ async function handleGenerateDistractors(req, res) {
         const parsedData = parseAIResponse(responseText);
         if (parsedData) return res.status(200).json(parsedData);
 
-        throw new Error("Invalid AI Data Format");
+        console.error("Malformed AI Response (First 500 chars):", responseText.substring(0, 500));
+        throw new Error(`Invalid AI Data Format: ${responseText.substring(0, 100)}...`);
     } catch (geminiError) {
         console.error("Gemini Failure:", geminiError.message);
         return res.status(500).json({
             message: "AI Provider Failed",
             error: geminiError.message,
-            tip: "Verify model name or API quota in Google AI Studio"
+            tip: "Check for unescaped characters or model safety filters."
         });
     }
 }

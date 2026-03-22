@@ -40,12 +40,13 @@ export async function getQuizDataForDeck(deck, requestedQuizType = 'intelligent'
     };
 }
 
+// MASTER HARDENING: Hard-Locked Batch Size (The 4-Card Mandate)
+const MAX_BATCH_SIZE = 4;
+
 /**
  * Calls the backend to generate distractors for a batch of cards.
- * Now supports dual-mode generation and actual success tracking with certLevel isolation.
  */
 export async function generateDistractorsBatch(cards, quizType = 'intelligent', onProgress, certLevel = 'CP') {
-    const MAX_BATCH_SIZE = 4;
     let successfulCount = 0;
     const totalRequests = cards.length;
 
@@ -56,25 +57,44 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
         try {
             if (quizType === 'intelligent') {
                 // --- STAGE 1: SEED (Scenario & Correct Answer) ---
-                const seedResponse = await fetch('/api/study-coach', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        mode: 'generate-distractors',
-                        quizType: quizType,
-                        certLevel: certLevel,
-                        pipelineStage: 'seed',
-                        cards: batch.map(c => ({ id: c.id, topic: c.topic, question: c.question, answer: c.answer }))
-                    })
-                });
+                let seedData = null;
+                let attempts = 0;
+                
+                // AUTO-RETRY: specifically for SEED_STAGE_FAILED
+                while (attempts < 2) {
+                    try {
+                        const seedResponse = await fetch('/api/study-coach', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                mode: 'generate-distractors',
+                                quizType: quizType,
+                                certLevel: certLevel,
+                                pipelineStage: 'seed',
+                                cards: batch.map(c => ({ id: c.id, topic: c.topic, question: c.question, answer: c.answer }))
+                            })
+                        });
 
-                if (!seedResponse.ok) throw new Error('SEED_STAGE_FAILED');
-                const seedData = await seedResponse.json();
+                        if (seedResponse.ok) {
+                            seedData = await seedResponse.json();
+                            break; // Success
+                        }
+                        attempts++;
+                        if (attempts < 2) console.warn("Seed Stage Timeout/Fail. Self-Healing Auto-Retry 2 of 2...");
+                        else throw new Error('SEED_STAGE_FAILED');
+                    } catch (e) {
+                        attempts++;
+                        if (attempts >= 2) throw e;
+                        await new Promise(r => setTimeout(r, 2000));
+                    }
+                }
 
                 // Save Seed Data (Scenario + Answer + Tags)
-                if (seedData.results) {
+                if (seedData && seedData.results) {
                     seedData.results.forEach(res => {
-                        saveDistractorToVault(res.id, {
+                        // SANITIZATION: Force clean ID before it hits the storage
+                        const cleanId = String(res.id).trim();
+                        saveDistractorToVault(cleanId, {
                             quizType: quizType,
                             scenario: res.scenario,
                             correct_answer: res.correct_answer,
@@ -94,7 +114,7 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
                         certLevel: certLevel,
                         pipelineStage: 'expand',
                         cards: seedData.results.map(res => ({
-                            id: res.id,
+                            id: String(res.id).trim(), // SANITIZE BEFORE EXPANSION
                             scenario: res.scenario,
                             correct_answer: res.correct_answer
                         }))
@@ -107,7 +127,8 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
                 // Save Expansion Data (Distractors + Rationale + Gap Analysis)
                 if (expandData.results) {
                     expandData.results.forEach(res => {
-                        saveDistractorToVault(res.id, {
+                        const cleanId = String(res.id).trim();
+                        saveDistractorToVault(cleanId, {
                             quizType: quizType,
                             distractors: res.distractors,
                             rationale: res.rationale,
@@ -134,7 +155,8 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
 
                 if (data.results) {
                     data.results.forEach(res => {
-                        saveDistractorToVault(res.id, res, certLevel);
+                        const cleanId = String(res.id).trim();
+                        saveDistractorToVault(cleanId, res, certLevel);
                     });
                     successfulCount += data.results.length;
                 }
@@ -151,7 +173,7 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
             }
 
         } catch (error) {
-            console.error('Two-Stage Generation Error:', error);
+            console.error('Hardened Sync Error:', error);
             if (onProgress) onProgress(Math.round((successfulCount / totalRequests) * 100), error.message);
             return { success: false, error: error.message };
         }
