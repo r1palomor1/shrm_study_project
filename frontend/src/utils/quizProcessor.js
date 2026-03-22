@@ -12,7 +12,7 @@ export async function getQuizDataForDeck(deck, requestedQuizType = 'intelligent'
     const cardsWithData = deck.cards.map(card => {
         // PHYSICAL CONTENT AUDIT: We only count it if the actual payload is present
         const vaultData = getDistractorFromVault(card.id, requestedQuizType, certLevel);
-        
+
         let isValid = false;
         if (vaultData && vaultData.quizType === requestedQuizType) {
             if (requestedQuizType === 'intelligent') {
@@ -23,7 +23,7 @@ export async function getQuizDataForDeck(deck, requestedQuizType = 'intelligent'
                 isValid = Array.isArray(vaultData.distractors) && vaultData.distractors.length > 0;
             }
         }
-        
+
         return {
             ...card,
             aiData: isValid ? vaultData : null
@@ -45,17 +45,17 @@ export async function getQuizDataForDeck(deck, requestedQuizType = 'intelligent'
  * Now supports dual-mode generation and actual success tracking with certLevel isolation.
  */
 export async function generateDistractorsBatch(cards, quizType = 'intelligent', onProgress, certLevel = 'CP') {
-    const MAX_BATCH_SIZE = 4; 
+    const MAX_BATCH_SIZE = 4;
     let successfulCount = 0;
     const totalRequests = cards.length;
-    
+
     // We process in batches to respect the Gemini reasoning window (5 items is the sweet spot)
     for (let i = 0; i < cards.length; i += MAX_BATCH_SIZE) {
         const batch = cards.slice(i, i + MAX_BATCH_SIZE);
-        
+
         // --- DEBUG INSTRUMENTATION ---
         console.info(`[SHRM BATCH SYNC] Starting ${quizType} batch for topics: ${[...new Set(batch.map(c => c.topic))]}`, batch.map(c => ({ id: c.id, q: c.question.substring(0, 50) + '...' })));
-        
+
         try {
             const response = await fetch('/api/study-coach', {
                 method: 'POST',
@@ -78,7 +78,7 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
             }
 
             const data = await response.json();
-            
+
             if (data.results) {
                 data.results.forEach(res => {
                     saveDistractorToVault(res.id, {
