@@ -122,7 +122,7 @@ async function handleGenerateDistractors(req, res) {
             generationConfig: {
                 responseMimeType: "application/json",
                 temperature: 0.1,
-                maxOutputTokens: 8192
+                maxOutputTokens: 4096
             }
         });
         const result = await model.generateContent(prompt);
