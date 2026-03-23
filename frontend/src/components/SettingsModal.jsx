@@ -356,7 +356,7 @@ export default function SettingsModal({
 
           {/* Footer */}
           <div style={{ opacity: 0.3, textAlign: 'center', fontSize: '0.6rem', marginTop: '2rem', letterSpacing: '0.05em' }}>
-            LOCAL DEP: 2f49676 • UI: MOVED CERT LEVEL FROM COLUMNS TO MAIN MATRIX TITLE
+            LOCAL DEP: 11a83b0 • 2026 SHRM BASK POLISH: RESTORED MISSING GETQUIZDATAFORDECK IMPORT
           </div>
 
         </div>
