@@ -54,7 +54,13 @@ export default function SettingsModal({
         if (data.gap_analysis) {
             md += `**🔍 Relational Gap:** ${data.gap_analysis}\n\n`;
         }
-        md += `---\n\n`;
+        if (data.tag_bask) {
+            md += `**🏛️ Domain (2026 BASK):** ${data.tag_bask}\n`;
+        }
+        if (data.tag_behavior) {
+            md += `**🧠 Competency:** ${data.tag_behavior}\n`;
+        }
+        md += `\n---\n\n`;
       } else if (data.quizType === 'simple' && data.correct_answer) {
         md += `## [SHRM-${levelLabel}] RECALL: ${data.question}\n\n`;
         md += `*   **Correct (Knowledge Match):** ${data.correct_answer}\n`;
@@ -62,6 +68,9 @@ export default function SettingsModal({
           data.distractors.forEach((d, i) => {
             md += `*   **Trap ${i+1}:** ${d}\n`;
           });
+        }
+        if (data.tag_bask) {
+          md += `\n**🏛️ Domain (2026 BASK):** ${data.tag_bask}\n`;
         }
         md += `\n---\n\n`;
       }

@@ -9,6 +9,7 @@ import DataImporter from './DataImporter';
 const VaultManager = ({ 
   decks, 
   onDeckLoaded, 
+  onDeleteDeck,
   onResetProgress, 
   onResetAllProgress,
   onDeleteAllDecks,
