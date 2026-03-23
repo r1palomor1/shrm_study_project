@@ -9,8 +9,9 @@ import DataImporter from './DataImporter';
 const VaultManager = ({ 
   decks, 
   onDeckLoaded, 
-  onDeleteDeck, 
   onResetProgress, 
+  onResetAllProgress,
+  onDeleteAllDecks,
   certLevel, 
   isWarmingUp, 
   warmUpProgress,
@@ -101,31 +102,81 @@ const VaultManager = ({
           </button>
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h4 style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Source Topics</h4>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <label 
-              htmlFor="md-upload-main" 
-              className="icon-btn" 
-              style={{ 
-                cursor: 'pointer', 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '0.5rem', 
-                padding: '0.4rem 0.8rem',
-                fontSize: '0.75rem',
-                fontWeight: '700',
-                color: '#60a5fa',
-                background: 'rgba(96, 165, 250, 0.1)',
-                borderRadius: '8px',
-                border: '1px solid rgba(96, 165, 250, 0.2)'
-              }}
-            >
-              <span className="material-symbols-outlined" style={{ fontSize: '1.2rem' }}>add</span>
-              ADD
-            </label>
-            <DataImporter onDeckLoaded={onDeckLoaded} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h4 style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Source Topics</h4>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <label 
+                htmlFor="md-upload-main" 
+                className="icon-btn" 
+                style={{ 
+                  cursor: 'pointer', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '0.5rem', 
+                  padding: '0.4rem 0.8rem',
+                  fontSize: '0.75rem',
+                  fontWeight: '700',
+                  color: '#60a5fa',
+                  background: 'rgba(96, 165, 250, 0.1)',
+                  borderRadius: '8px',
+                  border: '1px solid rgba(96, 165, 250, 0.2)'
+                }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '1.2rem' }}>add</span>
+                ADD
+              </label>
+              <DataImporter onDeckLoaded={onDeckLoaded} />
+            </div>
           </div>
+          
+          {/* BULK ACTIONS ROW */}
+          {decks.length > 0 && (
+            <div style={{ display: 'flex', gap: '0.6rem' }}>
+              <button 
+                onClick={(e) => { e.stopPropagation(); onResetAllProgress(); }}
+                style={{ 
+                  flex: 1, 
+                  padding: '0.4rem 0.6rem', 
+                  fontSize: '0.65rem', 
+                  fontWeight: '800', 
+                  background: 'rgba(255,255,255,0.03)', 
+                  border: '1px solid rgba(255,255,255,0.1)', 
+                  color: '#94a3b8', 
+                  borderRadius: '8px', 
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.4rem'
+                }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>restart_alt</span>
+                RESET ALL
+              </button>
+              <button 
+                onClick={(e) => { e.stopPropagation(); onDeleteAllDecks(); }}
+                style={{ 
+                  flex: 1, 
+                  padding: '0.4rem 0.8rem', 
+                  fontSize: '0.65rem', 
+                  fontWeight: '800', 
+                  background: 'rgba(239, 68, 68, 0.05)', 
+                  border: '1px solid rgba(239, 68, 68, 0.2)', 
+                  color: '#ef4444', 
+                  borderRadius: '8px', 
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.4rem'
+                }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>delete_sweep</span>
+                DELETE ALL
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="custom-scrollbar" style={{ flex: 1, overflowY: 'auto', paddingRight: '0.5rem' }}>

@@ -356,7 +356,7 @@ export default function SettingsModal({
 
           {/* Footer */}
           <div style={{ opacity: 0.3, textAlign: 'center', fontSize: '0.6rem', marginTop: '2rem', letterSpacing: '0.05em' }}>
-            LOCAL DEP: 0209604 • 2026 SHRM BASK POLISH: STREAMLINED BASK SIDEBAR LABELS AND ENHANCED VERTICAL SPACING
+            LOCAL DEP: 003f301 • 2026 SHRM BASK POLISH: INTEGRATED BULK RESET/DELETE IN VAULT MANAGER AND FIXED MODAL Z-INDEX CONFLICTS
           </div>
 
         </div>

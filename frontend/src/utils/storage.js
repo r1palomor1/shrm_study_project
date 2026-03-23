@@ -313,6 +313,39 @@ export function clearAiVault() {
 }
 
 /**
+ * Surgically resets progress for ALL cards in ALL decks.
+ */
+export function resetAllDecksProgress() {
+    try {
+        const decks = loadDecksFromStorage();
+        if (!decks) return;
+
+        decks.forEach(deck => {
+            deck.cards.forEach(card => {
+                // Wipe all status fields
+                card.status_traditional = 'unseen';
+                card.status_test = 'unseen';
+                
+                // Pure clean: wipe all dynamic status/history keys
+                Object.keys(card).forEach(key => {
+                    if (key.includes('status_quiz_') || 
+                        key.includes('history_') || 
+                        key.includes('selected_option_')) {
+                        delete card[key];
+                    }
+                });
+            });
+        });
+
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(decks));
+        return true;
+    } catch (error) {
+        console.error('Error resetting all progress:', error);
+        return false;
+    }
+}
+
+/**
  * SURGICAL NUKE: Purges ONLY simple recall data while keeping Intelligent scenarios.
  * Scans the vault for keys containing ":simple:" and deletes them.
  */

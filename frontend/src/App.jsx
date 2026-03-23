@@ -84,6 +84,7 @@ function App() {
 
   const handleDeleteDeck = (title) => {
     setIsSettingsOpen(false);
+    setIsVaultManagerOpen(false);
     const isAll = title === 'ALL';
     setConfirmModal({
       isOpen: true,
@@ -140,6 +141,7 @@ function App() {
 
   const handleResetProgress = (title) => {
     setIsSettingsOpen(false);
+    setIsVaultManagerOpen(false);
     setResetTarget(title);
     setIsResetOpen(true);
   };
@@ -539,6 +541,8 @@ function App() {
         onDeckLoaded={handleDeckLoaded} 
         onDeleteDeck={handleDeleteDeck} 
         onResetProgress={handleResetProgress}
+        onResetAllProgress={() => handleResetProgress('ALL')}
+        onDeleteAllDecks={() => handleDeleteDeck('ALL')}
         certLevel={certLevel}
         isWarmingUp={isWarmingUp}
         warmUpProgress={warmUpProgress}
