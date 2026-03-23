@@ -140,11 +140,11 @@ export function getVaultStats(certLevel = 'CP', decks = []) {
 
         if (!stats[domain]) return;
 
-        if (item.quizType === 'simple' && item.distractors) {
+        if (item.quizType === 'simple' && item.distractors && item.tag_bask) {
             stats[domain].simple++;
         }
         
-        if (item.quizType === 'intelligent' && item.scenario) {
+        if (item.quizType === 'intelligent' && item.scenario && item.tag_bask) {
             stats[domain].intelligent++;
         }
 
