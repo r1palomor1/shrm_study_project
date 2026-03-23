@@ -1,12 +1,75 @@
-import { getDistractorFromVault, saveDistractorToVault } from './storage';
+import { getDistractorFromVault, saveDistractorToVault, loadVaultFromStorage, saveMetadataToVault } from './storage';
 
 /**
- * Orchestrates the retrieval and generation of AI distractors.
- * Checks the local vault first, then groups missing items for batch generation.
+ * REFACTOR: Domain-First Extraction.
+ * Filters cards across ALL topics by their AI-assigned Domain (tag_bask).
+ * Implements the "Proportionality Guard" for the 134-question simulation.
+ * @param {Array} decks - All loaded topics.
+ * @param {Object} filter - Selection criteria { domainId, length }.
+ * @param {string} requestedQuizType - 'intelligent' or 'simple'.
+ * @param {string} certLevel - 'CP' or 'SCP'.
  */
+export async function getQuizDataByFilter(decks, filter = {}, requestedQuizType = 'intelligent', certLevel = 'CP') {
+    const { domainId, length } = filter;
+    const vault = loadVaultFromStorage();
+    
+    // 1. Collect all cards that match the Domain and have "Ready" AI data
+    let pool = [];
+    
+    decks.forEach(deck => {
+        deck.cards.forEach(card => {
+            const cleanId = String(card.id).replace(/[\s\n\r]/g, '');
+            const vaultData = vault[`${cleanId}:${requestedQuizType}:${certLevel}`];
+            
+            if (!vaultData) return;
+
+            // HEURISTIC TETHERING: AI Tag -> Topic Fallback -> Default
+            let domain = vaultData.tag_bask;
+            if (!domain) {
+                if (deck.title.includes('People')) domain = 'People';
+                else if (deck.title.includes('Organization')) domain = 'Organization';
+                else if (deck.title.includes('Workplace')) domain = 'Workplace';
+                else domain = 'Competencies';
+            }
+            
+            if (domainId && domainId !== 'ALL' && domain !== domainId) return;
+
+            // Check if it's "Ready" (physical payload verification)
+            let isReady = false;
+            if (requestedQuizType === 'intelligent') {
+                isReady = !!vaultData.scenario && !!vaultData.rationale;
+            } else {
+                isReady = Array.isArray(vaultData.distractors) && vaultData.distractors.length > 0;
+            }
+
+            if (isReady) {
+                pool.push({
+                    ...card,
+                    aiData: vaultData
+                });
+            }
+        });
+    });
+
+    // 2. Shuffle the pool for high-integrity randomness
+    const shuffled = pool.sort(() => Math.random() - 0.5);
+
+    // 3. APPLY PROPORTIONALITY GUARD
+    // If the pool is smaller than 134, we return the entire pool and flag it for the UI.
+    const isUnderStrength = length > 0 && length > shuffled.length;
+    const finalSelection = (length === -1 || length === 0) ? shuffled : shuffled.slice(0, length);
+
+    return {
+        cards: finalSelection,
+        totalAvailable: pool.length,
+        isUnderStrength: isUnderStrength,
+        requestedLength: length
+    };
+}
+
 /**
- * Orchestrates the retrieval and generation of AI distractors.
- * Checks the local vault first, then groups missing items for batch generation.
+ * BACKWARD COMPATIBILITY: Original topic-based extractor.
+ * Kept as a fallback for verification audits against specific source files.
  */
 export async function getQuizDataForDeck(deck, requestedQuizType = 'intelligent', certLevel = 'CP') {
     const cardsWithData = deck.cards.map(card => {
@@ -188,4 +251,42 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
         }
     }
     return { success: successfulCount > 0, totalProcessed: successfulCount };
+}
+
+/**
+ * SURGICAL METADATA REFINER
+ * Fetches only BASK tags for cards that possess distractors but lack tags.
+ */
+export async function refineMetadataBatch(cards, certLevel, onProgress = null) {
+    if (!cards || cards.length === 0) return { success: true, count: 0 };
+
+    try {
+        const response = await fetch('/api/study-coach', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                quizType: 'simple',
+                certLevel,
+                pipelineStage: 'tagging', // Surgical metadata only
+                cards: cards.map(c => ({
+                    id: c.id,
+                    question: c.question,
+                    answer: c.answer
+                }))
+            })
+        });
+
+        const data = await response.json();
+        
+        if (data && data.results && Array.isArray(data.results)) {
+            const updatedCount = saveMetadataToVault(data.results);
+            if (onProgress) onProgress(updatedCount);
+            return { success: true, count: updatedCount };
+        }
+
+        throw new Error(data?.error || 'Refinement failed');
+    } catch (error) {
+        console.error("Refinement error:", error);
+        return { success: false, error: error.message };
+    }
 }

@@ -63,6 +63,104 @@ export function loadVaultFromStorage() {
 }
 
 /**
+ * Aggregates vault data across all stored objects for the Domain-First Grid.
+ * Groups cards by their AI-assigned Domain (tag_bask) and counts "Ready" states.
+ * @param {string} certLevel - The certification level (CP or SCP).
+ */
+/**
+ * SAVES Metadata (Tags) Surgically
+ * Does NOT overwrite distractors or scenarios
+ */
+export function saveMetadataToVault(results) {
+    const vault = loadVaultFromStorage();
+    let updatedCount = 0;
+
+    results.forEach(res => {
+        const cleanId = String(res.id).replace(/[\s\n\r]/g, '');
+        if (vault[cleanId]) {
+            vault[cleanId] = {
+                ...vault[cleanId],
+                tag_bask: res.tag_bask || vault[cleanId].tag_bask,
+                tag_behavior: res.tag_behavior || vault[cleanId].tag_behavior,
+                lastUpdated: new Date().toISOString()
+            };
+            updatedCount++;
+        }
+    });
+
+    localStorage.setItem(VAULT_KEY, JSON.stringify(vault));
+    return updatedCount;
+}
+
+export function getVaultStats(certLevel = 'CP', decks = []) {
+    const vault = loadVaultFromStorage();
+    
+    // Heuristic Mapping: Map card IDs to their source topics for fallback tagging
+    const idToTopicMap = {};
+    decks.forEach(deck => {
+        deck.cards.forEach(card => {
+            const cleanId = String(card.id).replace(/[\s\n\r]/g, '');
+            idToTopicMap[cleanId] = deck.title;
+        });
+    });
+
+    const stats = {
+        'People': { simple: 0, intelligent: 0, total: 0 },
+        'Organization': { simple: 0, intelligent: 0, total: 0 },
+        'Workplace': { simple: 0, intelligent: 0, total: 0 },
+        'Competencies': { simple: 0, intelligent: 0, total: 0 }
+    };
+
+    const domainCardSets = {
+        'People': new Set(),
+        'Organization': new Set(),
+        'Workplace': new Set(),
+        'Competencies': new Set()
+    };
+
+    Object.values(vault).forEach(item => {
+        if (item.certLevel !== certLevel) return;
+
+        // HEURISTIC TETHERING: 
+        // 1. Prefer AI-assigned tag_bask
+        // 2. Fallback to Source Topic (filename)
+        // 3. Final default to Competencies
+        let domain = item.tag_bask;
+        if (!domain) {
+            const sourceTopic = idToTopicMap[item.id];
+            if (sourceTopic) {
+                if (sourceTopic.includes('People')) domain = 'People';
+                else if (sourceTopic.includes('Organization')) domain = 'Organization';
+                else if (sourceTopic.includes('Workplace')) domain = 'Workplace';
+                else domain = 'Competencies';
+            } else {
+                domain = 'Competencies';
+            }
+        }
+
+        if (!stats[domain]) return;
+
+        if (item.quizType === 'simple' && item.distractors) {
+            stats[domain].simple++;
+        }
+        
+        if (item.quizType === 'intelligent' && item.scenario) {
+            stats[domain].intelligent++;
+        }
+
+        if (item.id) {
+            domainCardSets[domain].add(item.id);
+        }
+    });
+
+    Object.keys(stats).forEach(d => {
+        stats[d].total = domainCardSets[d].size;
+    });
+
+    return stats;
+}
+
+/**
  * Creates a complete snapshot of the application state for backup.
  */
 export function exportAppData() {

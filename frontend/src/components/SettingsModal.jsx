@@ -10,7 +10,9 @@ export default function SettingsModal({
   onMerge,
   onNukeSimple,
   decks,
-  isRestoring 
+  isRestoring,
+  onOpenVault,
+  onOpenMatrix 
 }) {
   const [activeCategory, setActiveCategory] = useState('data');
 
@@ -108,7 +110,7 @@ export default function SettingsModal({
         style={{
           width: '100%',
           maxWidth: '600px',
-          margin: 'auto',
+          margin: '5vh auto auto',
           backgroundColor: '#0f111a',
           borderRadius: '24px',
           border: '1px solid rgba(255,255,255,0.1)',
@@ -116,7 +118,7 @@ export default function SettingsModal({
           flexDirection: 'column',
           overflow: 'hidden',
           boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
-          maxHeight: 'calc(100vh - 4rem)'
+          maxHeight: 'calc(100vh - 10vh)'
         }} 
         onClick={e => e.stopPropagation()}
       >
@@ -213,11 +215,11 @@ export default function SettingsModal({
                 <button onClick={onExport} style={{ 
                   padding: '0.5rem 1rem', 
                   borderRadius: '12px',
-                  background: '#3b82f6',
-                  border: 'none',
-                  color: 'white',
+                  background: 'transparent',
+                  border: '1px solid #3b82f6',
+                  color: '#3b82f6',
                   fontSize: '0.8rem',
-                  fontWeight: '600'
+                  fontWeight: '500'
                 }}>Download</button>
               </div>
 
@@ -243,11 +245,11 @@ export default function SettingsModal({
                     style={{ 
                       padding: '0.5rem 1rem', 
                       borderRadius: '12px',
-                      background: 'rgba(16, 185, 129, 0.1)',
-                      border: '1px solid rgba(16, 185, 129, 0.3)',
+                      background: 'transparent',
+                      border: '1px solid #10b981',
                       color: '#10b981',
                       fontSize: '0.8rem',
-                      fontWeight: '700'
+                      fontWeight: '500'
                     }}
                   >
                     Merge (Keep Progress)
@@ -278,45 +280,83 @@ export default function SettingsModal({
             </div>
           </div>
 
-          {/* TOPIC MANAGEMENT */}
+          {/* VAULT & TOPIC CONTROLS */}
           <div style={{ marginBottom: '2rem' }}>
-            <h4 style={{ color: 'var(--secondary)', fontSize: '0.75rem', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '1.2rem' }}>TOPIC MANAGEMENT</h4>
+            <h4 style={{ color: 'var(--secondary)', fontSize: '0.75rem', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '1.2rem' }}>VAULT & TOPIC CONTROLS</h4>
             
-            {decks.length === 0 ? (
-              <div style={{ opacity: 0.3, textAlign: 'center', fontSize: '0.7rem', padding: '2rem' }}>
-                No topics loaded.
-              </div>
-            ) : (
-              <div style={{ display: 'grid', gap: '1rem' }}>
-                {decks.map(deck => (
-                  <div key={deck.title} style={cardStyle}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                      <span className="material-symbols-outlined" style={{ color: 'var(--secondary)', opacity: 0.5 }}>folder</span>
-                      <div>
-                        <div style={{ fontWeight: '600', fontSize: '0.9rem' }}>{deck.title}</div>
-                        <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.4)' }}>{deck.cards?.length || 0} cards</div>
-                      </div>
-                    </div>
-                    <button 
-                      onClick={() => onResetProgress(deck.title)}
-                      style={{ 
-                        padding: '0.4rem 0.8rem', 
-                        borderRadius: '8px',
-                        background: 'rgba(255,255,255,0.03)',
-                        border: '1px solid rgba(255,255,255,0.1)',
-                        color: 'rgba(255,255,255,0.6)',
-                        fontSize: '0.75rem'
-                      }}
-                    >Reset</button>
+            <div style={{ 
+              background: 'rgba(255,255,255,0.02)', 
+              border: '1px solid rgba(255,255,255,0.05)', 
+              borderRadius: '24px',
+              padding: '1.5rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1.5rem'
+            }}>
+              {/* Description Header */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <span className="material-symbols-outlined" style={{ color: '#60a5fa', fontSize: '1.8rem' }}>database</span>
+                <div>
+                  <div style={{ fontWeight: '700', fontSize: '1rem', color: 'white' }}>Administrative Hub</div>
+                  <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', lineHeight: '1.4' }}>
+                    Topic indexing, BASK refinement zone, and readiness audit matrix.
                   </div>
-                ))}
+                </div>
               </div>
-            )}
+
+              {/* Controls Row: Matrix & Topics side-by-side */}
+              <div style={{ display: 'flex', gap: '1rem' }}>
+                <button 
+                  onClick={onOpenMatrix}
+                  style={{ 
+                    flex: 1,
+                    padding: '0.8rem', 
+                    borderRadius: '16px',
+                    background: 'rgba(255, 255, 255, 0.03)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    color: '#f8fafc',
+                    fontSize: '0.8rem',
+                    fontWeight: '700',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.6rem',
+                    boxShadow: '0 4px 15px rgba(0, 0, 0, 0.2)',
+                    transition: 'all 0.3s ease'
+                  }}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: '1.3rem', color: '#10b981' }}>verified_user</span>
+                  MATRIX STATUS
+                </button>
+
+                <button 
+                  onClick={onOpenVault}
+                  style={{ 
+                    flex: 1,
+                    padding: '0.8rem', 
+                    borderRadius: '16px',
+                    background: 'transparent',
+                    border: '1px solid #6366f1',
+                    color: '#6366f1',
+                    fontSize: '0.8rem',
+                    fontWeight: '700',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.6rem',
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                  }}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: '1.3rem' }}>settings_accessibility</span>
+                  TOPICS MAINTENANCE
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* Footer */}
-          <div style={{ opacity: 0.2, textAlign: 'center', fontSize: '0.65rem', marginTop: '2rem' }}>
-            SHRM Study Project v1.2.0 • Build ID: PRODUCTION
+          <div style={{ opacity: 0.3, textAlign: 'center', fontSize: '0.6rem', marginTop: '2rem', letterSpacing: '0.05em' }}>
+            LOCAL DEP: 2f49676 • UI: MOVED CERT LEVEL FROM COLUMNS TO MAIN MATRIX TITLE
           </div>
 
         </div>

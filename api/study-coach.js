@@ -41,52 +41,47 @@ async function handleGenerateDistractors(req, res) {
 
             TETHERED-ACTION RULE:
             - The 'correct_answer' MUST be a functional, verbed translation of the flashcard definition.
-            - Do NOT hallucinate new concepts. If the definition is 'Variance Analysis', the answer MUST involve 'Reviewing actual vs planned budget'.
+            - Do NOT hallucinate new concepts.
 
             2026 VERB TAXONOMY (${certLevel}):
             - You MUST start the 'correct_answer' with one of these verbs: ${verbTaxonomy}.
 
             MANDATORY CONSTRAINTS:
-            1. SCENARIO: 3-4 sentence workplace conflict identifying a specific challenge related to the [Term].
-            2. FOCUS: ${certLevel === 'SCP' ? 'Strategic Governance and Stakeholder Analysis.' : 'Operational Policy and Tactical Fact-Finding.'}
-            3. NO LABELING: The name of the [Term] must NOT appear in the scenario or answer.
+            1. SCENARIO: 3-4 sentence workplace conflict.
+            2. FOCUS: ${certLevel === 'SCP' ? 'Strategic Governance.' : 'Operational Policy.'}
+            3. NO LABELING: [Term] name must NOT appear.
+            4. DOMAIN TAGGING: Assign to [People, Organization, or Workplace].
             `;
         } else if (pipelineStage === 'expand') {
-            // --- STAGE 2: THE LOGIC EXPANSION (The "Detail" Work) ---
+            // --- STAGE 2: THE LOGIC EXPANSION ---
             promptSystemInstructions = `
             ROLE: SHRM 2026 Logic Expander (Expansion Stage)
-            TASK: Generate high-plausibility traps and a professional rationale for the provided Scenario and Correct Answer.
-
-            MANDATORY CONSTRAINTS:
-            1. TRAP LOGIC: Distractors must be professionally sound but "Symptomatic/Operational" (for CP) or "Premature Escalation" (skipping discovery).
-            2. SYMMETRY: All options must match the 'correct_answer' in length (within +/- 5 words) and professional tone.
-            3. RATIONALE: Explain why the 'correct_answer' is superior using SHRM 2026 logic.
-
-            UI SYNC MANDATE:
-            - Provide a 2-word label for 'gap_analysis' (e.g., 'Premature Escalation', 'Symptomatic Fix').
-            - TETHERING RULE: This label MUST be the header of the 'rationale' field.
+            TASK: Generate traps and rationale for the Seed.
+            UI SYNC MANDATE: Prepare gap_analysis label.
             `;
         } else {
-            // Legacy/Monolithic (Kept for safety)
-            promptSystemInstructions = `ROLE: SHRM 2026 Architect. Generate Scenario, Answer, Traps, and Rationale in one call.`;
+            promptSystemInstructions = `ROLE: SHRM 2026 Architect. Generate full data in one call.`;
         }
     } else {
         // --- SHRM 2026: KNOWLEDGE DESIGNER (Simple Recall) ---
         promptSystemInstructions = `
         ROLE: SHRM 2026 Knowledge Designer (High-Fidelity Distractors).
-        TASK: Generate 3 high-plausibility distractors for the provided SHRM definition.
-
-        STRICT SYMMETRY MANDATE:
-        1. VISUAL PARITY: Each distractor MUST match the Correct Answer's word count and academic complexity (within +/- 3 words). 
-        2. NO SHORT-FORMING: If the correct answer is 25 words with multiple clauses, the distractors MUST also be 25 words with multiple clauses.
-        3. TERMINOLOGY: Use SHRM 2026 BASK terminology (e.g., "Stakeholder Impact" vs "People's feelings").
-        4. QUALITY: Distractors should be "Symptomatic Traps"—definitions of related but incorrect HR concepts.
+        TASK: Generate 3 distractors and a BASK Domain tag.
+        1. VISUAL PARITY: Match word count and complexity (+/- 3 words).
+        2. TERMINOLOGY: Use SHRM 2026 BASK terminology.
+        3. DOMAIN TAGGING: Assign to [People, Organization, Workplace].
         `;
     }
 
-    const outputFormat = pipelineStage === 'seed'
-        ? `{ "results": [{ "id": "MUST match input ID", "scenario": "string", "correct_answer": "string", "tag_bask": "string", "tag_behavior": "string" }] }`
-        : `{ "results": [{ "id": "MUST match input ID", "distractors": ["3 items"], "rationale": "string", "gap_analysis": "string" }] }`;
+    // MANDATORY JSON SCHEMA (Updated for Enrichment Stage)
+    let outputFormat = "";
+    if (pipelineStage === 'tagging') {
+        outputFormat = `{ "results": [{ "id": "MUST match input ID", "tag_bask": "string", "tag_behavior": "string" }] }`;
+    } else {
+        outputFormat = (pipelineStage === 'seed' || quizType === 'simple')
+            ? `{ "results": [{ "id": "MUST match input ID", "scenario": "string", "correct_answer": "string", "tag_bask": "string", "tag_behavior": "string" ${quizType === 'simple' ? ', "distractors": ["3 items"]' : ''} }] }`
+            : `{ "results": [{ "id": "MUST match input ID", "distractors": ["3 items"], "rationale": "string", "gap_analysis": "string" }] }`;
+    }
 
     const prompt = `
     ${promptSystemInstructions}
@@ -97,12 +92,12 @@ async function handleGenerateDistractors(req, res) {
     - Always use "Inclusive Mindset" instead of "Diversity".
 
     STRICT MECHANICAL RULES:
-    1. STRICT ID MATCHING: You MUST return the 'id' in the JSON exactly as it appears in the input. Do not add prefixes (like 'card-'), do not add suffixes, and do not add any whitespace. If the input ID is '101', the output ID must be '101'.
-    2. DIRECT JSON ONLY: Return only the RAW JSON object. Do not include any conversational text, explanations, or "Sure, here are the results".
-    3. CHARACTER SAFETY: You MUST use only standard straight quotes (") and apostrophes ('). You MUST NOT use smart/curly quotes (“ ” ‘ ’). You MUST NOT include literal newlines within JSON strings; use '\n' for any required line breaks. Ensure all output is strictly valid, minified JSON.
+    1. STRICT ID MATCHING: You MUST return the 'id' in the JSON exactly as it appears in the input.
+    2. DIRECT JSON ONLY: Return only the RAW JSON object.
+    3. CHARACTER SAFETY: Use standard straight quotes.
 
     Input Cards:
-    ${cards.map(c => `ID: ${c.id}\nTerm: ${c.question}\nDefinition: ${c.answer}\n${c.scenario ? `Scenario: ${c.scenario}\nFixed Answer: ${c.correct_answer}` : ''}`).join('\n---\n')}
+    ${cards.map(c => `ID: ${c.id}\nTerm: ${c.question}\nDefinition: ${c.answer}`).join('\n---\n')}
 
     Return JSON format:
     ${outputFormat}

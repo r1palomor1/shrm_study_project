@@ -61,7 +61,8 @@ const VaultHealthMatrix = ({ decks, onSmartSync, isSyncing, syncProgress, syncSt
         simple: 0,
         scenarios: 0,
         rationales: 0,
-        tags: 0
+        tags: 0,
+        simpleTags: 0
       };
 
       deck.cards.forEach(card => {
@@ -72,6 +73,7 @@ const VaultHealthMatrix = ({ decks, onSmartSync, isSyncing, syncProgress, syncSt
 
         // PHYSICAL DATA CHECK: No shadow logic, just existence check
         if (sData?.distractors) stats.simple++;
+        if (sData?.tag_bask) stats.simpleTags++;
         if (iData?.scenario) stats.scenarios++;
         if (iData?.rationale) stats.rationales++;
         if (iData?.tag_bask) stats.tags++;
@@ -81,9 +83,9 @@ const VaultHealthMatrix = ({ decks, onSmartSync, isSyncing, syncProgress, syncSt
     });
   }, [decks, vault, certLevel]);
 
-  const headers = ['Intelligent Scenarios', 'Strategic Rationales', 'Behavioral Bridge Tags', 'Simple Distractors'];
-  const dataKeys = ['scenarios', 'rationales', 'tags', 'simple'];
-  const icons = ['psychology', 'description', 'join_inner', 'format_list_bulleted'];
+  const headers = ['Intelligent Scenarios', 'Strategic Rationales', 'Behavioral Bridge Tags', 'Simple Distractors', 'Recall Metadata Tags'];
+  const dataKeys = ['scenarios', 'rationales', 'tags', 'simple', 'simpleTags'];
+  const icons = ['psychology', 'description', 'join_inner', 'format_list_bulleted', 'sell'];
 
   return (
     <section className="glass-panel" style={{

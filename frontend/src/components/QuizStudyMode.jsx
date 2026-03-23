@@ -428,6 +428,27 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
                 )}
             </div>
 
+            <div style={{ 
+                marginTop: 'auto', 
+                padding: '1rem 0', 
+                borderTop: '1px solid rgba(255,255,255,0.03)', 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center',
+                fontSize: '0.7rem',
+                color: 'var(--text-muted)',
+                opacity: 0.8
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>database</span>
+                    SOURCE: {card.topic || 'System Generated'}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <span>ID: {String(card.id).replace(/[\s\n\r]/g, '').slice(0, 8)}...</span>
+                    <span>DOMAIN: {currentAiData?.tag_bask || 'Competencies'}</span>
+                </div>
+            </div>
+
             {showPreview && (
                 <div style={{
                     position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
