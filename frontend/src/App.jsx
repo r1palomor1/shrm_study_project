@@ -626,9 +626,8 @@ function App() {
 
                 {/* QUIZ TYPE (Conditional) */}
                 {studyMode === 'quiz' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', paddingTop: '0.8rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                    <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Quiz Strategy</div>
-                    <div style={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', marginTop: '-0.4rem' }}>Quiz Type</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', paddingTop: '1.2rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                    <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Quiz Type</div>
                     <div style={{ display: 'flex', background: 'rgba(0,0,0,0.3)', borderRadius: '20px', padding: '3px', border: '1px solid rgba(255,255,255,0.05)' }}>
                       <button 
                         onClick={() => setQuizType('intelligent')}
@@ -655,8 +654,8 @@ function App() {
                 )}
 
                 {/* SELECT QUIZ LENGTH (2x2 Grid) */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', paddingTop: '0.8rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                  <label style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Select Simulation Volume</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', paddingTop: '1.2rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                  <label style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Simulation Size</label>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
                     {[25, 50, 134, -1].map(len => {
                       const stats = getVaultStats(certLevel, decks)[selectedDomain] || { intelligent: 0, simple: 0 };

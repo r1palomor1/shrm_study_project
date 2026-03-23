@@ -356,7 +356,7 @@ export default function SettingsModal({
 
           {/* Footer */}
           <div style={{ opacity: 0.3, textAlign: 'center', fontSize: '0.6rem', marginTop: '2rem', letterSpacing: '0.05em' }}>
-            LOCAL DEP: 11a83b0 • 2026 SHRM BASK POLISH: RESTORED MISSING GETQUIZDATAFORDECK IMPORT
+            LOCAL DEP: 0209604 • 2026 SHRM BASK POLISH: STREAMLINED BASK SIDEBAR LABELS AND ENHANCED VERTICAL SPACING
           </div>
 
         </div>
