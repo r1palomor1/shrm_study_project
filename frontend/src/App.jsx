@@ -26,6 +26,7 @@ import {
 } from './utils/storage';
 import { 
   getQuizDataByFilter,
+  getQuizDataForDeck,
   generateDistractorsBatch,
   refineMetadataBatch
 } from './utils/quizProcessor';
