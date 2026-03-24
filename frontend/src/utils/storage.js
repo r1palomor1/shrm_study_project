@@ -63,25 +63,23 @@ export function loadVaultFromStorage() {
 }
 
 /**
- * Aggregates vault data across all stored objects for the Domain-First Grid.
- * Groups cards by their AI-assigned Domain (tag_bask) and counts "Ready" states.
- * @param {string} certLevel - The certification level (CP or SCP).
- */
-/**
  * SAVES Metadata (Tags) Surgically
- * Does NOT overwrite distractors or scenarios
+ * Targets the specific isolated key: id:simple:certLevel
  */
-export function saveMetadataToVault(results) {
+export function saveMetadataToVault(results, certLevel = 'CP') {
     const vault = loadVaultFromStorage();
     let updatedCount = 0;
 
     results.forEach(res => {
         const cleanId = String(res.id).replace(/[\s\n\r]/g, '');
-        if (vault[cleanId]) {
-            vault[cleanId] = {
-                ...vault[cleanId],
-                tag_bask: res.tag_bask || vault[cleanId].tag_bask,
-                tag_behavior: res.tag_behavior || vault[cleanId].tag_behavior,
+        const key = `${cleanId}:simple:${certLevel}`;
+        
+        // Find if exist as simple distill record
+        if (vault[key]) {
+            vault[key] = {
+                ...vault[key],
+                tag_bask: res.tag_bask || vault[key].tag_bask,
+                tag_behavior: res.tag_behavior || vault[key].tag_behavior,
                 lastUpdated: new Date().toISOString()
             };
             updatedCount++;
@@ -92,6 +90,11 @@ export function saveMetadataToVault(results) {
     return updatedCount;
 }
 
+/**
+ * Aggregates vault data across all stored objects for the Domain-First Grid.
+ * Groups cards by their AI-assigned Domain (tag_bask) and counts "Ready" states.
+ * @param {string} certLevel - The certification level (CP or SCP).
+ */
 export function getVaultStats(certLevel = 'CP', decks = []) {
     const vault = loadVaultFromStorage();
     

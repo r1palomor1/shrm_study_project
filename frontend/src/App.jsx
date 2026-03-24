@@ -307,21 +307,41 @@ function App() {
         while (missingSimple.length > 0) {
           let rateLimited = false;
           currentBatch++;
-          const batchToProcess = missingSimple.slice(0, 8); // Turbo batch for RPD insurance
-          setWarmUpStatus(`RECALL SYNC: Batch ${currentBatch} of ${simpleBatches}...`);
+          const batchToProcess = missingSimple.slice(0, 8); 
+          
+          // SURGICAL LOGIC: If distractors exist but tags are missing, use the lighter metadata refiner
+          const vault = loadVaultFromStorage();
+          const isMetadataOnly = batchToProcess.every(c => {
+            const cleanId = String(c.id).replace(/[\s\n\r]/g, '');
+            return !!vault[`${cleanId}:simple:${certLevel}`]?.distractors;
+          });
 
-          const result = await generateDistractorsBatch(batchToProcess, 'simple', (p, error) => {
-            // UI SYNC: Use functional update to ensure real-time re-renders
-            const batchDone = Math.round((p / 100) * batchToProcess.length);
-            const currentP = Math.round(((syncedCount + batchDone) / totalToSync) * 100);
-            setWarmUpProgress(prev => currentP);
-            if (error === 'RATE_LIMIT') rateLimited = true;
-          }, certLevel);
+          if (isMetadataOnly) {
+            setWarmUpStatus(`SURGICAL TAG SYNC: Batch ${currentBatch} of ${simpleBatches}...`);
+            const result = await refineMetadataBatch(batchToProcess, certLevel, (p) => {
+              const currentP = Math.round(((syncedCount + p) / totalToSync) * 100);
+              setWarmUpProgress(prev => currentP);
+            });
+            
+            if (result && result.success === false) {
+              setWarmUpError(`Metadata Sync Interrupted`);
+              setIsWarmingUp(false);
+              return;
+            }
+          } else {
+            setWarmUpStatus(`RECALL SYNC: Batch ${currentBatch} of ${simpleBatches}...`);
+            const result = await generateDistractorsBatch(batchToProcess, 'simple', (p, error) => {
+              const batchDone = Math.round((p / 100) * batchToProcess.length);
+              const currentP = Math.round(((syncedCount + batchDone) / totalToSync) * 100);
+              setWarmUpProgress(prev => currentP);
+              if (error === 'RATE_LIMIT') rateLimited = true;
+            }, certLevel);
 
-          if (result && result.success === false) {
-            setWarmUpError(`Sync Interrupted: Provider Timeout (Transient)`);
-            setIsWarmingUp(false);
-            return;
+            if (result && result.success === false) {
+              setWarmUpError(`Sync Interrupted: Provider Timeout (Transient)`);
+              setIsWarmingUp(false);
+              return;
+            }
           }
 
           if (rateLimited) {

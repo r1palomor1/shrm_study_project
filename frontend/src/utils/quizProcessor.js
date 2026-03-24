@@ -225,7 +225,7 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
                 if (data.results) {
                     data.results.forEach(res => {
                         const cleanId = String(res.id).replace(/[\s\n\r]/g, '');
-                        saveDistractorToVault(cleanId, res, certLevel);
+                        saveDistractorToVault(cleanId, { ...res, quizType: 'simple' }, certLevel);
                     });
                     successfulCount += data.results.length;
                 }
@@ -279,7 +279,7 @@ export async function refineMetadataBatch(cards, certLevel, onProgress = null) {
         const data = await response.json();
         
         if (data && data.results && Array.isArray(data.results)) {
-            const updatedCount = saveMetadataToVault(data.results);
+            const updatedCount = saveMetadataToVault(data.results, certLevel);
             if (onProgress) onProgress(updatedCount);
             return { success: true, count: updatedCount };
         }
