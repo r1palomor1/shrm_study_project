@@ -12,12 +12,6 @@ import { getDistractorFromVault, saveDistractorToVault, loadVaultFromStorage, sa
 export async function getQuizDataByFilter(decks, filter = {}, requestedQuizType = 'intelligent', certLevel = 'CP') {
     const { domainId, length, isWeighted } = filter;
     const vault = loadVaultFromStorage();
-
-    const isValidBaskDomain = (tag) => {
-        if (!tag) return false;
-        const low = tag.toLowerCase();
-        return low.includes('people') || low.includes('organization') || low.includes('workplace');
-    };
     
     // 1. Group cards by Domain into pools
     const pools = {
@@ -35,7 +29,7 @@ export async function getQuizDataByFilter(decks, filter = {}, requestedQuizType 
             if (!vaultData) return;
 
             let domain = vaultData.tag_bask;
-            if (!isValidBaskDomain(domain)) {
+            if (!domain) {
                 if (deck.title.includes('People')) domain = 'People';
                 else if (deck.title.includes('Organization')) domain = 'Organization';
                 else if (deck.title.includes('Workplace')) domain = 'Workplace';
@@ -115,20 +109,14 @@ export async function getQuizDataForDeck(deck, requestedQuizType = 'intelligent'
         // PHYSICAL CONTENT AUDIT: We only count it if the actual payload is present
         const vaultData = getDistractorFromVault(card.id, requestedQuizType, certLevel);
 
-        const isValidBaskDomain = (tag) => {
-            if (!tag) return false;
-            const low = tag.toLowerCase();
-            return low.includes('people') || low.includes('organization') || low.includes('workplace');
-        };
-
         let isValid = false;
         if (vaultData && vaultData.quizType === requestedQuizType) {
             if (requestedQuizType === 'intelligent') {
-                // Intelligent mode requires a scenario, rationale, and STRICT BASK tag
-                isValid = !!vaultData.scenario && !!vaultData.rationale && isValidBaskDomain(vaultData.tag_bask);
+                // Intelligent mode requires a scenario, rationale, and BASK tag
+                isValid = !!vaultData.scenario && !!vaultData.rationale && !!vaultData.tag_bask;
             } else {
-                // Simple mode requires distractors AND a STRICT BASK tag
-                isValid = Array.isArray(vaultData.distractors) && vaultData.distractors.length > 0 && isValidBaskDomain(vaultData.tag_bask);
+                // Simple mode requires distractors AND a BASK tag
+                isValid = Array.isArray(vaultData.distractors) && vaultData.distractors.length > 0 && !!vaultData.tag_bask;
             }
         }
 
