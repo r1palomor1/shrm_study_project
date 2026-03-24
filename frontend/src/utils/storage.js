@@ -91,79 +91,6 @@ export function saveMetadataToVault(results, certLevel = 'CP') {
 }
 
 /**
- * Aggregates vault data across all stored objects for the Domain-First Grid.
- * Groups cards by their AI-assigned Domain (tag_bask) and counts "Ready" states.
- * @param {string} certLevel - The certification level (CP or SCP).
- */
-export function getVaultStats(certLevel = 'CP', decks = []) {
-    const vault = loadVaultFromStorage();
-    
-    // Heuristic Mapping: Map card IDs to their source topics for fallback tagging
-    const idToTopicMap = {};
-    decks.forEach(deck => {
-        deck.cards.forEach(card => {
-            const cleanId = String(card.id).replace(/[\s\n\r]/g, '');
-            idToTopicMap[cleanId] = deck.title;
-        });
-    });
-
-    const stats = {
-        'People': { simple: 0, intelligent: 0, total: 0 },
-        'Organization': { simple: 0, intelligent: 0, total: 0 },
-        'Workplace': { simple: 0, intelligent: 0, total: 0 },
-        'Competencies': { simple: 0, intelligent: 0, total: 0 }
-    };
-
-    const domainCardSets = {
-        'People': new Set(),
-        'Organization': new Set(),
-        'Workplace': new Set(),
-        'Competencies': new Set()
-    };
-
-    Object.values(vault).forEach(item => {
-        if (item.certLevel !== certLevel) return;
-
-        // HEURISTIC TETHERING: 
-        // 1. Prefer AI-assigned tag_bask
-        // 2. Fallback to Source Topic (filename)
-        // 3. Final default to Competencies
-        let domain = item.tag_bask;
-        if (!domain) {
-            const sourceTopic = idToTopicMap[item.id];
-            if (sourceTopic) {
-                if (sourceTopic.includes('People')) domain = 'People';
-                else if (sourceTopic.includes('Organization')) domain = 'Organization';
-                else if (sourceTopic.includes('Workplace')) domain = 'Workplace';
-                else domain = 'Competencies';
-            } else {
-                domain = 'Competencies';
-            }
-        }
-
-        if (!stats[domain]) return;
-
-        if (item.quizType === 'simple' && item.distractors && item.tag_bask) {
-            stats[domain].simple++;
-        }
-        
-        if (item.quizType === 'intelligent' && item.scenario && item.tag_bask) {
-            stats[domain].intelligent++;
-        }
-
-        if (item.id) {
-            domainCardSets[domain].add(item.id);
-        }
-    });
-
-    Object.keys(stats).forEach(d => {
-        stats[d].total = domainCardSets[d].size;
-    });
-
-    return stats;
-}
-
-/**
  * Creates a complete snapshot of the application state for backup.
  */
 export function exportAppData() {
@@ -308,9 +235,156 @@ export function clearAllDecksFromStorage() {
 export function clearAiVault() {
     try {
         localStorage.removeItem(VAULT_KEY);
+        // Clear snapshots as well
+        localStorage.removeItem('shrm_domain_snapshots');
         return true;
     } catch (error) {
         console.error('Error clearing AI Vault:', error);
+        return false;
+    }
+}
+
+/**
+ * STRATEGIC RESOLVER: Maps a card to its 2026 BASK Domain(s) for the Dashboard.
+ * Prioritizes AI-generated tags (tag_bask, tag_behavior) over legacy deck names.
+ * Ensures the 'Competencies' card populates based on Behavioral tags.
+ */
+function resolveCardDomains(card, deck, vault, certLevel) {
+    const cleanId = String(card.id).replace(/[\s\n\r]/g, '');
+    const intelKey = `${cleanId}:intelligent:${certLevel}`;
+    const simpleKey = `${cleanId}:simple:${certLevel}`;
+    
+    // Check vault for both possible keys
+    const vaultData = vault[intelKey] || vault[simpleKey] || {};
+    const domains = [];
+
+    // 1. ALL STUDY MATERIAL (Always include in the master card)
+    domains.push('Competencies');
+
+    // 2. BASK DOMAIN (tag_bask) -> Blue/Yellow/Green Cards
+    let baskDomain = card.tag_bask || vaultData.tag_bask;
+    
+    // Fallback ONLY for identifying starting domain (un-synced state)
+    if (!baskDomain) {
+        if (deck.title.includes('People')) baskDomain = 'People';
+        else if (deck.title.includes('Organization')) baskDomain = 'Organization';
+        else if (deck.title.includes('Workplace')) baskDomain = 'Workplace';
+    }
+
+    if (baskDomain) {
+        // Standardize tagging (Fuzzy Match for resilience)
+        if (baskDomain.includes('People')) domains.push('People');
+        else if (baskDomain.includes('Organization')) domains.push('Organization');
+        else if (baskDomain.includes('Workplace')) domains.push('Workplace');
+    }
+
+    return domains;
+}
+
+export function getVaultStats(certLevel, decks) {
+    const vault = loadVaultFromStorage();
+    const stats = {
+        'ALL': { intelligent: 0, simple: 0, total: 0 }
+    };
+    
+    // Initialize domains
+    const domainIds = ['People', 'Organization', 'Workplace', 'Competencies'];
+    domainIds.forEach(d => stats[d] = { intelligent: 0, simple: 0, total: 0 });
+
+    decks.forEach(deck => {
+        deck.cards.forEach(card => {
+            const cleanId = String(card.id).replace(/[\s\n\r]/g, '');
+            const intelKey = `${cleanId}:intelligent:${certLevel}`;
+            const simpleKey = `${cleanId}:simple:${certLevel}`;
+            
+            const intelData = vault[intelKey];
+            const simpleData = vault[simpleKey];
+
+            // 1. MASTER COUNT (Unique IDs only)
+            stats['ALL'].total++;
+            if (intelData && intelData.scenario && intelData.rationale) stats['ALL'].intelligent++;
+            if (simpleData && Array.isArray(simpleData.distractors) && simpleData.distractors.length > 0) stats['ALL'].simple++;
+
+            // 2. DOMAIN REPLICATION (A card can belong to a Domain and a Competency card)
+            const targetDomains = resolveCardDomains(card, deck, vault, certLevel);
+            
+            targetDomains.forEach(domain => {
+                if (stats[domain]) {
+                    stats[domain].total++;
+                    
+                    if (intelData && intelData.scenario && intelData.rationale) {
+                        stats[domain].intelligent++;
+                    }
+                    if (simpleData && Array.isArray(simpleData.distractors) && simpleData.distractors.length > 0) {
+                        stats[domain].simple++;
+                    }
+                }
+            });
+        });
+    });
+
+    return stats;
+}
+
+/**
+ * SAVES a performance snapshot of a specific domain before a manual reset.
+ * Used to populate the "Pulse Analytics" sparklines.
+ */
+export function saveDomainSnapshot(domainId, quizType, certLevel, percentage) {
+    try {
+        const snapshots = JSON.parse(localStorage.getItem('shrm_domain_snapshots') || '{}');
+        const key = `${domainId}:${quizType}:${certLevel}`;
+        
+        if (!snapshots[key]) snapshots[key] = [];
+        
+        snapshots[key].push({
+            percentage,
+            timestamp: new Date().toISOString()
+        });
+
+        // Keep only top 10 most recent snapshots for performance
+        if (snapshots[key].length > 10) snapshots[key].shift();
+        
+        localStorage.setItem('shrm_domain_snapshots', JSON.stringify(snapshots));
+    } catch (error) {
+        console.error('Error saving domain snapshot:', error);
+    }
+}
+
+export function getDomainSnapshots(domainId, quizType, certLevel) {
+    const snapshots = JSON.parse(localStorage.getItem('shrm_domain_snapshots') || '{}');
+    const key = `${domainId}:${quizType}:${certLevel}`;
+    return snapshots[key] || [];
+}
+
+/**
+ * Surgically resets progress for ALL cards in a specific Domain.
+ * Wipes current session 'unseen' markers while preserving correct_count / incorrect_count.
+ */
+export function resetDomainProgress(domainId, quizType, certLevel) {
+    try {
+        const decks = loadDecksFromStorage();
+        if (!decks) return;
+
+        const vault = loadVaultFromStorage();
+        const statusKey = `status_quiz_${quizType}_${certLevel}`;
+        const optionKey = `selected_option_${quizType}_${certLevel}`;
+
+        decks.forEach(deck => {
+            deck.cards.forEach(card => {
+                const targetDomains = resolveCardDomains(card, deck, vault, certLevel);
+                
+                if (targetDomains.includes(domainId)) {
+                    card[statusKey] = 'unseen';
+                    delete card[optionKey];
+                }
+            });
+        });
+
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(decks));
+        return true;
+    } catch (error) {
+        console.error('Error resetting domain progress:', error);
         return false;
     }
 }
@@ -381,6 +455,8 @@ export function updateCardStatus(cardId, studyMode, newStatus, historyData = nul
     const statusKey = `status_quiz_${quizType}_${certLevel}`;
     const historyKey = `history_quiz_${quizType}_${certLevel}`;
     const optionKey = `selected_option_${quizType}_${certLevel}`;
+    const correctCountKey = `correct_count_quiz_${quizType}_${certLevel}`;
+    const incorrectCountKey = `incorrect_count_quiz_${quizType}_${certLevel}`;
 
     const decks = loadDecksFromStorage();
     if (decks && decks.length > 0) {
@@ -388,22 +464,34 @@ export function updateCardStatus(cardId, studyMode, newStatus, historyData = nul
         for (const deck of decks) {
             const cardIndex = deck.cards.findIndex(c => c.id === cardId);
             if (cardIndex !== -1) {
+                const card = deck.cards[cardIndex];
+                
                 if (studyMode === 'traditional') {
-                    deck.cards[cardIndex].status_traditional = newStatus;
+                    card.status_traditional = newStatus;
+                    // Tracker for traditional mastery (hits/misses) if we want it too
+                    const tradCorrectKey = 'correct_count_traditional';
+                    const tradIncorrectKey = 'incorrect_count_traditional';
+                    if (newStatus === 'difficulty-5') card[tradCorrectKey] = (card[tradCorrectKey] || 0) + 1;
+                    if (newStatus === 'difficulty-1') card[tradIncorrectKey] = (card[tradIncorrectKey] || 0) + 1;
                 } else if (studyMode === 'test') {
-                    deck.cards[cardIndex].status_test = newStatus;
+                    card.status_test = newStatus;
                 } else if (studyMode === 'quiz') {
-                    deck.cards[cardIndex][statusKey] = newStatus;
+                    card[statusKey] = newStatus;
+                    
+                    // ACCURACY PERSISTENCE: Increment Lifetime Hits vs Misses
+                    if (newStatus === 'difficulty-5') card[correctCountKey] = (card[correctCountKey] || 0) + 1;
+                    if (newStatus === 'difficulty-1') card[incorrectCountKey] = (card[incorrectCountKey] || 0) + 1;
+
                     // Persist the specific option selected by the user
                     if (historyData?.selectedOption) {
-                        deck.cards[cardIndex][optionKey] = historyData.selectedOption;
+                        card[optionKey] = historyData.selectedOption;
                     }
                 }
 
                 // Save permanent history if provided
                 if (historyData) {
                     if (studyMode === 'test') {
-                        deck.cards[cardIndex].history_test = {
+                        card.history_test = {
                             userInput: historyData.userInput,
                             grade: newStatus,
                             percentage: historyData.percentage,
@@ -411,7 +499,7 @@ export function updateCardStatus(cardId, studyMode, newStatus, historyData = nul
                             timestamp: new Date().toISOString()
                         };
                     } else if (studyMode === 'quiz') {
-                        deck.cards[cardIndex][historyKey] = {
+                        card[historyKey] = {
                             grade: newStatus,
                             timestamp: new Date().toISOString()
                         };

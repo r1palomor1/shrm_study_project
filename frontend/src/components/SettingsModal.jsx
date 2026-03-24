@@ -365,7 +365,7 @@ export default function SettingsModal({
 
           {/* Footer */}
           <div style={{ opacity: 0.3, textAlign: 'center', fontSize: '0.6rem', marginTop: '2rem', letterSpacing: '0.05em' }}>
-            LOCAL DEP: 003f301 • 2026 SHRM BASK POLISH: INTEGRATED BULK RESET/DELETE IN VAULT MANAGER AND FIXED MODAL Z-INDEX CONFLICTS
+            6ef7e27 - SHRM 2026: Restored Study Persistence & History (Unification with Domain Grid)
           </div>
 
         </div>

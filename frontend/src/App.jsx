@@ -22,7 +22,9 @@ import {
   clearSimpleVaultData,
   getDistractorFromVault,
   loadVaultFromStorage,
-  getVaultStats
+  getVaultStats,
+  saveDomainSnapshot,
+  resetDomainProgress
 } from './utils/storage';
 import { 
   getQuizDataByFilter,
@@ -180,27 +182,45 @@ function App() {
     setResetTarget(null);
   };
 
+  const handleResetDomain = (domainId, currentPercentage) => {
+    setConfirmModal({
+      isOpen: true,
+      type: 'warning',
+      title: 'Reset Domain Session?',
+      message: `Resetting "${domainId}" will clear your current 'unseen' markers. Lifetime stats are preserved and a snapshot has been added to your Pulse trend. Proceed?`,
+      confirmText: 'Snapshot & Reset',
+      onConfirm: () => {
+        saveDomainSnapshot(domainId, quizType, certLevel, currentPercentage);
+        resetDomainProgress(domainId, quizType, certLevel);
+        // Refresh state
+        setDecks(loadDecksFromStorage());
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+      }
+    });
+  };
+
   const handleSelectDomain = (domainId) => {
     // Toggle selection: If already selected, revert to ALL
     setSelectedDomain(prev => prev === domainId ? 'ALL' : domainId);
   };
 
-  const handleStartTestFromSidebar = () => {
+  const handleStartTestFromSidebar = (isWeighted = false) => {
     handleStartTestDirectly({ 
       domainId: selectedDomain, 
-      testLength, 
+      testLength: isWeighted ? 134 : testLength, 
       testType: quizType, 
-      certLevel 
+      certLevel,
+      isWeighted
     });
   };
 
   const handleStartTestDirectly = async (config) => {
-    const { domainId, testLength: lengthReq, testType, certLevel: level } = config;
+    const { domainId, testLength: lengthReq, testType, certLevel: level, isWeighted } = config;
     setIsTestOverlayOpen(false);
     
     // Engine Logic: Use the new Domain-First filter
     const effectiveLength = lengthReq === -1 ? 9999 : lengthReq;
-    const filter = { domainId, length: effectiveLength };
+    const filter = { domainId, length: effectiveLength, isWeighted };
     const data = await getQuizDataByFilter(decks, filter, testType, level);
     
     if (data.cards.length === 0) {
@@ -603,6 +623,7 @@ function App() {
                   studyMode={studyMode}
                   quizType={quizType}
                   selectedDomain={selectedDomain}
+                  onResetDomain={handleResetDomain}
                 />
               </section>
 
@@ -693,36 +714,84 @@ function App() {
                   </div>
                 )}
 
-                {/* SELECT QUIZ LENGTH (2x2 Grid) */}
+                {/* SELECT QUIZ LENGTH (DYNAMIC SLIDER) */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', paddingTop: '1.2rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                  <label style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Simulation Size</label>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                    {[25, 50, 134, -1].map(len => {
-                      const stats = getVaultStats(certLevel, decks)[selectedDomain] || { intelligent: 0, simple: 0 };
-                      const count = quizType === 'intelligent' ? stats.intelligent : stats.simple;
-                      const label = len === 25 ? '25 Cards' : len === 50 ? '50 Cards' : len === 134 ? '134 (Full)' : `All (${count})`;
-                      const isActive = testLength === len;
-                      
-                      return (
-                        <button 
-                          key={len}
-                          onClick={() => setTestLength(len)}
-                          style={{
-                            padding: '0.6rem',
-                            borderRadius: '12px',
-                            fontSize: '0.7rem',
-                            fontWeight: 'bold',
-                            border: `1px solid ${isActive ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.05)'}`,
-                            background: isActive ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.2)',
-                            color: isActive ? 'white' : 'rgba(255,255,255,0.4)',
-                            transition: 'all 0.2s ease'
-                          }}
-                        >
-                          {label}
-                        </button>
-                      );
-                    })}
-                  </div>
+                  {(() => {
+                    const stats = getVaultStats(certLevel, decks)[selectedDomain] || { intelligent: 0, simple: 0, total: 0 };
+                    const readyCount = quizType === 'intelligent' ? stats.intelligent : stats.simple;
+                    const maxVal = Math.max(1, readyCount);
+                    const isGlobal = selectedDomain === 'ALL';
+                    const isExamReady = isGlobal && readyCount >= 134;
+
+                    return (
+                      <>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <label style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            Test Question Size
+                          </label>
+                          <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--secondary)' }}>
+                            {testLength === -1 ? `Full (${readyCount})` : `${testLength} Cards`}
+                          </span>
+                        </div>
+
+                        {/* PREMIUM SLIDER UI (With Boundaries and Snap-to-5) */}
+                        <div style={{ padding: '0.5rem 0' }}>
+                          <input 
+                            type="range" 
+                            min="5" 
+                            max={maxVal} 
+                            step="5"
+                            list="tickmarks"
+                            value={testLength === -1 ? maxVal : Math.min(testLength, maxVal)}
+                            onChange={(e) => setTestLength(parseInt(e.target.value))}
+                            className="premium-slider"
+                            style={{ width: '100%', cursor: 'pointer' }}
+                          />
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.3rem', fontSize: '0.7rem', color: 'rgba(255,255,255,0.7)', fontWeight: 'bold' }}>
+                            <span>0</span>
+                            <span>{maxVal}</span>
+                          </div>
+                          <datalist id="tickmarks">
+                             {Array.from({ length: Math.floor(maxVal / 10) + 1 }, (_, i) => (
+                               <option key={i * 10} value={i * 10}></option>
+                             ))}
+                          </datalist>
+                        </div>
+
+                        {/* EXAM SIMULATOR PULSE BUTTON (Unlocked at 134+ global) */}
+                        {isExamReady && (
+                          <div className="animate-fade-in" style={{ marginTop: '0.5rem' }}>
+                            <button 
+                              onClick={() => handleStartTestFromSidebar(true)}
+                              className="pulse-button"
+                              style={{ 
+                                width: '100%',
+                                padding: '0.7rem',
+                                borderRadius: '12px',
+                                background: 'linear-gradient(135deg, #fbbf24, #f59e0b)',
+                                border: 'none',
+                                color: '#0f172a',
+                                fontSize: '0.75rem',
+                                fontWeight: '900',
+                                cursor: 'pointer',
+                                boxShadow: '0 4px 15px rgba(245, 158, 11, 0.3)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '0.6rem'
+                              }}
+                            >
+                              <span className="material-symbols-outlined" style={{ fontSize: '1.2rem' }}>military_tech</span>
+                              LAUNCH 134-QUESTION SIMULATION
+                            </button>
+                            <p style={{ fontSize: '0.6rem', color: '#fbbf24', textAlign: 'center', marginTop: '0.4rem', fontStyle: 'italic', opacity: 0.8 }}>
+                              Full Exam Distribution (35% People | 35% Org | 30% Workplace)
+                            </p>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
 
                 {/* POOL STRENGTH WARNING */}

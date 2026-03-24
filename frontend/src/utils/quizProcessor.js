@@ -10,11 +10,16 @@ import { getDistractorFromVault, saveDistractorToVault, loadVaultFromStorage, sa
  * @param {string} certLevel - 'CP' or 'SCP'.
  */
 export async function getQuizDataByFilter(decks, filter = {}, requestedQuizType = 'intelligent', certLevel = 'CP') {
-    const { domainId, length } = filter;
+    const { domainId, length, isWeighted } = filter;
     const vault = loadVaultFromStorage();
     
-    // 1. Collect all cards that match the Domain and have "Ready" AI data
-    let pool = [];
+    // 1. Group cards by Domain into pools
+    const pools = {
+        'People': [],
+        'Organization': [],
+        'Workplace': [],
+        'Competencies': []
+    };
     
     decks.forEach(deck => {
         deck.cards.forEach(card => {
@@ -23,7 +28,6 @@ export async function getQuizDataByFilter(decks, filter = {}, requestedQuizType 
             
             if (!vaultData) return;
 
-            // HEURISTIC TETHERING: AI Tag -> Topic Fallback -> Default
             let domain = vaultData.tag_bask;
             if (!domain) {
                 if (deck.title.includes('People')) domain = 'People';
@@ -34,7 +38,7 @@ export async function getQuizDataByFilter(decks, filter = {}, requestedQuizType 
             
             if (domainId && domainId !== 'ALL' && domain !== domainId) return;
 
-            // Check if it's "Ready" (physical payload verification)
+            // Readiness Check
             let isReady = false;
             if (requestedQuizType === 'intelligent') {
                 isReady = !!vaultData.scenario && !!vaultData.rationale;
@@ -43,7 +47,7 @@ export async function getQuizDataByFilter(decks, filter = {}, requestedQuizType 
             }
 
             if (isReady) {
-                pool.push({
+                pools[domain]?.push({
                     ...card,
                     aiData: vaultData
                 });
@@ -51,17 +55,46 @@ export async function getQuizDataByFilter(decks, filter = {}, requestedQuizType 
         });
     });
 
-    // 2. Shuffle the pool for high-integrity randomness
-    const shuffled = pool.sort(() => Math.random() - 0.5);
+    // 2. COMPUTE WEIGHTS (BASK Authentic Weights)
+    // People: 35% (~47), Org: 35% (~47), Workplace: 30% (~40)
+    let finalSelection = [];
+    const totalReady = Object.values(pools).reduce((acc, p) => acc + p.length, 0);
 
-    // 3. APPLY PROPORTIONALITY GUARD
-    // If the pool is smaller than 134, we return the entire pool and flag it for the UI.
-    const isUnderStrength = length > 0 && length > shuffled.length;
-    const finalSelection = (length === -1 || length === 0) ? shuffled : shuffled.slice(0, length);
+    if (isWeighted || (domainId === 'ALL' && (length === 134 || length === 50))) {
+        // Apply SHRM Weights
+        const weights = { 'People': 0.35, 'Organization': 0.35, 'Workplace': 0.30, 'Competencies': 0.0 };
+        const targetLen = length === -1 ? totalReady : length;
+
+        Object.keys(pools).forEach(dom => {
+            const count = Math.floor(targetLen * (weights[dom] || 0));
+            // SEQUENTIAL ROLLING:
+            const pool = pools[dom].sort((a, b) => String(a.id).localeCompare(String(b.id), undefined, {numeric: true}));
+            const unseenPool = pool.filter(card => !statusKey || !card[statusKey] || card[statusKey] === 'unseen'); 
+            
+            finalSelection = [...finalSelection, ...unseenPool.slice(0, count)];
+        });
+
+        // Fill remainder sequentially
+        if (finalSelection.length < targetLen) {
+            const remainderCount = targetLen - finalSelection.length;
+            const unused = Object.values(pools).flat().filter(c => !finalSelection.includes(c));
+            const sortedUnused = unused.sort((a, b) => String(a.id).localeCompare(String(b.id), undefined, {numeric: true}));
+            finalSelection = [...finalSelection, ...sortedUnused.slice(0, remainderCount)];
+        }
+    } else {
+        // Monolithic Sequential Rolling
+        const flatPool = Object.values(pools).flat();
+        const pool = flatPool.sort((a, b) => String(a.id).localeCompare(String(b.id), undefined, {numeric: true}));
+        const unseenPool = pool.filter(card => !statusKey || !card[statusKey] || card[statusKey] === 'unseen');
+        
+        finalSelection = length === -1 ? unseenPool : unseenPool.slice(0, length);
+    }
+
+    const isUnderStrength = (length > 0 && totalReady < length);
 
     return {
         cards: finalSelection,
-        totalAvailable: pool.length,
+        totalAvailable: totalReady,
         isUnderStrength: isUnderStrength,
         requestedLength: length
     };

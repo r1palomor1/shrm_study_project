@@ -71,12 +71,18 @@ const VaultHealthMatrix = ({ decks, onSmartSync, isSyncing, syncProgress, syncSt
         const sData = vault[`${cleanId}:simple:${certLevel}`];
         const iData = vault[`${cleanId}:intelligent:${certLevel}`];
 
-        // PHYSICAL DATA CHECK: No shadow logic, just existence check
+        // PHYSICAL DATA CHECK: No shadow logic, just strict domain compliance
+        const isValidDomain = (tag) => {
+          if (!tag) return false;
+          const lower = tag.toLowerCase();
+          return lower.includes('people') || lower.includes('organization') || lower.includes('workplace');
+        };
+
         if (sData?.distractors) stats.simple++;
-        if (sData?.tag_bask) stats.simpleTags++;
+        if (isValidDomain(sData?.tag_bask)) stats.simpleTags++;
         if (iData?.scenario) stats.scenarios++;
         if (iData?.rationale) stats.rationales++;
-        if (iData?.tag_bask) stats.tags++;
+        if (isValidDomain(iData?.tag_bask)) stats.tags++;
       });
 
       return stats;

@@ -224,3 +224,41 @@ button:active {
   color: white;
   padding: 1rem;
 }
+
+/* Premium Slider styling */
+.premium-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  outline: none;
+}
+
+.premium-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  background: var(--primary);
+  border: 2px solid white;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 0 10px rgba(99, 102, 241, 0.5);
+  transition: transform 0.2s ease;
+  margin-top: -6px; /* Centers thumb vertically on the 6px track */
+}
+
+.premium-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+/* Pulse Button Animation */
+@keyframes pulse {
+  0% { transform: scale(1); box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3); }
+  50% { transform: scale(1.02); box-shadow: 0 4px 25px rgba(245, 158, 11, 0.5); }
+  100% { transform: scale(1); box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3); }
+}
+
+.pulse-button {
+  animation: pulse 2s infinite ease-in-out;
+}
