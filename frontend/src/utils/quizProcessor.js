@@ -265,6 +265,7 @@ export async function refineMetadataBatch(cards, certLevel, onProgress = null) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
+                mode: 'generate-distractors',
                 quizType: 'simple',
                 certLevel,
                 pipelineStage: 'tagging', // Surgical metadata only
