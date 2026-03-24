@@ -215,15 +215,16 @@ function App() {
       return;
     }
 
-    // Sync global state to the launched test
-    setQuizType(testType);
-    setCertLevel(level);
+    // PROGRESS RECOVERY: Audit seen vs unseen to calculate initialIndex
+    const statusKey = `status_quiz_${testType}_${level}`;
+    const seenCardsCount = data.cards.filter(c => c[statusKey] && c[statusKey] !== 'unseen').length;
+    const initialIndex = (data.cards.length > 0 && seenCardsCount === data.cards.length) ? 0 : seenCardsCount;
 
     setActiveStudyDeck({ 
       title: domainId === 'ALL' ? 'Full 2026 Simulator' : `Domain: ${domainId}`, 
       cards: data.cards, 
       totalOriginalCards: data.totalAvailable, 
-      initialIndex: 0, 
+      initialIndex: initialIndex, 
       quizType: testType, 
       certLevel: level,
       isUnderStrength: data.isUnderStrength,
@@ -465,7 +466,22 @@ function App() {
 
   const handleUpdateCardStatus = (cardId, status, historyData = {}) => {
     updateCardStatus(cardId, studyMode, status, { ...historyData, quizType: historyData.quizType || quizType, certLevel });
-    setDecks(loadDecksFromStorage());
+    
+    // UI RE-SYNC: Force the active session to see the updated data in real-time
+    const freshDecks = loadDecksFromStorage();
+    setDecks(freshDecks);
+    
+    if (activeStudyDeck) {
+      const updatedCards = activeStudyDeck.cards.map(c => {
+        if (c.id === cardId) {
+          const quizKey = `status_quiz_${historyData.quizType || quizType}_${certLevel}`;
+          const optionKey = `selected_option_${historyData.quizType || quizType}_${certLevel}`;
+          return { ...c, [quizKey]: status, [optionKey]: historyData.selectedOption };
+        }
+        return c;
+      });
+      setActiveStudyDeck(prev => ({ ...prev, cards: updatedCards }));
+    }
   };
 
   if (isStudying && activeStudyDeck) {

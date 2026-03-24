@@ -39,7 +39,7 @@ const DomainGrid = ({ decks, certLevel, onSelectDomain, studyMode, quizType, sel
           ? `status_quiz_${quizType}_${certLevel}` 
           : (studyMode === 'traditional' ? 'status_traditional' : 'status');
         
-        if (card[statusKey] === 'mastered' || card[statusKey] === 'correct') {
+        if (card[statusKey] === 'mastered' || card[statusKey] === 'correct' || card[statusKey] === 'difficulty-5' || card[statusKey] === 'difficulty-1') {
           progress[domain].mastered++;
         }
       });
