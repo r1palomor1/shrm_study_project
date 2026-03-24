@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import DataImporter from './DataImporter';
+import { loadVaultFromStorage } from '../utils/storage';
 
 /**
  * VaultManager: The "Administrative Layer" of the application.
@@ -27,11 +28,12 @@ const VaultManager = ({
   // Calculate Refinement Needs
   const needsRefinementCount = useMemo(() => {
     let count = 0;
-    const vault = JSON.parse(localStorage.getItem('shrm_vault') || '{}');
+    const vault = loadVaultFromStorage();
     decks.forEach(deck => {
       deck.cards.forEach(card => {
         const cleanId = String(card.id).replace(/[\s\n\r]/g, '');
-        const sData = vault[`${cleanId}:simple:${certLevel}`];
+        const key = `${cleanId}:simple:${certLevel}`;
+        const sData = vault[key];
         if (sData?.distractors && !sData?.tag_bask) {
           count++;
         }
@@ -189,7 +191,12 @@ const VaultManager = ({
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               {decks.map(deck => {
                 const totalCards = deck.cards.length;
-                const readyCount = deck.cards.filter(c => c[`status_quiz_intelligent_${certLevel}`] === 'ready').length;
+                const vault = loadVaultFromStorage();
+                const readyCount = deck.cards.filter(c => {
+                  const cleanId = String(c.id).replace(/[\s\n\r]/g, '');
+                  const iData = vault[`${cleanId}:intelligent:${certLevel}`];
+                  return !!iData?.scenario && !!iData?.rationale; // Match Matrix "READY" state
+                }).length;
                 const isReady = readyCount === totalCards && totalCards > 0;
 
                 return (
