@@ -115,9 +115,12 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
                 });
                 
                 if (savedOptionIndex !== -1) {
+                    console.info(`[SHRM HISTORY] Fuzzy match successful for Index ${savedOptionIndex}`);
                     setUserSelectedIdx(savedOptionIndex);
                     setIsConfirmed(true);
                 } else {
+                    console.warn(`[SHRM HISTORY BUG] Saved option not found in current shuffled set (Length: ${options.length})`);
+                    console.warn(`Saved (Normalized): "${normalizedSaved.substring(0, 30)}..."`);
                     setUserSelectedIdx(null);
                     setIsConfirmed(false);
                 }
@@ -141,7 +144,7 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
         if (userSelectedIdx === null) return;
         setIsConfirmed(true);
         
-        const aiData = getDistractorFromVault(card.id, deck.quizType, deck.certLevel);
+        const aiData = getDistractorFromVault(card.id, deck.quizType);
         const correctAnswer = (deck.quizType === 'intelligent' && aiData?.correct_answer) 
             ? aiData.correct_answer 
             : card.answer;
@@ -165,7 +168,7 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
         if (currentIndex < deck.cards.length - 1) {
             setCurrentIndex(currentIndex + 1);
         } else {
-            onBack(true);
+            onBack();
         }
     };
 

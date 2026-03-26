@@ -10,6 +10,7 @@ export default function TraditionalStudyMode({ deck, onBack, onUpdateCardStatus 
     const [tempPreviewFilter, setTempPreviewFilter] = useState(['1', '2', '3', '4', '5', 'unseen']);
     const [showFilterMenu, setShowFilterMenu] = useState(false);
     const [pendingScores, setPendingScores] = useState({}); // Tracking batch edits
+    const [isDeckComplete, setIsDeckComplete] = useState(false); // Deck end modal
     const card = deck.cards[currentIndex];
 
     // Reset revealed state whenever the card changes
@@ -47,8 +48,7 @@ export default function TraditionalStudyMode({ deck, onBack, onUpdateCardStatus 
         if (currentIndex < deck.cards.length - 1) {
             setCurrentIndex(currentIndex + 1);
         } else {
-            alert("You've finished the deck!");
-            onBack();
+            setIsDeckComplete(true);
         }
     };
 
@@ -809,6 +809,73 @@ export default function TraditionalStudyMode({ deck, onBack, onUpdateCardStatus 
                 </div>
             </div>
 
+            {/* Custom Deck Completion Modal */}
+            {isDeckComplete && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0, left: 0, right: 0, bottom: 0,
+                    backgroundColor: 'rgba(0,0,0,0.85)',
+                    backdropFilter: 'blur(12px)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 10005,
+                    padding: '2rem'
+                }}>
+                    <div className="glass-panel animate-fade-in" style={{
+                        width: '100%',
+                        maxWidth: '450px',
+                        padding: '2.5rem 2rem',
+                        backgroundColor: '#0f111a',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        boxShadow: '0 25px 50px -12px rgba(0,0,0,0.6)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderRadius: '24px',
+                        textAlign: 'center'
+                    }}>
+                        <div style={{
+                            width: '70px', height: '70px', borderRadius: '50%',
+                            background: 'rgba(99, 102, 241, 0.1)', 
+                            border: '1px solid rgba(99, 102, 241, 0.4)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            marginBottom: '1.5rem', color: '#818cf8'
+                        }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: '2.5rem' }}>verified</span>
+                        </div>
+                        <h2 style={{ fontSize: '1.8rem', fontWeight: '800', color: 'white', margin: '0 0 0.5rem 0' }}>Session Complete!</h2>
+                        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: '0 0 2rem 0', lineHeight: '1.5' }}>
+                            You have reviewed all {deck.cards.length} cards in this topic block. Your progress and confidence ratings have been synced.
+                        </p>
+                        
+                        <div style={{ display: 'flex', gap: '1rem', width: '100%' }}>
+                            <button 
+                                onClick={() => setIsDeckComplete(false)}
+                                style={{
+                                    flex: 1, padding: '0.8rem', borderRadius: '12px',
+                                    background: 'rgba(255,255,255,0.05)',
+                                    border: '1px solid rgba(255,255,255,0.1)',
+                                    color: 'white', fontSize: '0.9rem', fontWeight: 'bold',
+                                    cursor: 'pointer'
+                                }}
+                            >Review Session</button>
+                            <button 
+                                onClick={() => onBack(true)}
+                                style={{
+                                    flex: 1, padding: '0.8rem', borderRadius: '12px',
+                                    background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+                                    border: 'none',
+                                    color: 'white', fontSize: '0.9rem', fontWeight: 'bold',
+                                    cursor: 'pointer',
+                                    boxShadow: '0 4px 15px rgba(99, 102, 241, 0.3)'
+                                }}
+                            >Exit to Dashboard</button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1rem' }}>
                 <button

@@ -104,33 +104,15 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
         
         if (alreadyAnswered) {
             const savedOption = card[`selected_option_${deck.quizType}_${deck.certLevel}`];
-            if (savedOption) {
-                // HYPER-FUZZY MATCH: Remove all punctuation, symbols, and extra whitespace
-                const normalize = (str) => String(str).toLowerCase().replace(/[^a-z0-9]/g, '');
-                const normalizedSaved = normalize(savedOption);
-                
-                const savedOptionIndex = options.findIndex(opt => {
-                    const normalizedOpt = normalize(opt);
-                    return normalizedOpt === normalizedSaved;
-                });
-                
-                if (savedOptionIndex !== -1) {
-                    setUserSelectedIdx(savedOptionIndex);
-                    setIsConfirmed(true);
-                } else {
-                    setUserSelectedIdx(null);
-                    setIsConfirmed(false);
-                }
-            } else {
-                setUserSelectedIdx(null);
-                setIsConfirmed(false);
-            }
+            const savedOptionIndex = options.indexOf(savedOption);
+            setUserSelectedIdx(savedOptionIndex !== -1 ? savedOptionIndex : null);
+            setIsConfirmed(true);
         } else {
             setUserSelectedIdx(null);
             setIsConfirmed(false);
         }
         setShowHint(false);
-    }, [currentIndex, card.id, options, deck.quizType, deck.certLevel]);
+    }, [currentIndex, card.id, options, deck.quizType]);
 
     const handleSelect = (index) => {
         if (isConfirmed) return;
@@ -141,7 +123,7 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
         if (userSelectedIdx === null) return;
         setIsConfirmed(true);
         
-        const aiData = getDistractorFromVault(card.id, deck.quizType, deck.certLevel);
+        const aiData = getDistractorFromVault(card.id, deck.quizType);
         const correctAnswer = (deck.quizType === 'intelligent' && aiData?.correct_answer) 
             ? aiData.correct_answer 
             : card.answer;
@@ -165,7 +147,7 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
         if (currentIndex < deck.cards.length - 1) {
             setCurrentIndex(currentIndex + 1);
         } else {
-            onBack(true);
+            onBack();
         }
     };
 
@@ -307,11 +289,9 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
                     </div>
                 )}
 
-                {deck.quizType !== 'intelligent' && (
-                    <h2 style={{ fontSize: '1.3rem', textAlign: 'center', marginBottom: '1.5rem', lineHeight: '1.4', fontWeight: '500' }}>
-                        {card.question}
-                    </h2>
-                )}
+                <h2 style={{ fontSize: '1.3rem', textAlign: 'center', marginBottom: '1.5rem', lineHeight: '1.4', fontWeight: '500' }}>
+                    {deck.quizType === 'intelligent' ? (currentAiData?.question || card.question) : card.question}
+                </h2>
 
                 <div style={{ display: 'grid', gap: '1.2rem' }}>
                     {options.map((opt, i) => {

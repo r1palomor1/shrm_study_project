@@ -1,0 +1,38 @@
+﻿On branch main
+Your branch is up to date with 'origin/main'.
+
+Changes not staged for commit:
+  (use "git add/rm <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   frontend/src/App.jsx
+	modified:   frontend/src/components/DomainGrid.jsx
+	modified:   frontend/src/components/QuizStudyMode.jsx
+	modified:   frontend/src/utils/quizProcessor.js
+	modified:   frontend/src/utils/storage.js
+	deleted:    topics/SHRM_Backup_2026-03-24_1507_CP_SCP_Tags.json
+	deleted:    topics/shrm_dual_audit_2026-03-18_CP_SCP_Tags.md
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	frontend/src/App.jsx.bak
+	frontend/src/components/DomainGrid.jsx.bak
+	frontend/src/components/DomainGrid.jsx.bak2
+	frontend/src/components/DomainGrid.jsx.bak3
+	frontend/src/components/QuizStudyMode.jsx.bak
+	frontend/src/components/QuizStudyMode.jsx.bak2
+	frontend/src/components/QuizStudyMode.jsx.bak4
+	frontend/src/components/QuizStudyMode.jsx.bak5
+	frontend/src/utils/quizProcessor.js.bak2
+	frontend/src/utils/quizProcessor.js.bak3
+	frontend/src/utils/quizProcessor.js.bak5
+	frontend/src/utils/quizProcessor.js.bak6
+	frontend/src/utils/storage.js.bak2
+	frontend/src/utils/storage.js.bak3
+	log.txt
+	status.txt
+	topics/SHRM_Backup_2026-03-24_1744_CP_SCP_Tags_V1.json
+	topics/shrm_dual_audit_2026-03-18__CP_SCP_Tags_V1.md
+	topics/sources/SHRM_Backup_2026-03-24_1507_CP_SCP_Tags.json
+	topics/sources/shrm_dual_audit_2026-03-18_CP_SCP_Tags.md
+
+no changes added to commit (use "git add" and/or "git commit -a")

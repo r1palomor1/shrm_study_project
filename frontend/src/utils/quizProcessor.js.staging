@@ -1,4 +1,4 @@
-import { getDistractorFromVault, saveDistractorToVault, loadVaultFromStorage, saveMetadataToVault, resolveCardDomains } from './storage';
+import { getDistractorFromVault, saveDistractorToVault, loadVaultFromStorage, saveMetadataToVault } from './storage';
 
 /**
  * REFACTOR: Domain-First Extraction.
@@ -9,12 +9,16 @@ import { getDistractorFromVault, saveDistractorToVault, loadVaultFromStorage, sa
  * @param {string} requestedQuizType - 'intelligent' or 'simple'.
  * @param {string} certLevel - 'CP' or 'SCP'.
  */
-export async function getQuizDataByFilter(decks, filter = {}, requestedQuizType = 'intelligent', certLevel = 'CP', studyMode = 'quiz') {
+export async function getQuizDataByFilter(decks, filter = {}, requestedQuizType = 'intelligent', certLevel = 'CP') {
     const { domainId, length, isWeighted } = filter;
     const vault = loadVaultFromStorage();
-    const statusKey = studyMode === 'traditional' ? 'status_traditional' : `status_quiz_${requestedQuizType}_${certLevel}`;
+    const statusKey = `status_quiz_${requestedQuizType}_${certLevel}`;
 
-    // Helper removed - we now strictly use the universal routing matrix for 100% sync.
+    const isValidBaskDomain = (tag) => {
+        if (!tag) return false;
+        const low = tag.toLowerCase();
+        return low.includes('people') || low.includes('organization') || low.includes('workplace');
+    };
     
     // 1. Group cards by Domain into pools
     const pools = {
@@ -31,11 +35,15 @@ export async function getQuizDataByFilter(decks, filter = {}, requestedQuizType 
             
             if (!vaultData) return;
 
-            // STRUCTURAL SYNC: Universal Routing Hub
-            const cardDomains = resolveCardDomains(card, certLevel, deck.title, vault);
-            const primaryDomain = cardDomains[0] !== 'Competencies' ? cardDomains[0] : 'Competencies';
+            let domain = vaultData.tag_bask;
+            if (!isValidBaskDomain(domain)) {
+                if (deck.title.includes('People')) domain = 'People';
+                else if (deck.title.includes('Organization')) domain = 'Organization';
+                else if (deck.title.includes('Workplace')) domain = 'Workplace';
+                else domain = 'Competencies';
+            }
             
-            if (domainId && domainId !== 'ALL' && !cardDomains.includes(domainId)) return;
+            if (domainId && domainId !== 'ALL' && domain !== domainId) return;
 
             // Readiness Check
             let isReady = false;
@@ -46,7 +54,7 @@ export async function getQuizDataByFilter(decks, filter = {}, requestedQuizType 
             }
 
             if (isReady) {
-                pools[primaryDomain]?.push({
+                pools[domain]?.push({
                     ...card,
                     aiData: vaultData
                 });
@@ -73,7 +81,7 @@ export async function getQuizDataByFilter(decks, filter = {}, requestedQuizType 
             
             // PROGRESS BLOCK SELECTION
             const firstUnseenIdx = pool.findIndex(card => !card[statusKey] || card[statusKey] === 'unseen');
-            const startIdx = firstUnseenIdx === -1 ? 0 : firstUnseenIdx;
+            const startIdx = firstUnseenIdx === -1 ? 0 : Math.floor(firstUnseenIdx / count) * count;
             
             finalSelection = [...finalSelection, ...pool.slice(startIdx, startIdx + count)];
         });
@@ -90,15 +98,8 @@ export async function getQuizDataByFilter(decks, filter = {}, requestedQuizType 
         if (length === -1) {
             finalSelection = pool;
         } else {
-            const unseenPool = pool.filter(card => !card[statusKey] || card[statusKey] === 'unseen');
-            
-            console.error("ALERT: Need to solve this flashcard issue where array slice duplicates or ignores indices.");
-
-            if (unseenPool.length > 0) {
-                finalSelection = unseenPool.slice(0, length);
-            } else {
-                finalSelection = pool.slice(0, length);
-            }
+            const startIdx = firstUnseenIdx === -1 ? 0 : Math.floor(firstUnseenIdx / length) * length;
+            finalSelection = pool.slice(startIdx, startIdx + length);
         }
     }
 

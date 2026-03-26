@@ -105,12 +105,10 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
         if (alreadyAnswered) {
             const savedOption = card[`selected_option_${deck.quizType}_${deck.certLevel}`];
             if (savedOption) {
-                // HYPER-FUZZY MATCH: Remove all punctuation, symbols, and extra whitespace
-                const normalize = (str) => String(str).toLowerCase().replace(/[^a-z0-9]/g, '');
-                const normalizedSaved = normalize(savedOption);
-                
+                // ROBUST FUZZY MATCH: Match selection by content, ignoring whitespace/case variations
+                const normalizedSaved = String(savedOption).trim().replace(/\s+/g, ' ').toLowerCase();
                 const savedOptionIndex = options.findIndex(opt => {
-                    const normalizedOpt = normalize(opt);
+                    const normalizedOpt = String(opt).trim().replace(/\s+/g, ' ').toLowerCase();
                     return normalizedOpt === normalizedSaved;
                 });
                 
@@ -118,6 +116,7 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
                     setUserSelectedIdx(savedOptionIndex);
                     setIsConfirmed(true);
                 } else {
+                    console.warn(`[SHRM HISTORY BUG] Saved option not found in current shuffled set: "${savedOption.substring(0, 30)}..."`);
                     setUserSelectedIdx(null);
                     setIsConfirmed(false);
                 }
@@ -141,7 +140,7 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
         if (userSelectedIdx === null) return;
         setIsConfirmed(true);
         
-        const aiData = getDistractorFromVault(card.id, deck.quizType, deck.certLevel);
+        const aiData = getDistractorFromVault(card.id, deck.quizType);
         const correctAnswer = (deck.quizType === 'intelligent' && aiData?.correct_answer) 
             ? aiData.correct_answer 
             : card.answer;
@@ -165,7 +164,7 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
         if (currentIndex < deck.cards.length - 1) {
             setCurrentIndex(currentIndex + 1);
         } else {
-            onBack(true);
+            onBack();
         }
     };
 

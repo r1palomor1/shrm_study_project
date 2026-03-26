@@ -249,26 +249,26 @@ export function clearAiVault() {
  * Prioritizes AI-generated tags (tag_bask, tag_behavior) over legacy deck names.
  * Ensures the 'Competencies' card populates based on Behavioral tags.
  */
-export function resolveCardDomains(card, certLevel = 'CP', deckTitle = '', vault = null) {
-    const activeVault = vault || loadVaultFromStorage();
+function resolveCardDomains(card, deck, vault, certLevel) {
     const cleanId = String(card.id).replace(/[\s\n\r]/g, '');
     const intelKey = `${cleanId}:intelligent:${certLevel}`;
     const simpleKey = `${cleanId}:simple:${certLevel}`;
     
     // Check vault for both possible keys
-    const vaultData = activeVault[intelKey] || activeVault[simpleKey] || {};
-    const domains = ['Competencies']; // Every card belongs to the master hub
-    
-    // 1. BASK DOMAIN (tag_bask) -> People/Organization/Workplace
+    const vaultData = vault[intelKey] || vault[simpleKey] || {};
+    const domains = [];
+
+    // 1. ALL STUDY MATERIAL (Always include in the master card)
+    domains.push('Competencies');
+
+    // 2. BASK DOMAIN (tag_bask) -> Blue/Yellow/Green Cards
     let baskDomain = card.tag_bask || vaultData.tag_bask;
     
     // Fallback ONLY for identifying starting domain (un-synced state)
     if (!baskDomain) {
-        if (deckTitle && typeof deckTitle === 'string') {
-            if (deckTitle.includes('People')) baskDomain = 'People';
-            else if (deckTitle.includes('Organization')) baskDomain = 'Organization';
-            else if (deckTitle.includes('Workplace')) baskDomain = 'Workplace';
-        }
+        if (deck.title.includes('People')) baskDomain = 'People';
+        else if (deck.title.includes('Organization')) baskDomain = 'Organization';
+        else if (deck.title.includes('Workplace')) baskDomain = 'Workplace';
     }
 
     if (baskDomain) {
@@ -306,7 +306,7 @@ export function getVaultStats(certLevel, decks) {
             if (simpleData && Array.isArray(simpleData.distractors) && simpleData.distractors.length > 0) stats['ALL'].simple++;
 
             // 2. DOMAIN REPLICATION (A card can belong to a Domain and a Competency card)
-            const targetDomains = resolveCardDomains(card, certLevel, deck.title, vault);
+            const targetDomains = resolveCardDomains(card, deck, vault, certLevel);
             
             targetDomains.forEach(domain => {
                 if (stats[domain]) {
@@ -372,7 +372,7 @@ export function resetDomainProgress(domainId, quizType, certLevel) {
 
         decks.forEach(deck => {
             deck.cards.forEach(card => {
-                const targetDomains = resolveCardDomains(card, certLevel, deck.title, vault);
+                const targetDomains = resolveCardDomains(card, deck, vault, certLevel);
                 
                 if (targetDomains.includes(domainId)) {
                     card[statusKey] = 'unseen';
@@ -407,9 +407,7 @@ export function resetAllDecksProgress() {
                 Object.keys(card).forEach(key => {
                     if (key.includes('status_quiz_') || 
                         key.includes('history_') || 
-                        key.includes('selected_option_') ||
-                        key.includes('correct_count_') ||
-                        key.includes('incorrect_count_')) {
+                        key.includes('selected_option_')) {
                         delete card[key];
                     }
                 });
@@ -452,7 +450,6 @@ export function clearSimpleVaultData() {
 }
 
 export function updateCardStatus(cardId, studyMode, newStatus, historyData = null) {
-    console.log(`[DEBUG LOG] updateCardStatus fired! ID: ${cardId} | Mode: ${studyMode} | Status: ${newStatus}`);
     const certLevel = historyData?.certLevel || 'CP';
     const quizType = historyData?.quizType || 'intelligent';
     const statusKey = `status_quiz_${quizType}_${certLevel}`;
@@ -465,60 +462,56 @@ export function updateCardStatus(cardId, studyMode, newStatus, historyData = nul
     if (decks && decks.length > 0) {
         let updated = false;
         for (const deck of decks) {
-            for (let i = 0; i < deck.cards.length; i++) {
-                if (deck.cards[i].id === cardId) {
-                    console.log(`[DEBUG LOG] Found matching card in Vault: ${deck.title} -> ${cardId}. Applying status ${newStatus}.`);
-                    const card = deck.cards[i];
+            const cardIndex = deck.cards.findIndex(c => c.id === cardId);
+            if (cardIndex !== -1) {
+                const card = deck.cards[cardIndex];
+                
+                if (studyMode === 'traditional') {
+                    card.status_traditional = newStatus;
+                    // Tracker for traditional mastery (hits/misses) if we want it too
+                    const tradCorrectKey = 'correct_count_traditional';
+                    const tradIncorrectKey = 'incorrect_count_traditional';
+                    if (newStatus === 'difficulty-5') card[tradCorrectKey] = (card[tradCorrectKey] || 0) + 1;
+                    if (newStatus === 'difficulty-1') card[tradIncorrectKey] = (card[tradIncorrectKey] || 0) + 1;
+                } else if (studyMode === 'test') {
+                    card.status_test = newStatus;
+                } else if (studyMode === 'quiz') {
+                    card[statusKey] = newStatus;
                     
-                    if (studyMode === 'traditional') {
-                        card.status_traditional = newStatus;
-                        // Tracker for traditional mastery (hits/misses) if we want it too
-                        const tradCorrectKey = 'correct_count_traditional';
-                        const tradIncorrectKey = 'incorrect_count_traditional';
-                        if (newStatus === 'difficulty-5') card[tradCorrectKey] = (card[tradCorrectKey] || 0) + 1;
-                        if (newStatus === 'difficulty-1') card[tradIncorrectKey] = (card[tradIncorrectKey] || 0) + 1;
-                    } else if (studyMode === 'test') {
-                        card.status_test = newStatus;
-                    } else if (studyMode === 'quiz') {
-                        card[statusKey] = newStatus;
-                        
-                        // ACCURACY PERSISTENCE: Increment Lifetime Hits vs Misses
-                        if (newStatus === 'difficulty-5') card[correctCountKey] = (card[correctCountKey] || 0) + 1;
-                        if (newStatus === 'difficulty-1') card[incorrectCountKey] = (card[incorrectCountKey] || 0) + 1;
+                    // ACCURACY PERSISTENCE: Increment Lifetime Hits vs Misses
+                    if (newStatus === 'difficulty-5') card[correctCountKey] = (card[correctCountKey] || 0) + 1;
+                    if (newStatus === 'difficulty-1') card[incorrectCountKey] = (card[incorrectCountKey] || 0) + 1;
 
-                        // Persist the specific option selected by the user
-                        if (historyData?.selectedOption) {
-                            card[optionKey] = historyData.selectedOption;
-                        }
+                    // Persist the specific option selected by the user
+                    if (historyData?.selectedOption) {
+                        card[optionKey] = historyData.selectedOption;
                     }
-
-                    // Save permanent history if provided
-                    if (historyData) {
-                        if (studyMode === 'test') {
-                            card.history_test = {
-                                userInput: historyData.userInput,
-                                grade: newStatus,
-                                percentage: historyData.percentage,
-                                feedback: historyData.feedback,
-                                timestamp: new Date().toISOString()
-                            };
-                        } else if (studyMode === 'quiz') {
-                            card[historyKey] = {
-                                grade: newStatus,
-                                timestamp: new Date().toISOString()
-                            };
-                        }
-                    }
-
-                    updated = true;
                 }
+
+                // Save permanent history if provided
+                if (historyData) {
+                    if (studyMode === 'test') {
+                        card.history_test = {
+                            userInput: historyData.userInput,
+                            grade: newStatus,
+                            percentage: historyData.percentage,
+                            feedback: historyData.feedback,
+                            timestamp: new Date().toISOString()
+                        };
+                    } else if (studyMode === 'quiz') {
+                        card[historyKey] = {
+                            grade: newStatus,
+                            timestamp: new Date().toISOString()
+                        };
+                    }
+                }
+
+                updated = true;
+                break;
             }
         }
         if (updated) {
-            console.log(`[DEBUG LOG] Successfully pushed ${cardId} update to exact localStorage Vault object.`);
             localStorage.setItem(STORAGE_KEY, JSON.stringify(decks));
-        } else {
-            console.error(`[DEBUG LOG] ERROR: No card matching ${cardId} was found in the Global Vault!`);
         }
     }
 }

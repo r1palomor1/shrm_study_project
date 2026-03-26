@@ -1,4 +1,4 @@
-import { getDistractorFromVault, saveDistractorToVault, loadVaultFromStorage, saveMetadataToVault, resolveCardDomains } from './storage';
+import { getDistractorFromVault, saveDistractorToVault, loadVaultFromStorage, saveMetadataToVault } from './storage';
 
 /**
  * REFACTOR: Domain-First Extraction.
@@ -9,12 +9,16 @@ import { getDistractorFromVault, saveDistractorToVault, loadVaultFromStorage, sa
  * @param {string} requestedQuizType - 'intelligent' or 'simple'.
  * @param {string} certLevel - 'CP' or 'SCP'.
  */
-export async function getQuizDataByFilter(decks, filter = {}, requestedQuizType = 'intelligent', certLevel = 'CP', studyMode = 'quiz') {
+export async function getQuizDataByFilter(decks, filter = {}, requestedQuizType = 'intelligent', certLevel = 'CP') {
     const { domainId, length, isWeighted } = filter;
     const vault = loadVaultFromStorage();
-    const statusKey = studyMode === 'traditional' ? 'status_traditional' : `status_quiz_${requestedQuizType}_${certLevel}`;
+    const statusKey = `status_quiz_${requestedQuizType}_${certLevel}`;
 
-    // Helper removed - we now strictly use the universal routing matrix for 100% sync.
+    const isValidBaskDomain = (tag) => {
+        if (!tag) return false;
+        const low = tag.toLowerCase();
+        return low.includes('people') || low.includes('organization') || low.includes('workplace');
+    };
     
     // 1. Group cards by Domain into pools
     const pools = {
@@ -31,11 +35,15 @@ export async function getQuizDataByFilter(decks, filter = {}, requestedQuizType 
             
             if (!vaultData) return;
 
-            // STRUCTURAL SYNC: Universal Routing Hub
-            const cardDomains = resolveCardDomains(card, certLevel, deck.title, vault);
-            const primaryDomain = cardDomains[0] !== 'Competencies' ? cardDomains[0] : 'Competencies';
+            let domain = vaultData.tag_bask;
+            if (!isValidBaskDomain(domain)) {
+                if (deck.title.includes('People')) domain = 'People';
+                else if (deck.title.includes('Organization')) domain = 'Organization';
+                else if (deck.title.includes('Workplace')) domain = 'Workplace';
+                else domain = 'Competencies';
+            }
             
-            if (domainId && domainId !== 'ALL' && !cardDomains.includes(domainId)) return;
+            if (domainId && domainId !== 'ALL' && domain !== domainId) return;
 
             // Readiness Check
             let isReady = false;
@@ -46,7 +54,7 @@ export async function getQuizDataByFilter(decks, filter = {}, requestedQuizType 
             }
 
             if (isReady) {
-                pools[primaryDomain]?.push({
+                pools[domain]?.push({
                     ...card,
                     aiData: vaultData
                 });
@@ -65,41 +73,28 @@ export async function getQuizDataByFilter(decks, filter = {}, requestedQuizType 
         const targetLen = length === -1 ? totalReady : length;
 
         Object.keys(pools).forEach(dom => {
+            const count = Math.floor(targetLen * (weights[dom] || 0));
+            // SEQUENTIAL ROLLING:
             const pool = pools[dom].sort((a, b) => String(a.id).localeCompare(String(b.id), undefined, {numeric: true}));
-            if (pool.length === 0) return;
-
-            const domainWeight = weights[dom] || 0;
-            const count = Math.max(1, Math.floor(targetLen * domainWeight));
+            const unseenPool = pool.filter(card => !statusKey || !card[statusKey] || card[statusKey] === 'unseen'); 
             
-            // PROGRESS BLOCK SELECTION
-            const firstUnseenIdx = pool.findIndex(card => !card[statusKey] || card[statusKey] === 'unseen');
-            const startIdx = firstUnseenIdx === -1 ? 0 : firstUnseenIdx;
-            
-            finalSelection = [...finalSelection, ...pool.slice(startIdx, startIdx + count)];
+            finalSelection = [...finalSelection, ...unseenPool.slice(0, count)];
         });
 
-        // Hard Slice to ensure we don't exceed targetLen (e.g., 10)
-        finalSelection = finalSelection.slice(0, targetLen);
+        // Fill remainder sequentially
+        if (finalSelection.length < targetLen) {
+            const remainderCount = targetLen - finalSelection.length;
+            const unused = Object.values(pools).flat().filter(c => !finalSelection.includes(c));
+            const sortedUnused = unused.sort((a, b) => String(a.id).localeCompare(String(b.id), undefined, {numeric: true}));
+            finalSelection = [...finalSelection, ...sortedUnused.slice(0, remainderCount)];
+        }
     } else {
         // Monolithic Sequential Rolling
         const flatPool = Object.values(pools).flat();
         const pool = flatPool.sort((a, b) => String(a.id).localeCompare(String(b.id), undefined, {numeric: true}));
+        const unseenPool = pool.filter(card => !statusKey || !card[statusKey] || card[statusKey] === 'unseen');
         
-        const firstUnseenIdx = pool.findIndex(card => !card[statusKey] || card[statusKey] === 'unseen');
-        
-        if (length === -1) {
-            finalSelection = pool;
-        } else {
-            const unseenPool = pool.filter(card => !card[statusKey] || card[statusKey] === 'unseen');
-            
-            console.error("ALERT: Need to solve this flashcard issue where array slice duplicates or ignores indices.");
-
-            if (unseenPool.length > 0) {
-                finalSelection = unseenPool.slice(0, length);
-            } else {
-                finalSelection = pool.slice(0, length);
-            }
-        }
+        finalSelection = length === -1 ? unseenPool : unseenPool.slice(0, length);
     }
 
     const isUnderStrength = (length > 0 && totalReady < length);

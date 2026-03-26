@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import VaultManager from './components/VaultManager';
 import DomainGrid from './components/DomainGrid';
 import SmartTestOverlay from './components/SmartTestOverlay';
@@ -57,11 +57,6 @@ function App() {
   // Selection & Launch States
   const [selectedDomain, setSelectedDomain] = useState('ALL');
   const [isTestOverlayOpen, setIsTestOverlayOpen] = useState(false);
-
-  // CORE PERFORMANCE OPTIMIZATION: Memoize the heavy vault JSON parse
-  const vaultStats = useMemo(() => {
-    return decks.length > 0 ? getVaultStats(certLevel, decks) : {};
-  }, [certLevel, decks]);
 
   useEffect(() => {
     localStorage.setItem('shrm_cert_level', certLevel);
@@ -210,10 +205,9 @@ function App() {
   };
 
   const handleStartTestFromSidebar = (isWeighted = false) => {
-    const effectiveLength = studyMode === 'traditional' ? -1 : testLength;
     handleStartTestDirectly({ 
       domainId: selectedDomain, 
-      testLength: isWeighted ? 134 : effectiveLength, 
+      testLength: isWeighted ? 134 : testLength, 
       testType: quizType, 
       certLevel,
       isWeighted
@@ -224,41 +218,10 @@ function App() {
     const { domainId, testLength: lengthReq, testType, certLevel: level, isWeighted } = config;
     setIsTestOverlayOpen(false);
     
-    const activeSessionKey = `shrm_active_session_${studyMode}_${domainId}_${testType}_${level}`;
-    const statusKey = studyMode === 'traditional' ? 'status_traditional' : `status_quiz_${testType}_${level}`;
-
-    if (!isWeighted) {
-        const savedSessionStr = localStorage.getItem(activeSessionKey);
-        if (savedSessionStr) {
-            const savedSession = JSON.parse(savedSessionStr);
-            if (savedSession.requestedLength === lengthReq) {
-                const refreshedCards = savedSession.cards.map(c => {
-                    const latest = decks.flatMap(d => d.cards).find(dc => dc.id === c.id);
-                    return latest || c;
-                });
-                
-                const firstUnseenIdx = refreshedCards.findIndex(c => !c[statusKey] || c[statusKey] === 'unseen');
-                
-                if (firstUnseenIdx !== -1) {
-                    setActiveStudyDeck({ 
-                      ...savedSession,
-                      cards: refreshedCards,
-                      initialIndex: firstUnseenIdx,
-                      sessionKey: activeSessionKey
-                    });
-                    setIsStudying(true);
-                    return;
-                } else {
-                    localStorage.removeItem(activeSessionKey);
-                }
-            }
-        }
-    }
-
     // Engine Logic: Use the new Domain-First filter
     const effectiveLength = lengthReq === -1 ? 9999 : lengthReq;
     const filter = { domainId, length: effectiveLength, isWeighted };
-    const data = await getQuizDataByFilter(decks, filter, testType, level, studyMode);
+    const data = await getQuizDataByFilter(decks, filter, testType, level);
     
     if (data.cards.length === 0) {
       setConfirmModal({
@@ -272,11 +235,12 @@ function App() {
       return;
     }
 
-    // PROGRESS RECOVERY: Find the index of the FIRST unseen card in the returned set
-    const firstUnseenIdx = data.cards.findIndex(c => !c[statusKey] || c[statusKey] === 'unseen');
-    const initialIndex = firstUnseenIdx === -1 ? 0 : firstUnseenIdx;
+    // PROGRESS RECOVERY: Audit seen vs unseen to calculate initialIndex
+    const statusKey = `status_quiz_${testType}_${level}`;
+    const seenCardsCount = data.cards.filter(c => c[statusKey] && c[statusKey] !== 'unseen').length;
+    const initialIndex = (data.cards.length > 0 && seenCardsCount === data.cards.length) ? 0 : seenCardsCount;
 
-    const activeDeckToSave = { 
+    setActiveStudyDeck({ 
       title: domainId === 'ALL' ? 'Full 2026 Simulator' : `Domain: ${domainId}`, 
       cards: data.cards, 
       totalOriginalCards: data.totalAvailable, 
@@ -284,15 +248,8 @@ function App() {
       quizType: testType, 
       certLevel: level,
       isUnderStrength: data.isUnderStrength,
-      requestedLength: lengthReq,
-      sessionKey: !isWeighted ? activeSessionKey : null
-    };
-
-    if (!isWeighted) {
-        localStorage.setItem(activeSessionKey, JSON.stringify(activeDeckToSave));
-    }
-    
-    setActiveStudyDeck(activeDeckToSave);
+      requestedLength: lengthReq
+    });
     setIsStudying(true);
   };
 
@@ -537,42 +494,23 @@ function App() {
     if (activeStudyDeck) {
       const updatedCards = activeStudyDeck.cards.map(c => {
         if (c.id === cardId) {
-          if (studyMode === 'traditional') {
-             return { ...c, status_traditional: status };
-          }
           const quizKey = `status_quiz_${historyData.quizType || quizType}_${certLevel}`;
           const optionKey = `selected_option_${historyData.quizType || quizType}_${certLevel}`;
           return { ...c, [quizKey]: status, [optionKey]: historyData.selectedOption };
         }
         return c;
       });
-      setActiveStudyDeck(prev => {
-          const newDeck = { ...prev, cards: updatedCards };
-          if (newDeck.sessionKey) {
-              localStorage.setItem(newDeck.sessionKey, JSON.stringify(newDeck));
-          }
-          return newDeck;
-      });
+      setActiveStudyDeck(prev => ({ ...prev, cards: updatedCards }));
     }
-  };
-
-  const handleExitStudy = (isFinished = false) => {
-    if (activeStudyDeck && activeStudyDeck.sessionKey) {
-       if (isFinished === true) {
-           localStorage.removeItem(activeStudyDeck.sessionKey);
-       }
-    }
-    setIsStudying(false);
-    setActiveStudyDeck(null);
   };
 
   if (isStudying && activeStudyDeck) {
     return (
       <div className="app-container animate-fade-in" style={{ paddingTop: '2rem' }}>
         {studyMode === 'traditional' ? (
-          <TraditionalStudyMode deck={activeStudyDeck} onBack={handleExitStudy} onUpdateCardStatus={handleUpdateCardStatus} />
+          <TraditionalStudyMode deck={activeStudyDeck} onBack={() => setIsStudying(false)} onUpdateCardStatus={handleUpdateCardStatus} />
         ) : (
-          <QuizStudyMode deck={activeStudyDeck} onBack={handleExitStudy} onUpdateCardStatus={handleUpdateCardStatus} />
+          <QuizStudyMode deck={activeStudyDeck} onBack={() => setIsStudying(false)} onUpdateCardStatus={handleUpdateCardStatus} />
         )}
       </div>
     );
@@ -598,7 +536,7 @@ function App() {
           {decks.length > 0 && (
             <div style={{ display: 'flex', gap: '1.5rem', fontSize: '0.75rem', marginLeft: '1rem' }}>
               {(() => {
-                const stats = vaultStats[selectedDomain] || { intelligent: 0, simple: 0 };
+                const stats = getVaultStats(certLevel, decks)[selectedDomain] || { intelligent: 0, simple: 0 };
                 const count = quizType === 'intelligent' ? stats.intelligent : stats.simple;
                 
                 if (count > 0) {
@@ -777,86 +715,84 @@ function App() {
                 )}
 
                 {/* SELECT QUIZ LENGTH (DYNAMIC SLIDER) */}
-                {studyMode === 'quiz' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', paddingTop: '1.2rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                    {(() => {
-                      const stats = vaultStats[selectedDomain] || { intelligent: 0, simple: 0, total: 0 };
-                      const readyCount = quizType === 'intelligent' ? stats.intelligent : stats.simple;
-                      const maxVal = Math.max(1, readyCount);
-                      const isGlobal = selectedDomain === 'ALL';
-                      const isExamReady = isGlobal && readyCount >= 134;
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', paddingTop: '1.2rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                  {(() => {
+                    const stats = getVaultStats(certLevel, decks)[selectedDomain] || { intelligent: 0, simple: 0, total: 0 };
+                    const readyCount = quizType === 'intelligent' ? stats.intelligent : stats.simple;
+                    const maxVal = Math.max(1, readyCount);
+                    const isGlobal = selectedDomain === 'ALL';
+                    const isExamReady = isGlobal && readyCount >= 134;
 
-                      return (
-                        <>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <label style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                              Test Question Size
-                            </label>
-                            <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--secondary)' }}>
-                              {testLength === -1 ? `Full (${readyCount})` : `${testLength} Cards`}
-                            </span>
+                    return (
+                      <>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <label style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            Test Question Size
+                          </label>
+                          <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--secondary)' }}>
+                            {testLength === -1 ? `Full (${readyCount})` : `${testLength} Cards`}
+                          </span>
+                        </div>
+
+                        {/* PREMIUM SLIDER UI (With Boundaries and Snap-to-5) */}
+                        <div style={{ padding: '0.5rem 0' }}>
+                          <input 
+                            type="range" 
+                            min="5" 
+                            max={maxVal} 
+                            step="5"
+                            list="tickmarks"
+                            value={testLength === -1 ? maxVal : Math.min(testLength, maxVal)}
+                            onChange={(e) => setTestLength(parseInt(e.target.value))}
+                            className="premium-slider"
+                            style={{ width: '100%', cursor: 'pointer' }}
+                          />
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.3rem', fontSize: '0.7rem', color: 'rgba(255,255,255,0.7)', fontWeight: 'bold' }}>
+                            <span>0</span>
+                            <span>{maxVal}</span>
                           </div>
+                          <datalist id="tickmarks">
+                             {Array.from({ length: Math.floor(maxVal / 10) + 1 }, (_, i) => (
+                               <option key={i * 10} value={i * 10}></option>
+                             ))}
+                          </datalist>
+                        </div>
 
-                          {/* PREMIUM SLIDER UI (With Boundaries and Snap-to-5) */}
-                          <div style={{ padding: '0.5rem 0' }}>
-                            <input 
-                              type="range" 
-                              min="5" 
-                              max={maxVal} 
-                              step="5"
-                              list="tickmarks"
-                              value={testLength === -1 ? maxVal : Math.min(testLength, maxVal)}
-                              onChange={(e) => setTestLength(parseInt(e.target.value))}
-                              className="premium-slider"
-                              style={{ width: '100%', cursor: 'pointer' }}
-                            />
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.3rem', fontSize: '0.7rem', color: 'rgba(255,255,255,0.7)', fontWeight: 'bold' }}>
-                              <span>0</span>
-                              <span>{maxVal}</span>
-                            </div>
-                            <datalist id="tickmarks">
-                               {Array.from({ length: Math.floor(maxVal / 10) + 1 }, (_, i) => (
-                                 <option key={i * 10} value={i * 10}></option>
-                               ))}
-                            </datalist>
+                        {/* EXAM SIMULATOR PULSE BUTTON (Unlocked at 134+ global) */}
+                        {isExamReady && (
+                          <div className="animate-fade-in" style={{ marginTop: '0.5rem' }}>
+                            <button 
+                              onClick={() => handleStartTestFromSidebar(true)}
+                              className="pulse-button"
+                              style={{ 
+                                width: '100%',
+                                padding: '0.7rem',
+                                borderRadius: '12px',
+                                background: 'linear-gradient(135deg, #fbbf24, #f59e0b)',
+                                border: 'none',
+                                color: '#0f172a',
+                                fontSize: '0.75rem',
+                                fontWeight: '900',
+                                cursor: 'pointer',
+                                boxShadow: '0 4px 15px rgba(245, 158, 11, 0.3)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '0.6rem'
+                              }}
+                            >
+                              <span className="material-symbols-outlined" style={{ fontSize: '1.2rem' }}>military_tech</span>
+                              LAUNCH 134-QUESTION SIMULATION
+                            </button>
+                            <p style={{ fontSize: '0.6rem', color: '#fbbf24', textAlign: 'center', marginTop: '0.4rem', fontStyle: 'italic', opacity: 0.8 }}>
+                              Full Exam Distribution (35% People | 35% Org | 30% Workplace)
+                            </p>
                           </div>
-
-                          {/* EXAM SIMULATOR PULSE BUTTON (Unlocked at 134+ global) */}
-                          {isExamReady && (
-                            <div className="animate-fade-in" style={{ marginTop: '0.5rem' }}>
-                              <button 
-                                onClick={() => handleStartTestFromSidebar(true)}
-                                className="pulse-button"
-                                style={{ 
-                                  width: '100%',
-                                  padding: '0.7rem',
-                                  borderRadius: '12px',
-                                  background: 'linear-gradient(135deg, #fbbf24, #f59e0b)',
-                                  border: 'none',
-                                  color: '#0f172a',
-                                  fontSize: '0.75rem',
-                                  fontWeight: '900',
-                                  cursor: 'pointer',
-                                  boxShadow: '0 4px 15px rgba(245, 158, 11, 0.3)',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  gap: '0.6rem'
-                                }}
-                              >
-                                <span className="material-symbols-outlined" style={{ fontSize: '1.2rem' }}>military_tech</span>
-                                LAUNCH 134-QUESTION SIMULATION
-                              </button>
-                              <p style={{ fontSize: '0.6rem', color: '#fbbf24', textAlign: 'center', marginTop: '0.4rem', fontStyle: 'italic', opacity: 0.8 }}>
-                                Full Exam Distribution (35% People | 35% Org | 30% Workplace)
-                              </p>
-                            </div>
-                          )}
-                        </>
-                      );
-                    })()}
-                  </div>
-                )}
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
 
                 {/* POOL STRENGTH WARNING */}
                 {(() => {
@@ -875,7 +811,7 @@ function App() {
 
                 {/* START STUDYING BUTTON */}
                 <button 
-                  onClick={() => handleStartTestFromSidebar(false)}
+                  onClick={handleStartTestFromSidebar}
                   style={{ 
                     marginTop: '0.5rem',
                     width: '100%',

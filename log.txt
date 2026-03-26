@@ -1,0 +1,29 @@
+﻿commit d9ac4fb266d72e4994f6ea1c8019a66562d41a56
+Author: palomo32 <palomo32@gmail.com>
+Date:   Tue Mar 24 17:32:36 2026 -0500
+
+    SHRM 2026: Hardened Smart Sync Engine (Strict Domain Audit)
+
+commit 2ef63923005d63717bd9c9c7446b4bf2d40e70a3
+Author: palomo32 <palomo32@gmail.com>
+Date:   Tue Mar 24 17:25:29 2026 -0500
+
+    SHRM 2026: Implemented Tag-Driven Dashboard Unification & Strict Matrix Audit
+
+commit 6ef7e279b39568d4535e9fda835396a320889408
+Author: palomo32 <palomo32@gmail.com>
+Date:   Tue Mar 24 13:28:43 2026 -0500
+
+    SHRM 2026: Restored Study Persistence & History (Unification with Domain Grid)
+
+commit c6c695ba7102f60a02e57e262d84544e07a49457
+Author: palomo32 <palomo32@gmail.com>
+Date:   Mon Mar 23 20:36:32 2026 -0500
+
+    Cleanup: remove staging artifact
+
+commit e6c1297ed1d92eed3aeee91e008f246e11ff1c57
+Author: palomo32 <palomo32@gmail.com>
+Date:   Mon Mar 23 20:34:15 2026 -0500
+
+    2026 SHRM BASK polish: Structural Vault Key Unification (VaultManager Fix)
