@@ -92,14 +92,16 @@ export async function getQuizDataByFilter(decks, filter = {}, requestedQuizType 
         } else {
             const unseenPool = pool.filter(card => !card[statusKey] || card[statusKey] === 'unseen');
             
-            console.error("ALERT: Need to solve this flashcard issue where array slice duplicates or ignores indices.");
-
-            if (unseenPool.length > 0) {
+            if (unseenPool.length >= length) {
                 finalSelection = unseenPool.slice(0, length);
             } else {
-                finalSelection = pool.slice(0, length);
+                // Not enough unseen? Grab all unseen + some seen from start of main pool
+                const seenPool = pool.filter(card => card[statusKey] === 'seen');
+                const needed = length - unseenPool.length;
+                finalSelection = [...unseenPool, ...seenPool.slice(0, needed)];
             }
         }
+
     }
 
     const isUnderStrength = (length > 0 && totalReady < length);

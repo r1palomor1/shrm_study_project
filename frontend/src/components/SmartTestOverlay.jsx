@@ -18,8 +18,9 @@ const SmartTestOverlay = ({
   // testType (intelligent vs simple) is now controlled by the sidebar prop
   const testType = quizType;
   
-  const stats = vaultStats[domainId] || { simple: 0, intelligent: 0, total: 0 };
+  const stats = (vaultStats && domainId && vaultStats[domainId]) || { simple: 0, intelligent: 0, total: 0 };
   const availableCount = testType === 'intelligent' ? stats.intelligent : stats.simple;
+
   
   const isSimulation = testLength === 134;
   const isUnderStrength = availableCount < testLength && testLength !== -1; // -1 for "All Available"

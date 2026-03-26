@@ -452,8 +452,8 @@ export function clearSimpleVaultData() {
 }
 
 export function updateCardStatus(cardId, studyMode, newStatus, historyData = null) {
+    console.log(`[DEBUG LOG] updateCardStatus fired! ID: ${cardId} | Mode: ${studyMode} | Status: ${newStatus}`);
     const certLevel = historyData?.certLevel || 'CP';
-
     const quizType = historyData?.quizType || 'intelligent';
     const statusKey = `status_quiz_${quizType}_${certLevel}`;
     const historyKey = `history_quiz_${quizType}_${certLevel}`;
@@ -467,10 +467,10 @@ export function updateCardStatus(cardId, studyMode, newStatus, historyData = nul
         for (const deck of decks) {
             for (let i = 0; i < deck.cards.length; i++) {
                 if (deck.cards[i].id === cardId) {
+                    console.log(`[DEBUG LOG] Found matching card in Vault: ${deck.title} -> ${cardId}. Applying status ${newStatus}.`);
                     const card = deck.cards[i];
-
                     
-                    if (newStatus === 'audio_seen') {
+                    if (studyMode === 'audio' || newStatus === 'audio_seen') {
                         card.status_audio_seen = 'seen';
                     } else if (newStatus === 'audio_reset') {
                         card.status_audio_seen = null;
@@ -520,10 +520,10 @@ export function updateCardStatus(cardId, studyMode, newStatus, historyData = nul
             }
         }
         if (updated) {
+            console.log(`[DEBUG LOG] Successfully pushed ${cardId} update to exact localStorage Vault object.`);
             localStorage.setItem(STORAGE_KEY, JSON.stringify(decks));
         } else {
-            console.error(`[CRITICAL ERROR] No card matching ${cardId} was found in the Global Vault!`);
+            console.error(`[DEBUG LOG] ERROR: No card matching ${cardId} was found in the Global Vault!`);
         }
-
     }
 }
