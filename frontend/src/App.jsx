@@ -61,11 +61,6 @@ function App() {
   const [selectedDomain, setSelectedDomain] = useState('ALL');
   const [isTestOverlayOpen, setIsTestOverlayOpen] = useState(false);
 
-  // CORE PERFORMANCE OPTIMIZATION: Memoize the heavy vault JSON parse
-  const vaultStats = useMemo(() => {
-    return decks.length > 0 ? getVaultStats(certLevel, decks) : {};
-  }, [certLevel, decks, isWarmingUp, isRefining, isPolishingGaps]);
-
   useEffect(() => {
     localStorage.setItem('shrm_cert_level', certLevel);
     setWarmUpStatus(null);
@@ -81,6 +76,11 @@ function App() {
   const [isVaultManagerOpen, setIsVaultManagerOpen] = useState(false);
   const [isPolishingGaps, setIsPolishingGaps] = useState(false);
   const [polishingGapsProgress, setPolishingGapsProgress] = useState(0);
+
+  // CORE PERFORMANCE OPTIMIZATION: Memoize the heavy vault JSON parse
+  const vaultStats = useMemo(() => {
+    return decks.length > 0 ? getVaultStats(certLevel, decks) : {};
+  }, [certLevel, decks, isWarmingUp, isRefining, isPolishingGaps]);
 
   useEffect(() => {
     const savedDecks = loadDecksFromStorage();
