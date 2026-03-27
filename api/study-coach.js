@@ -59,6 +59,19 @@ async function handleGenerateDistractors(req, res) {
             TASK: Generate traps and rationale for the Seed.
             UI SYNC MANDATE: Prepare gap_analysis label.
             `;
+        } else if (pipelineStage === 'polish-gaps') {
+            // --- SURGICAL STAGE: THE STRATEGIC REFINEMENT ---
+            promptSystemInstructions = `
+            ROLE: SHRM 2026 Strategic Logic Refiner
+            TASK: Revise the provided "Gap Analysis" from a 2-word label into a single, high-density strategic sentence.
+            
+            UNIFIED FIELD THEORY:
+            - Analyze the provided SCENARIO and DEFINITION.
+            - Identify the specific 'Trap' (almost-correct choice) hidden in that context.
+            - Output ONE DESCRIPTIVE SENTENCE (15-25 words) that coaches the student on the logic gap.
+            - FORMAT: "Trap Alert: [Identifying the tactical/operational error vs the strategic SHRM standard]."
+            - DO NOT output generic labels like "Symptomatic Fix" or "Premature Escalation".
+            `;
         } else {
             promptSystemInstructions = `ROLE: SHRM 2026 Architect. Generate full data in one call.`;
         }
@@ -77,6 +90,8 @@ async function handleGenerateDistractors(req, res) {
     let outputFormat = "";
     if (pipelineStage === 'tagging') {
         outputFormat = `{ "results": [{ "id": "MUST match input ID", "tag_bask": "string", "tag_behavior": "string" }] }`;
+    } else if (pipelineStage === 'polish-gaps') {
+        outputFormat = `{ "results": [{ "id": "MUST match input ID", "gap_analysis": "string" }] }`;
     } else {
         outputFormat = (pipelineStage === 'seed' || quizType === 'simple')
             ? `{ "results": [{ "id": "MUST match input ID", "scenario": "string", "correct_answer": "string", "tag_bask": "string", "tag_behavior": "string" ${quizType === 'simple' ? ', "distractors": ["3 items"]' : ''} }] }`
@@ -97,7 +112,7 @@ async function handleGenerateDistractors(req, res) {
     3. CHARACTER SAFETY: Use standard straight quotes.
 
     Input Cards:
-    ${cards.map(c => `ID: ${c.id}\nTerm: ${c.question}\nDefinition: ${c.answer}`).join('\n---\n')}
+    ${cards.map(c => `ID: ${c.id}\nTerm: ${c.question}\nDefinition: ${c.answer}${c.scenario ? `\nScenario: ${c.scenario}` : ''}`).join('\n---\n')}
 
     Return JSON format:
     ${outputFormat}

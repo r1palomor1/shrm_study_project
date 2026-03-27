@@ -380,3 +380,49 @@ export async function refineMetadataBatch(cards, certLevel, onProgress = null) {
         return { success: false, error: error.message };
     }
 }
+
+/**
+ * SURGICAL GAP POLISHER
+ * Revises 2-word gap labels into high-density strategic insights.
+ */
+export async function polishGapsBatch(cards, certLevel, onProgress = null) {
+    if (!cards || cards.length === 0) return { success: true, count: 0 };
+
+    try {
+        const response = await fetch('/api/study-coach', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                mode: 'generate-distractors',
+                quizType: 'intelligent',
+                certLevel,
+                pipelineStage: 'polish-gaps',
+                cards: cards.map(c => ({
+                    id: String(c.id).replace(/[\s\n\r]/g, ''),
+                    question: c.question,
+                    answer: c.answer,
+                    scenario: c.aiData?.scenario
+                }))
+            })
+        });
+
+        const data = await response.json();
+        
+        if (data && data.results && Array.isArray(data.results)) {
+            data.results.forEach(res => {
+                const cleanId = String(res.id).replace(/[\s\n\r]/g, '');
+                saveDistractorToVault(cleanId, {
+                    quizType: 'intelligent',
+                    gap_analysis: res.gap_analysis
+                }, certLevel);
+            });
+            if (onProgress) onProgress(data.results.length);
+            return { success: true, count: data.results.length };
+        }
+
+        throw new Error(data?.error || 'Polishing failed');
+    } catch (error) {
+        console.error("Polishing error:", error);
+        return { success: false, error: error.message };
+    }
+}

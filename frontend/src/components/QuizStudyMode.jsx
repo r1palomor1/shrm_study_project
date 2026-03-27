@@ -465,7 +465,7 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                     <span>ID: {String(card.id).replace(/[\s\n\r]/g, '').slice(0, 8)}...</span>
-                    <span>DOMAIN: {currentAiData?.tag_bask || 'Competencies'}</span>
+                    <span>DOMAIN: {(currentAiData?.tag_bask === 'Competencies' || !currentAiData?.tag_bask) ? 'All Study Material' : currentAiData.tag_bask}</span>
                 </div>
             </div>
 

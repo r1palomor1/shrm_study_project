@@ -118,7 +118,7 @@ const DomainGrid = ({ decks, certLevel, onSelectDomain, studyMode, quizType, sel
                     setActiveAnalyticsDomain(domain.id);
                   }}
                   style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer', display: 'flex' }}
-                  title="Competency Insights"
+                  title={`${domain.title || domain.id} Insights`}
                 >
                   <span className="material-symbols-outlined" style={{ fontSize: '1.1rem' }}>monitoring</span>
                 </button>

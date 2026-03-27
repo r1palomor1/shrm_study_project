@@ -20,6 +20,9 @@ const VaultManager = ({
   onRefineMetadata,
   isRefining,
   refineProgress,
+  onPolishGaps,
+  isPolishingGaps,
+  polishingGapsProgress,
   isOpen,
   setIsOpen
 }) => {
@@ -41,6 +44,27 @@ const VaultManager = ({
     });
     return count;
   }, [decks, certLevel, isRefining]);
+
+  // Calculate Gap Polish Needs
+  const needsGapPolishCount = useMemo(() => {
+    let count = 0;
+    const vault = loadVaultFromStorage();
+    const isStrategicGap = (gap) => {
+      if (!gap) return false;
+      return gap.length > 30 && !gap.includes('Symptomatic Fix') && !gap.includes('Premature Escalation');
+    };
+    
+    decks.forEach(deck => {
+      deck.cards.forEach(card => {
+        const cleanId = String(card.id).replace(/[\s\n\r]/g, '');
+        const iData = vault[`${cleanId}:intelligent:${certLevel}`];
+        if (iData?.scenario && !isStrategicGap(iData?.gap_analysis)) {
+          count++;
+        }
+      });
+    });
+    return count;
+  }, [decks, certLevel, isPolishingGaps]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -255,6 +279,32 @@ const VaultManager = ({
         </div>
 
         <div style={{ marginTop: 'auto', paddingTop: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+           {needsGapPolishCount > 0 && (
+             <button 
+               onClick={onPolishGaps}
+               disabled={isPolishingGaps}
+               className="btn-primary"
+               style={{
+                 width: '100%',
+                 padding: '1rem',
+                 fontSize: '0.85rem',
+                 marginBottom: '1.2rem',
+                 display: 'flex',
+                 alignItems: 'center',
+                 justifyContent: 'center',
+                 gap: '1rem',
+                 animation: !isPolishingGaps ? 'pulse 2s infinite' : 'none',
+                 background: isPolishingGaps ? 'rgba(251, 191, 36, 0.2)' : 'linear-gradient(135deg, #fbbf24 0%, #d97706 100%)',
+                 border: isPolishingGaps ? '1px solid #fbbf24' : 'none',
+                 color: 'white'
+               }}
+             >
+               <span className="material-symbols-outlined" style={{ fontSize: '1.4rem' }}>
+                 {isPolishingGaps ? 'sync' : 'warning'}
+               </span>
+               {isPolishingGaps ? `POLISHING ${polishingGapsProgress}%` : `POLISH ${needsGapPolishCount} STRATEGIC TRAP ALERTS`}
+             </button>
+           )}
            {needsRefinementCount > 0 && (
              <button 
                onClick={onRefineMetadata}

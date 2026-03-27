@@ -18,6 +18,10 @@ const AudioStudyMode = ({ deck, onExit, certLevel, updateCardStatus }) => {
     const saved = localStorage.getItem('shrm_audio_include_scenario');
     return saved === null ? true : JSON.parse(saved);
   });
+  const [includeTrapAlert, setIncludeTrapAlert] = useState(() => {
+    const saved = localStorage.getItem('shrm_audio_include_trap_alert');
+    return saved === null ? true : JSON.parse(saved);
+  });
 
   const cards = deck.cards || [];
   const currentCard = cards[currentIndex];
@@ -25,6 +29,7 @@ const AudioStudyMode = ({ deck, onExit, certLevel, updateCardStatus }) => {
 
   useEffect(() => { localStorage.setItem('shrm_audio_is_continuous', JSON.stringify(isContinuous)); }, [isContinuous]);
   useEffect(() => { localStorage.setItem('shrm_audio_include_scenario', JSON.stringify(includeScenario)); }, [includeScenario]);
+  useEffect(() => { localStorage.setItem('shrm_audio_include_trap_alert', JSON.stringify(includeTrapAlert)); }, [includeTrapAlert]);
 
   useEffect(() => {
     if (!hasMountedRef.current) { hasMountedRef.current = true; return; }
@@ -64,7 +69,8 @@ const AudioStudyMode = ({ deck, onExit, certLevel, updateCardStatus }) => {
     synth.cancel();
     setIsPlaying(false);
     const scText = (includeScenario && currentCard.aiData?.scenario) ? 'Scenario: ' + currentCard.aiData.scenario : '';
-    const textToSpeak = `Term: ${currentCard.term || currentCard.question}. Definition: ${currentCard.definition || currentCard.answer}. ${scText}`;
+    const gapText = (includeTrapAlert && currentCard.aiData?.gap_analysis) ? 'Trap Alert: ' + currentCard.aiData.gap_analysis : '';
+    const textToSpeak = `Term: ${currentCard.term || currentCard.question}. Definition: ${currentCard.definition || currentCard.answer}. ${scText} ${gapText}`;
     // 100ms delay after cancel prevents Chrome Speech Synthesis stuck-synth bug
     setTimeout(() => {
       const utterance = new SpeechSynthesisUtterance(textToSpeak);
@@ -194,6 +200,29 @@ const AudioStudyMode = ({ deck, onExit, certLevel, updateCardStatus }) => {
              {currentCard.aiData.scenario}
           </div>
         )}
+
+        {includeTrapAlert && currentCard?.aiData?.gap_analysis && (
+          <div style={{ 
+            marginTop: '1.2rem', 
+            padding: '0.8rem 1.2rem', 
+            background: 'rgba(99, 102, 241, 0.05)', 
+            borderLeft: '3px solid #fbbf24', 
+            borderRadius: '10px', 
+            textAlign: 'left', 
+            fontSize: '0.82rem', 
+            color: '#fbbf24', 
+            lineHeight: '1.4',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.8rem'
+          }}>
+             <span className="material-symbols-outlined" style={{ fontSize: '1rem', color: '#fbbf24', opacity: 0.8 }}>warning</span>
+             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <strong style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>Trap Alert:</strong>
+                <span>{currentCard.aiData.gap_analysis}</span>
+             </div>
+          </div>
+        )}
       </div>
 
       <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center' }}>
@@ -206,6 +235,7 @@ const AudioStudyMode = ({ deck, onExit, certLevel, updateCardStatus }) => {
           <button onClick={() => setShowResetModal(true)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.65rem', fontWeight: '900' }}><span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>restart_alt</span> RESET</button>
           <button onClick={() => setIsContinuous(!isContinuous)} style={{ background: 'none', border: 'none', color: isContinuous ? '#60a5fa' : 'rgba(255,255,255,0.3)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.65rem', fontWeight: '900' }}><span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>{isContinuous ? 'repeat' : 'touch_app'}</span> {isContinuous ? 'CONTINUOUS' : 'MANUAL'}</button>
           <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: includeScenario ? '#a5b4fc' : 'rgba(255,255,255,0.3)', fontSize: '0.65rem', fontWeight: '900' }}><input type="checkbox" checked={includeScenario} onChange={() => setIncludeScenario(!includeScenario)} style={{ cursor: 'pointer', width: '12px', height: '12px' }} /> SCENARIOS</label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: includeTrapAlert ? '#a5b4fc' : 'rgba(255,255,255,0.3)', fontSize: '0.65rem', fontWeight: '900' }}><input type="checkbox" checked={includeTrapAlert} onChange={() => setIncludeTrapAlert(!includeTrapAlert)} style={{ cursor: 'pointer', width: '12px', height: '12px' }} /> TRAP ALERTS</label>
         </div>
       </div>
 
