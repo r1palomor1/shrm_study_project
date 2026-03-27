@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
+import DataImporter from './components/DataImporter';
 import VaultManager from './components/VaultManager';
 import DomainGrid from './components/DomainGrid';
 import SmartTestOverlay from './components/SmartTestOverlay';
@@ -320,9 +321,12 @@ function App() {
       return;
     }
 
-    // PROGRESS RECOVERY: Find the index of the FIRST unseen card in the returned set
-    const firstUnseenIdx = data.cards.findIndex(c => !c[statusKey] || c[statusKey] === 'unseen');
-    const initialIndex = firstUnseenIdx === -1 ? 0 : firstUnseenIdx;
+    // PROGRESS RECOVERY: Find the index of the FIRST card that hasn't been completed in this mode
+    const firstUnplayedIdx = data.cards.findIndex(c => {
+      if (isAudio) return !c.status_audio_seen || c.status_audio_seen !== 'seen';
+      return !c[statusKey] || (c[statusKey] !== 'seen' && c[statusKey] !== 'mastered');
+    });
+    const initialIndex = firstUnplayedIdx === -1 ? 0 : firstUnplayedIdx;
 
     // QUOTA PROTECTION: Stripping payload for Audio persistence
     const storageOptimizedCards = isAudio ? 
@@ -658,7 +662,16 @@ function App() {
             </section>
           </div>
         ) : (
-          <div style={{ textAlign: 'center', padding: '10rem 0' }}><h2 style={{ opacity: 0.5 }}>Import topics to begin.</h2></div>
+          <div style={{ textAlign: 'center', padding: '10rem 0' }}>
+            <span className="material-symbols-outlined" style={{ fontSize: '4rem', color: 'rgba(255,255,255,0.1)', marginBottom: '1.5rem' }}>upload_file</span>
+            <h2 style={{ marginBottom: '1rem' }}>No Study Material Found</h2>
+            <p style={{ color: 'var(--text-muted)', marginBottom: '2rem' }}>Please import your study material to begin.</p>
+            <label htmlFor="md-upload-main" className="btn-primary" style={{ cursor: 'pointer', padding: '1rem 2rem', borderRadius: '12px', display: 'inline-flex', alignItems: 'center', gap: '0.8rem' }}>
+              <span className="material-symbols-outlined">add_circle</span>
+              Add Your First Topic
+            </label>
+            <DataImporter onDeckLoaded={handleDeckLoaded} />
+          </div>
         )}
       </main>
     </div>
