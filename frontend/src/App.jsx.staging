@@ -204,8 +204,7 @@ function App() {
     setSelectedDomain(prev => prev === domainId ? 'ALL' : domainId);
   };
 
-  const handleStartTestFromSidebar = (isWeightedInput = false) => {
-    const isWeighted = (isWeightedInput === true);
+  const handleStartTestFromSidebar = (isWeighted = false) => {
     const effectiveLength = studyMode === 'traditional' ? -1 : testLength;
     handleStartTestDirectly({ 
       domainId: selectedDomain, 
@@ -286,20 +285,18 @@ function App() {
                     }
                 }
 
+                // Resume at first unplayed card in the session
                 const firstUnseenIdx = refreshedCards.findIndex(c => !c[statusKey] || c[statusKey] === 'unseen');
+                const resumeIndex = firstUnseenIdx === -1 ? 0 : firstUnseenIdx;
                 
-                if (firstUnseenIdx !== -1) {
-                    setActiveStudyDeck({ 
-                      ...savedSession,
-                      cards: refreshedCards,
-                      initialIndex: firstUnseenIdx,
-                      sessionKey: activeSessionKey
-                    });
-                    setIsStudying(true);
-                    return;
-                } else {
-                    localStorage.removeItem(activeSessionKey);
-                }
+                setActiveStudyDeck({ 
+                  ...savedSession,
+                  cards: refreshedCards,
+                  initialIndex: resumeIndex,
+                  sessionKey: activeSessionKey
+                });
+                setIsStudying(true);
+                return;
             } else {
                 // Stale or invalid session key - clear it
                 console.info(`[DEBUG] Clearing STALE session due to pool growth or length mismatch.`);
@@ -647,13 +644,13 @@ function App() {
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 'bold' }}><span>0</span><span>{vaultStats[selectedDomain]?.total || 90}</span></div>
                     </div>
 
-                    <button onClick={() => handleStartTestFromSidebar()} className="pulse-button" style={{ width: '100%', padding: '1rem', borderRadius: '15px', background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', border: 'none', color: 'white', fontWeight: 'bold', fontSize: '0.9rem', cursor: 'pointer', boxShadow: '0 10px 20px rgba(99, 102, 241, 0.3)', marginTop: '0.5rem' }}>
+                    <button onClick={handleStartTestFromSidebar} className="pulse-button" style={{ width: '100%', padding: '1rem', borderRadius: '15px', background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', border: 'none', color: 'white', fontWeight: 'bold', fontSize: '0.9rem', cursor: 'pointer', boxShadow: '0 10px 20px rgba(99, 102, 241, 0.3)', marginTop: '0.5rem' }}>
                       LAUNCH {selectedDomain === 'ALL' ? 'ALL STUDY' : selectedDomain.toUpperCase() + ' STUDY'}
                     </button>
                   </div>
                 ) : (
                   <div style={{ display: 'flex', gap: '10px', marginTop: '1.2rem', paddingTop: '1.2rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                    <button onClick={() => handleStartTestFromSidebar()} className="pulse-button" style={{ flex: 1, padding: '1rem', borderRadius: '15px', background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', border: 'none', color: 'white', fontWeight: 'bold', fontSize: '0.9rem', cursor: 'pointer', boxShadow: '0 10px 20px rgba(99, 102, 241, 0.3)' }}>
+                    <button onClick={handleStartTestFromSidebar} className="pulse-button" style={{ flex: 1, padding: '1rem', borderRadius: '15px', background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', border: 'none', color: 'white', fontWeight: 'bold', fontSize: '0.9rem', cursor: 'pointer', boxShadow: '0 10px 20px rgba(99, 102, 241, 0.3)' }}>
                       LAUNCH {selectedDomain === 'ALL' ? 'ALL STUDY' : selectedDomain.toUpperCase() + ' STUDY'}
                     </button>
                     <button onClick={() => handleStartTestDirectly({ domainId: selectedDomain, testLength: -1, testType: 'intelligent', certLevel, isAudio: true })} style={{ width: '55px', borderRadius: '15px', background: 'rgba(99, 102, 241, 0.1)', border: '1px solid rgba(99, 102, 241, 0.2)', color: '#a5b4fc', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }} title="Launch Audio Hub">

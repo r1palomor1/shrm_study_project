@@ -1,0 +1,1041 @@
+diff --git a/frontend/src/App.jsx b/frontend/src/App.jsx
+index 0f7a49b..39c417c 100644
+--- a/frontend/src/App.jsx
++++ b/frontend/src/App.jsx
+@@ -1,10 +1,12 @@
+-import { useState, useEffect, useMemo } from 'react';
++import { useState, useEffect, useMemo, useRef } from 'react';
++import DataImporter from './components/DataImporter';
+ import VaultManager from './components/VaultManager';
+ import DomainGrid from './components/DomainGrid';
+ import SmartTestOverlay from './components/SmartTestOverlay';
+ import FlashcardStudyMode from './components/FlashcardStudyMode';
+ import TraditionalStudyMode from './components/TraditionalStudyMode';
+ import QuizStudyMode from './components/QuizStudyMode';
++import AudioStudyMode from './components/AudioStudyMode';
+ import AnalyticsDashboard from './components/AnalyticsDashboard';
+ import VaultHealthMatrix from './components/VaultHealthMatrix';
+ import SettingsModal from './components/SettingsModal';
+@@ -20,7 +22,6 @@ import {
+   mergeAppData,
+   clearAiVault,
+   clearSimpleVaultData,
+-  getDistractorFromVault,
+   loadVaultFromStorage,
+   getVaultStats,
+   saveDomainSnapshot,
+@@ -44,6 +45,7 @@ function App() {
+   const [isResetOpen, setIsResetOpen] = useState(false);
+   const [resetTarget, setResetTarget] = useState(null);
+   const [confirmModal, setConfirmModal] = useState({ isOpen: false, type: 'danger', title: '', message: '', onConfirm: null });
++  const [isAudioMode, setIsAudioMode] = useState(false);
+ 
+   // Study configuration
+   const [selectedDeckTitle, setSelectedDeckTitle] = useState('ALL');
+@@ -65,11 +67,11 @@ function App() {
+ 
+   useEffect(() => {
+     localStorage.setItem('shrm_cert_level', certLevel);
+-    // Clear sync indicators when switching levels to prevent "ghost" completion status
+     setWarmUpStatus(null);
+     setWarmUpProgress(0);
+     setWarmUpError(null);
+   }, [certLevel]);
++
+   const [warmUpProgress, setWarmUpProgress] = useState(0);
+   const [warmUpError, setWarmUpError] = useState(null);
+   const [isMatrixOpen, setIsMatrixOpen] = useState(false);
+@@ -79,9 +81,7 @@ function App() {
+ 
+   useEffect(() => {
+     const savedDecks = loadDecksFromStorage();
+-    if (savedDecks) {
+-      setDecks(savedDecks);
+-    }
++    if (savedDecks) { setDecks(savedDecks); }
+   }, []);
+ 
+   const handleDeckLoaded = (loadedDeck) => {
+@@ -102,11 +102,8 @@ function App() {
+         : `Warning: This will permanently remove "${title}" and ALL associated progress from this device.`,
+       confirmText: isAll ? 'PURGE EVERYTHING' : 'Delete Permanently',
+       onConfirm: () => {
+-        if (isAll) {
+-          decks.forEach(d => deleteDeckFromStorage(d.title));
+-        } else {
+-          deleteDeckFromStorage(title);
+-        }
++        if (isAll) { decks.forEach(d => deleteDeckFromStorage(d.title)); } 
++        else { deleteDeckFromStorage(title); }
+         setDecks(loadDecksFromStorage());
+         if (isAll || selectedDeckTitle === title) setSelectedDeckTitle('ALL');
+         setConfirmModal(prev => ({ ...prev, isOpen: false }));
+@@ -197,7 +194,6 @@ function App() {
+       onConfirm: () => {
+         saveDomainSnapshot(domainId, quizType, certLevel, currentPercentage);
+         resetDomainProgress(domainId, quizType, certLevel);
+-        // Refresh state
+         setDecks(loadDecksFromStorage());
+         setConfirmModal(prev => ({ ...prev, isOpen: false }));
+       }
+@@ -205,7 +201,6 @@ function App() {
+   };
+ 
+   const handleSelectDomain = (domainId) => {
+-    // Toggle selection: If already selected, revert to ALL
+     setSelectedDomain(prev => prev === domainId ? 'ALL' : domainId);
+   };
+ 
+@@ -221,22 +216,74 @@ function App() {
+   };
+ 
+   const handleStartTestDirectly = async (config) => {
+-    const { domainId, testLength: lengthReq, testType, certLevel: level, isWeighted } = config;
++    const { domainId, testLength: lengthReq, testType, certLevel: level, isWeighted, isAudio } = config;
+     setIsTestOverlayOpen(false);
++    setIsAudioMode(isAudio || false);
+     
+-    const activeSessionKey = `shrm_active_session_${studyMode}_${domainId}_${testType}_${level}`;
+-    const statusKey = studyMode === 'traditional' ? 'status_traditional' : `status_quiz_${testType}_${level}`;
++    // Engine Logic: Use the new Domain-First filter
++    const activeSessionKey = isAudio ? 
++        `shrm_audio_session_${domainId}_${testType}_${level}` : 
++        `shrm_active_session_${studyMode}_${domainId}_${testType}_${level}`;
++    
++    const statusKey = isAudio ? 'status_audio_seen' : (studyMode === 'traditional' ? 'status_traditional' : `status_quiz_${testType}_${level}`);
+ 
+     if (!isWeighted) {
+         const savedSessionStr = localStorage.getItem(activeSessionKey);
+         if (savedSessionStr) {
+             const savedSession = JSON.parse(savedSessionStr);
++
+             if (savedSession.requestedLength === lengthReq) {
+-                const refreshedCards = savedSession.cards.map(c => {
+-                    const latest = decks.flatMap(d => d.cards).find(dc => dc.id === c.id);
+-                    return latest || c;
++                // LEAD FIX: Universal Hydration - Rebuild full card objects from IDs (INCLUDING AI DATA & STATUS)
++                const vault = loadVaultFromStorage();
++                const refreshedCards = (savedSession.cards || savedSession.cardIds || []).map(savedCard => {
++                   let fullCard = null;
++                   for (const d of decks) {
++                      const found = d.cards.find(sc => String(sc.id) === String(savedCard.id));
++                      if (found) {
++                          const cleanId = String(found.id).replace(/[\s\n\r]/g, '');
++                          const vData = isAudio
++                            ? (vault[`${cleanId}:intelligent:${level}`] || {})
++                            : (testType === 'simple' ? (vault[`${cleanId}:simple:${level}`] || {}) : (vault[`${cleanId}:${testType}:${level}`] || {}));
++                          
++                          // Ensure status is carried over
++                          fullCard = { 
++                            ...found, 
++                            aiData: vData, 
++                            domain: d.title,
++                            status_audio_seen: found.status_audio_seen 
++                          };
++                          break;
++                      }
++                   }
++                   return fullCard || savedCard;
+                 });
++
++
+                 
++                if (isAudio) {
++                    console.log('[AUDIO DEBUG] Session key:', activeSessionKey);
++                    console.log('[AUDIO DEBUG] savedSession.cards:', savedSession.cards?.length, '| savedSession.cardIds:', savedSession.cardIds?.length, '| savedSession.initialIndex:', savedSession.initialIndex);
++                    console.log('[AUDIO DEBUG] refreshedCards count:', refreshedCards.length);
++                    if (refreshedCards.length > 0) {
++                        // Resume at first unplayed card
++                        const firstUnseenIdx = refreshedCards.findIndex(c => !c.status_audio_seen || c.status_audio_seen !== 'seen');
++                        const resumeIndex = firstUnseenIdx !== -1 ? firstUnseenIdx : 0;
++                        console.log('[AUDIO DEBUG] Resuming at index:', resumeIndex);
++                        setActiveStudyDeck({ 
++                          ...savedSession,
++                          cards: refreshedCards,
++                          initialIndex: resumeIndex,
++                          sessionKey: activeSessionKey
++                        });
++                        setIsStudying(true);
++                        return;
++                    } else {
++                        // Stale session — no card ID list recoverable. Clear and do fresh launch.
++                        console.log('[AUDIO DEBUG] Stale session detected — clearing and doing fresh launch');
++                        localStorage.removeItem(activeSessionKey);
++                    }
++                }
++
+                 const firstUnseenIdx = refreshedCards.findIndex(c => !c[statusKey] || c[statusKey] === 'unseen');
+                 
+                 if (firstUnseenIdx !== -1) {
+@@ -255,10 +302,12 @@ function App() {
+         }
+     }
+ 
+-    // Engine Logic: Use the new Domain-First filter
++    // Fresh launch — no saved session or session expired
++    if (isAudio) console.log('[AUDIO DEBUG] No session found or expired — fresh launch. Key:', activeSessionKey);
+     const effectiveLength = lengthReq === -1 ? 9999 : lengthReq;
+     const filter = { domainId, length: effectiveLength, isWeighted };
+-    const data = await getQuizDataByFilter(decks, filter, testType, level, studyMode);
++    const data = await getQuizDataByFilter(decks, filter, testType, level, (isAudio ? 'audio' : studyMode));
++    if (isAudio) console.log('[AUDIO DEBUG] getQuizDataByFilter returned:', data.cards.length, 'cards');
+     
+     if (data.cards.length === 0) {
+       setConfirmModal({
+@@ -272,13 +321,21 @@ function App() {
+       return;
+     }
+ 
+-    // PROGRESS RECOVERY: Find the index of the FIRST unseen card in the returned set
+-    const firstUnseenIdx = data.cards.findIndex(c => !c[statusKey] || c[statusKey] === 'unseen');
+-    const initialIndex = firstUnseenIdx === -1 ? 0 : firstUnseenIdx;
++    // PROGRESS RECOVERY: Find the index of the FIRST card that hasn't been completed in this mode
++    const firstUnplayedIdx = data.cards.findIndex(c => {
++      if (isAudio) return !c.status_audio_seen || c.status_audio_seen !== 'seen';
++      return !c[statusKey] || (c[statusKey] !== 'seen' && c[statusKey] !== 'mastered');
++    });
++    const initialIndex = firstUnplayedIdx === -1 ? 0 : firstUnplayedIdx;
++
++    // QUOTA PROTECTION: Stripping payload for Audio persistence
++    const storageOptimizedCards = isAudio ? 
++        data.cards.map(c => ({ id: c.id })) : 
++        data.cards;
+ 
+     const activeDeckToSave = { 
+-      title: domainId === 'ALL' ? 'Full 2026 Simulator' : `Domain: ${domainId}`, 
+-      cards: data.cards, 
++      title: domainId === 'ALL' ? '' : `Domain: ${domainId}`, 
++      cards: storageOptimizedCards, 
+       totalOriginalCards: data.totalAvailable, 
+       initialIndex: initialIndex, 
+       quizType: testType, 
+@@ -292,7 +349,27 @@ function App() {
+         localStorage.setItem(activeSessionKey, JSON.stringify(activeDeckToSave));
+     }
+     
+-    setActiveStudyDeck(activeDeckToSave);
++    // LEAD FIX: For fresh launches, also perform the FULL AI DATA weld
++    const vault = loadVaultFromStorage();
++    const hydratedCards = data.cards.map(c => {
++       const parentDeck = decks.find(d => d.cards.some(dc => dc.id === c.id));
++       const cleanId = String(c.id).replace(/[\s\n\r]/g, '');
++       
++       // Audio uses intelligent vault exclusively — single source for scenario+tags
++       const vData = isAudio
++         ? (vault[`${cleanId}:intelligent:${level}`] || {})
++         : (testType === 'simple' ? (vault[`${cleanId}:simple:${level}`] || {}) : (vault[`${cleanId}:${testType}:${level}`] || {}));
++       
++       return { 
++         ...c, 
++         aiData: vData, 
++         domain: parentDeck ? parentDeck.title : (domainId === 'ALL' ? '' : domainId), 
++         status_audio_seen: c.status_audio_seen 
++       };
++    });
++
++    setActiveStudyDeck({ ...activeDeckToSave, cards: hydratedCards });
++
+     setIsStudying(true);
+   };
+ 
+@@ -303,117 +380,63 @@ function App() {
+     setWarmUpError(null);
+     setWarmUpStatus("Initializing...");
+ 
+-    // 1. Identify Target Cards
+     let targetCards = [];
+-    if (selectedDeckTitle === 'ALL') {
+-      targetCards = decks.flatMap(d => d.cards);
+-    } else {
++    if (selectedDeckTitle === 'ALL') { targetCards = decks.flatMap(d => d.cards); } 
++    else {
+       const deck = decks.find(d => d.title === selectedDeckTitle);
+       if (deck) targetCards = deck.cards;
+     }
+ 
+     if (targetCards.length === 0) return;
+-
+-    // 2. Execution Logic (Dual Mode)
+     setIsWarmingUp(true);
+     setWarmUpProgress(0);
+ 
+     const runWarming = async () => {
+       try {
+-        // MODE 1: Intelligent (Simulator)
+         let { missingCards: missingIntel } = await getQuizDataForDeck({ cards: targetCards }, 'intelligent', certLevel);
+         let { missingCards: missingSimple } = await getQuizDataForDeck({ cards: targetCards }, 'simple', certLevel);
+-        
+         const totalToSync = missingIntel.length + missingSimple.length;
+         let syncedCount = 0;
+-        
+-        const intelBatches = Math.ceil(missingIntel.length / 4);
+         let currentBatch = 0;
+ 
+-
+         while (missingIntel.length > 0) {
+           let rateLimited = false;
+           currentBatch++;
+-          const batchToProcess = missingIntel.slice(0, 4); // Take 4 for optimal balancing
+-          setWarmUpStatus(`SJI SYNC: Batch ${currentBatch} of ${intelBatches}...`);
++          const batchToProcess = missingIntel.slice(0, 4);
++          setWarmUpStatus(`SJI SYNC: Batch ${currentBatch}...`);
+ 
+           const result = await generateDistractorsBatch(batchToProcess, 'intelligent', (p, error) => {
+-            // UI SYNC: Use functional update to ensure real-time re-renders
+             const batchDone = Math.round((p / 100) * batchToProcess.length);
+             const currentP = Math.round(((syncedCount + batchDone) / totalToSync) * 100);
+             setWarmUpProgress(prev => currentP);
+             if (error === 'RATE_LIMIT') rateLimited = true;
+           }, certLevel);
+ 
+-          if (result && result.success === false) {
+-            setWarmUpError(`Sync Interrupted: ${result.error || 'Provider Timeout'}`);
+-            setIsWarmingUp(false);
+-            return;
+-          }
+-
+-          if (rateLimited) {
+-            setWarmUpStatus("Gemini Overload. Shielding for 15s...");
+-            setWarmUpError('Gemini Busy. Self-Healing Resume in 15s...');
+-            await new Promise(r => setTimeout(r, 15000));
+-            setWarmUpError(null);
+-          }
++          if (result && result.success === false) { setIsWarmingUp(false); return; }
++          if (rateLimited) { await new Promise(r => setTimeout(r, 15000)); }
+           syncedCount += batchToProcess.length;
+           const updated = await getQuizDataForDeck({ cards: targetCards }, 'intelligent', certLevel);
+           missingIntel = updated.missingCards;
+         }
+ 
+-        // MODE 2: Simple (Recall) - TURBO BATCHING (8 CARDS)
+         const updatedSimple = await getQuizDataForDeck({ cards: targetCards }, 'simple', certLevel);
+         missingSimple = updatedSimple.missingCards;
+-        const simpleBatches = Math.ceil(missingSimple.length / 8);
+         currentBatch = 0;
+ 
+         while (missingSimple.length > 0) {
+           let rateLimited = false;
+           currentBatch++;
+           const batchToProcess = missingSimple.slice(0, 8); 
+-          
+-          // SURGICAL LOGIC: If distractors exist but tags are missing, use the lighter metadata refiner
+-          const vault = loadVaultFromStorage();
+-          const isMetadataOnly = batchToProcess.every(c => {
+-            const cleanId = String(c.id).replace(/[\s\n\r]/g, '');
+-            return !!vault[`${cleanId}:simple:${certLevel}`]?.distractors;
+-          });
+-
+-          if (isMetadataOnly) {
+-            setWarmUpStatus(`SURGICAL TAG SYNC: Batch ${currentBatch} of ${simpleBatches}...`);
+-            const result = await refineMetadataBatch(batchToProcess, certLevel, (p) => {
+-              const currentP = Math.round(((syncedCount + p) / totalToSync) * 100);
+-              setWarmUpProgress(prev => currentP);
+-            });
+-            
+-            if (result && result.success === false) {
+-              setWarmUpError(`Metadata Sync Interrupted`);
+-              setIsWarmingUp(false);
+-              return;
+-            }
+-          } else {
+-            setWarmUpStatus(`RECALL SYNC: Batch ${currentBatch} of ${simpleBatches}...`);
+-            const result = await generateDistractorsBatch(batchToProcess, 'simple', (p, error) => {
+-              const batchDone = Math.round((p / 100) * batchToProcess.length);
+-              const currentP = Math.round(((syncedCount + batchDone) / totalToSync) * 100);
+-              setWarmUpProgress(prev => currentP);
+-              if (error === 'RATE_LIMIT') rateLimited = true;
+-            }, certLevel);
+-
+-            if (result && result.success === false) {
+-              setWarmUpError(`Sync Interrupted: Provider Timeout (Transient)`);
+-              setIsWarmingUp(false);
+-              return;
+-            }
+-          }
++          setWarmUpStatus(`RECALL SYNC: Batch ${currentBatch}...`);
++          const result = await generateDistractorsBatch(batchToProcess, 'simple', (p, error) => {
++            const batchDone = Math.round((p / 100) * batchToProcess.length);
++            const currentP = Math.round(((syncedCount + batchDone) / totalToSync) * 100);
++            setWarmUpProgress(prev => currentP);
++            if (error === 'RATE_LIMIT') rateLimited = true;
++          }, certLevel);
+ 
+-          if (rateLimited) {
+-            setWarmUpStatus("API Rate Limit. Cooling down 15s...");
+-            setWarmUpError('Rate Limited. Self-Healing Resume in 15s...');
+-            await new Promise(r => setTimeout(r, 15000));
+-            setWarmUpError(null);
+-          }
++          if (result && result.success === false) { setIsWarmingUp(false); return; }
++          if (rateLimited) { await new Promise(r => setTimeout(r, 15000)); }
+           syncedCount += batchToProcess.length;
+           const updated = await getQuizDataForDeck({ cards: targetCards }, 'simple', certLevel);
+           missingSimple = updated.missingCards;
+@@ -422,124 +445,56 @@ function App() {
+         setWarmUpStatus("COMPLETED: All Data Synced.");
+         setWarmUpProgress(100);
+         setTimeout(() => setIsWarmingUp(false), 2000);
+-      } catch (err) {
+-        console.error("Bulk Generation Error:", err);
+-        setWarmUpError("Connection Interrupted. Please Resume.");
+-        setTimeout(() => setIsWarmingUp(false), 3000);
+-      }
++      } catch (err) { setIsWarmingUp(false); }
+     };
+-
+     runWarming();
+   };
+ 
+   const handleRefineMetadata = async () => {
+     if (decks.length === 0) return;
+-    setIsRefining(true);
+-    setRefineProgress(0);
+-
++    setIsRefining(true); setRefineProgress(0);
+     const vault = loadVaultFromStorage();
+     let cardsToRefine = [];
+-    
+     decks.forEach(deck => {
+       deck.cards.forEach(card => {
+         const cleanId = String(card.id).replace(/[\s\n\r]/g, '');
+         const sData = vault[`${cleanId}:simple:${certLevel}`];
+-        if (sData?.distractors && !sData?.tag_bask) {
+-          cardsToRefine.push({ ...card, topic: deck.title });
+-        }
++        if (sData?.distractors && !sData?.tag_bask) { cardsToRefine.push({ ...card, topic: deck.title }); }
+       });
+     });
+-
+-    if (cardsToRefine.length === 0) {
+-      setIsRefining(false);
+-      return;
+-    }
+-
++    if (cardsToRefine.length === 0) { setIsRefining(false); return; }
+     const total = cardsToRefine.length;
+     let completed = 0;
+-    const BATCH_SIZE = 8;
+-
+-    for (let i = 0; i < cardsToRefine.length; i += BATCH_SIZE) {
+-      const batch = cardsToRefine.slice(i, i + BATCH_SIZE);
++    for (let i = 0; i < cardsToRefine.length; i += 8) {
++      const batch = cardsToRefine.slice(i, i + 8);
+       const result = await refineMetadataBatch(batch, certLevel);
+-      
+       if (result.success) {
+         completed += result.count;
+         setRefineProgress(Math.round((completed / total) * 100));
+-        // Force state refresh to update matrix in real-time
+         setDecks(loadDecksFromStorage());
+-      } else {
+-        console.error("Refine Batch Failed:", result.error);
+-        break;
+-      }
+-      
+-      // Stagger to stay safe with RPM
+-      if (i + BATCH_SIZE < cardsToRefine.length) {
+-        await new Promise(r => setTimeout(r, 6000));
+-      }
+-    }
+-
+-    setIsRefining(false);
+-    setRefineProgress(100);
+-    // Final sync
+-    setDecks(loadDecksFromStorage());
+-  };
+-
+-  const handleStartStudying = () => {
+-    if (decks.length === 0) return;
+-    let cardsToStudy = [];
+-    let studyTitle = "All Topics";
+-    let totalOriginalCards = 0;
+-
+-    if (selectedDeckTitle === 'ALL') {
+-      decks.forEach(d => {
+-        cardsToStudy = [...cardsToStudy, ...d.cards];
+-        totalOriginalCards += d.cards.length;
+-      });
+-    } else {
+-      const specificDeck = decks.find(d => d.title === selectedDeckTitle);
+-      if (specificDeck) {
+-        cardsToStudy = [...specificDeck.cards];
+-        studyTitle = specificDeck.title;
+-        totalOriginalCards = specificDeck.cards.length;
+-      }
+-    }
+-
+-    const getStatus = (c) => {
+-      if (studyMode === 'traditional') return c.status_traditional || c.status || 'unseen';
+-      if (studyMode === 'quiz') return c[`status_quiz_${quizType}_${certLevel}`] || 'unseen'; 
+-      return c.status || 'unseen';
+-    };
+-
+-    const seenCards = cardsToStudy.filter(c => getStatus(c) !== 'unseen');
+-    let unseenCards = cardsToStudy.filter(c => getStatus(c) === 'unseen');
+-    let finalDeckCards = (cardsToStudy.length > 0 && unseenCards.length === 0) ? [...cardsToStudy] : [...seenCards, ...unseenCards];
+-    let initialIndex = (cardsToStudy.length > 0 && unseenCards.length === 0) ? 0 : seenCards.length;
+-
+-    if (studyOrder === 'random') {
+-      for (let i = finalDeckCards.length - 1; i > 0; i--) {
+-        const j = Math.floor(Math.random() * (i + 1));
+-        [finalDeckCards[i], finalDeckCards[j]] = [finalDeckCards[j], finalDeckCards[i]];
+-      }
++      } else { break; }
++      if (i + 8 < cardsToRefine.length) { await new Promise(r => setTimeout(r, 6000)); }
+     }
+-
+-    setActiveStudyDeck({ title: studyTitle, cards: finalDeckCards, totalOriginalCards, initialIndex, quizType, certLevel });
+-    setIsStudying(true);
++    setIsRefining(false); setDecks(loadDecksFromStorage());
+   };
+ 
+   const handleUpdateCardStatus = (cardId, status, historyData = {}) => {
+-    updateCardStatus(cardId, studyMode, status, { ...historyData, quizType: historyData.quizType || quizType, certLevel });
+-    
+-    // UI RE-SYNC: Force the active session to see the updated data in real-time
++    updateCardStatus(cardId, (isAudioMode ? 'audio' : studyMode), status, { 
++      ...historyData, 
++      quizType: historyData?.quizType || quizType, 
++      certLevel 
++    });
+     const freshDecks = loadDecksFromStorage();
+     setDecks(freshDecks);
+     
+     if (activeStudyDeck) {
+       const updatedCards = activeStudyDeck.cards.map(c => {
+         if (c.id === cardId) {
+-          if (studyMode === 'traditional') {
+-             return { ...c, status_traditional: status };
++          if (isAudioMode) {
++            const newAudioStatus = status === 'audio_seen' ? 'seen' : status === 'audio_reset' ? null : c.status_audio_seen;
++            return { ...c, status_audio_seen: newAudioStatus };
+           }
++          if (studyMode === 'traditional') return { ...c, status_traditional: status };
+           const quizKey = `status_quiz_${historyData.quizType || quizType}_${certLevel}`;
+           const optionKey = `selected_option_${historyData.quizType || quizType}_${certLevel}`;
+           return { ...c, [quizKey]: status, [optionKey]: historyData.selectedOption };
+@@ -549,7 +504,20 @@ function App() {
+       setActiveStudyDeck(prev => {
+           const newDeck = { ...prev, cards: updatedCards };
+           if (newDeck.sessionKey) {
+-              localStorage.setItem(newDeck.sessionKey, JSON.stringify(newDeck));
++              if (isAudioMode) {
++                  const { cards, ...deanonymizedDeck } = newDeck;
++                  deanonymizedDeck.cardIds = cards.map(c => ({ id: c.id }));
++                  // Preserve position managed by AudioStudyMode — do not overwrite with stale initialIndex
++                  try {
++                      const currentSession = JSON.parse(localStorage.getItem(newDeck.sessionKey) || 'null');
++                      if (currentSession?.initialIndex !== undefined) {
++                          deanonymizedDeck.initialIndex = currentSession.initialIndex;
++                      }
++                  } catch(e) {}
++                  localStorage.setItem(newDeck.sessionKey, JSON.stringify(deanonymizedDeck));
++              } else {
++                 localStorage.setItem(newDeck.sessionKey, JSON.stringify(newDeck));
++              }
+           }
+           return newDeck;
+       });
+@@ -557,16 +525,27 @@ function App() {
+   };
+ 
+   const handleExitStudy = (isFinished = false) => {
+-    if (activeStudyDeck && activeStudyDeck.sessionKey) {
+-       if (isFinished === true) {
+-           localStorage.removeItem(activeStudyDeck.sessionKey);
+-       }
++    if (activeStudyDeck && activeStudyDeck.sessionKey && isFinished === true) {
++       localStorage.removeItem(activeStudyDeck.sessionKey);
+     }
+     setIsStudying(false);
+     setActiveStudyDeck(null);
++    setIsAudioMode(false);
+   };
+ 
+   if (isStudying && activeStudyDeck) {
++    if (isAudioMode) {
++      return (
++        <div className="app-container animate-fade-in">
++          <AudioStudyMode 
++            deck={activeStudyDeck} 
++            onExit={() => handleExitStudy(false)}
++            certLevel={certLevel}
++            updateCardStatus={handleUpdateCardStatus}
++          />
++        </div>
++      );
++    }
+     return (
+       <div className="app-container animate-fade-in" style={{ paddingTop: '2rem' }}>
+         {studyMode === 'traditional' ? (
+@@ -586,45 +565,30 @@ function App() {
+     );
+   }
+ 
+-  const totalCards = decks.reduce((sum, deck) => sum + deck.cards.length, 0);
+-
+   return (
+     <div className="app-container animate-fade-in">
+       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', padding: '0.5rem 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+         <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
+           <h1 style={{ fontSize: '1.8rem', margin: 0 }} className="text-gradient">SHRM 2026 Study Hub</h1>
+-          
+-          {/* DYNAMIC STATUS INDICATOR (Mutually Exclusive) */}
+           {decks.length > 0 && (
+             <div style={{ display: 'flex', gap: '1.5rem', fontSize: '0.75rem', marginLeft: '1rem' }}>
+               {(() => {
+                 const stats = vaultStats[selectedDomain] || { intelligent: 0, simple: 0 };
+                 const count = quizType === 'intelligent' ? stats.intelligent : stats.simple;
+-                
+-                if (count > 0) {
+-                  return (
+-                    <div key="ready-to-test" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#10b981', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+-                      <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 10px #10b981' }}></span>
+-                      Ready to Test
+-                    </div>
+-                  );
+-                } else {
+-                  return (
+-                    <div key="sync-needed" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#f59e0b', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+-                      <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f59e0b', boxShadow: '0 0 10px #f59e0b' }}></span>
+-                      Sync Needed
+-                    </div>
+-                  );
+-                }
++                return (
++                  <div key="status" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: count > 0 ? '#10b981' : '#f59e0b', fontWeight: 'bold', textTransform: 'uppercase' }}>
++                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: count > 0 ? '#10b981' : '#f59e0b', boxShadow: count > 0 ? '0 0 10px #10b981' : '0 0 10px #f59e0b' }}></span>
++                    {count > 0 ? 'Ready to Test' : 'Sync Needed'}
++                  </div>
++                );
+               })()}
+             </div>
+           )}
+         </div>
+         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+           {decks.length > 0 && (
+-            <button onClick={() => setIsViewingAnalytics(true)} className="glass-panel" style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: 'white', border: '1px solid rgba(255,255,255,0.1)' }}>
+-              <span className="material-symbols-outlined" style={{ fontSize: '1.2rem', color: '#60a5fa' }}>analytics</span>
+-              Insights
++            <button onClick={() => setIsViewingAnalytics(true)} className="glass-panel" style={{ padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: 'white' }}>
++              <span className="material-symbols-outlined" style={{ fontSize: '1.2rem', color: '#60a5fa' }}>analytics</span> Insights
+             </button>
+           )}
+           <button onClick={() => setIsSettingsOpen(true)} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', padding: '0.5rem' }}>
+@@ -632,294 +596,73 @@ function App() {
+           </button>
+         </div>
+       </header>
+-
+-      {/* MODAL LAYER: Settings & Vault Management */}
+-      {isSettingsOpen && <SettingsModal 
+-        onClose={() => setIsSettingsOpen(false)} 
+-        onExport={exportAppData} 
+-        onImport={async (e) => { await importAppData(e.target.files[0]); setDecks(loadDecksFromStorage()); }} 
+-        onMerge={async (e) => { await mergeAppData(e.target.files[0]); setDecks(loadDecksFromStorage()); }} 
+-        onNukeAi={handleNukeAi} 
+-        onNukeSimple={handleNukeSimple} 
+-        onDeleteDeck={handleDeleteDeck} 
+-        onResetProgress={handleResetProgress} 
+-        decks={decks} 
+-        onOpenVault={() => {
+-          setIsSettingsOpen(false);
+-          setIsVaultManagerOpen(true);
+-        }}
+-        onOpenMatrix={() => {
+-          setIsSettingsOpen(false);
+-          setIsMatrixOpen(true);
+-        }}
+-      />}
+-
+-      {isVaultManagerOpen && <VaultManager 
+-        decks={decks} 
+-        onDeckLoaded={handleDeckLoaded} 
+-        onDeleteDeck={handleDeleteDeck} 
+-        onResetProgress={handleResetProgress}
+-        onResetAllProgress={() => handleResetProgress('ALL')}
+-        onDeleteAllDecks={() => handleDeleteDeck('ALL')}
+-        certLevel={certLevel}
+-        isWarmingUp={isWarmingUp}
+-        warmUpProgress={warmUpProgress}
+-        onRefineMetadata={handleRefineMetadata}
+-        isRefining={isRefining}
+-        refineProgress={refineProgress}
+-        isOpen={isVaultManagerOpen}
+-        setIsOpen={setIsVaultManagerOpen}
+-      />}
++      {isSettingsOpen && <SettingsModal onClose={() => setIsSettingsOpen(false)} onExport={exportAppData} onImport={async (e) => { await importAppData(e.target.files[0]); setDecks(loadDecksFromStorage()); }} onMerge={async (e) => { await mergeAppData(e.target.files[0]); setDecks(loadDecksFromStorage()); }} onNukeAi={handleNukeAi} onNukeSimple={handleNukeSimple} onDeleteDeck={handleDeleteDeck} onResetProgress={handleResetProgress} decks={decks} onOpenVault={() => { setIsSettingsOpen(false); setIsVaultManagerOpen(true); }} onOpenMatrix={() => { setIsSettingsOpen(false); setIsMatrixOpen(true); }} />}
++      {isVaultManagerOpen && <VaultManager decks={decks} onDeckLoaded={handleDeckLoaded} onDeleteDeck={handleDeleteDeck} onResetProgress={handleResetProgress} onResetAllProgress={() => handleResetProgress('ALL')} onDeleteAllDecks={() => handleDeleteDeck('ALL')} certLevel={certLevel} isWarmingUp={isWarmingUp} warmUpProgress={warmUpProgress} onRefineMetadata={handleRefineMetadata} isRefining={isRefining} refineProgress={refineProgress} isOpen={isVaultManagerOpen} setIsOpen={setIsVaultManagerOpen} />}
+       {isResetOpen && <ResetModal isOpen={isResetOpen} targetTitle={resetTarget} currentMode={studyMode} quizType={quizType} onClose={() => setIsResetOpen(false)} onConfirm={handlePerformReset} />}
+-        <ConfirmationModal isOpen={confirmModal.isOpen} type={confirmModal.type} title={confirmModal.title} message={confirmModal.message} confirmText={confirmModal.confirmText} onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))} onConfirm={confirmModal.onConfirm} />
+-
++      <ConfirmationModal isOpen={confirmModal.isOpen} type={confirmModal.type} title={confirmModal.title} message={confirmModal.message} confirmText={confirmModal.confirmText} onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))} onConfirm={confirmModal.onConfirm} />
+       <main style={{ padding: '0.5rem 0 5rem 0' }}>
+         {decks.length > 0 ? (
+-          <div>
+-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 320px', gap: '2.5rem', alignItems: 'flex-start' }}>
+-              <section>
+-                <DomainGrid 
+-                  decks={decks} 
+-                  certLevel={certLevel} 
+-                  onSelectDomain={handleSelectDomain}
+-                  studyMode={studyMode}
+-                  quizType={quizType}
+-                  selectedDomain={selectedDomain}
+-                  onResetDomain={handleResetDomain}
+-                />
+-              </section>
+-
++          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 320px', gap: '2.5rem', alignItems: 'flex-start' }}>
++            <section>
++              <DomainGrid decks={decks} certLevel={certLevel} onSelectDomain={handleSelectDomain} studyMode={studyMode} quizType={quizType} selectedDomain={selectedDomain} onResetDomain={handleResetDomain} />
++            </section>
+             <section style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+               <div className="glass-panel" style={{ padding: '1.5rem', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+-                <h3 style={{ margin: 0, fontSize: '1rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>BASK Controls</h3>
+-                
+-                {/* CERTIFICATION LEVEL */}
++                <h3 style={{ margin: 0, fontSize: '1rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>BASK Controls</h3>
+                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+-                  <label style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Certification Level</label>
++                  <label style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Certification Level</label>
+                   <div style={{ display: 'flex', background: 'rgba(0,0,0,0.3)', borderRadius: '20px', padding: '3px', border: '1px solid rgba(255,255,255,0.05)' }}>
+-                    <button 
+-                      onClick={() => setCertLevel('CP')}
+-                      style={{ 
+-                        flex: 1, padding: '0.5rem', borderRadius: '18px', fontSize: '0.75rem', fontWeight: 'bold',
+-                        background: certLevel === 'CP' ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
+-                        border: certLevel === 'CP' ? '1px solid rgba(99, 102, 241, 0.4)' : '1px solid transparent',
+-                        color: certLevel === 'CP' ? 'white' : 'rgba(255,255,255,0.4)',
+-                        transition: 'all 0.3s ease'
+-                      }}
+-                    >SHRM-CP</button>
+-                    <button 
+-                      onClick={() => setCertLevel('SCP')}
+-                      style={{ 
+-                        flex: 1, padding: '0.5rem', borderRadius: '18px', fontSize: '0.75rem', fontWeight: 'bold',
+-                        background: certLevel === 'SCP' ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
+-                        border: certLevel === 'SCP' ? '1px solid rgba(99, 102, 241, 0.4)' : '1px solid transparent',
+-                        color: certLevel === 'SCP' ? 'white' : 'rgba(255,255,255,0.4)',
+-                        transition: 'all 0.3s ease'
+-                      }}
+-                    >SHRM-SCP</button>
++                    {['CP', 'SCP'].map(level => (
++                      <button key={level} onClick={() => setCertLevel(level)} style={{ flex: 1, padding: '0.5rem', borderRadius: '18px', fontSize: '0.75rem', fontWeight: 'bold', background: certLevel === level ? 'rgba(99, 102, 241, 0.15)' : 'transparent', border: certLevel === level ? '1px solid rgba(99, 102, 241, 0.4)' : '1px solid transparent', color: certLevel === level ? 'white' : 'rgba(255,255,255,0.4)' }}>SHRM-{level}</button>
++                    ))}
+                   </div>
+                 </div>
+-
+-                {/* STUDY MODE */}
+                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+-                  <label style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Study Mode</label>
++                  <label style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Study Mode</label>
+                   <div style={{ display: 'flex', background: 'rgba(0,0,0,0.3)', borderRadius: '20px', padding: '3px', border: '1px solid rgba(255,255,255,0.05)' }}>
+-                    <button 
+-                      onClick={() => setStudyMode('traditional')}
+-                      style={{ 
+-                        flex: 1, padding: '0.5rem', borderRadius: '18px', fontSize: '0.75rem', fontWeight: 'bold',
+-                        background: studyMode === 'traditional' ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
+-                        border: studyMode === 'traditional' ? '1px solid rgba(99, 102, 241, 0.4)' : '1px solid transparent',
+-                        color: studyMode === 'traditional' ? 'white' : 'rgba(255,255,255,0.4)',
+-                        transition: 'all 0.3s ease'
+-                      }}
+-                    >FLASHCARDS</button>
+-                    <button 
+-                      onClick={() => setStudyMode('quiz')}
+-                      style={{ 
+-                        flex: 1, padding: '0.5rem', borderRadius: '18px', fontSize: '0.75rem', fontWeight: 'bold',
+-                        background: studyMode === 'quiz' ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
+-                        border: studyMode === 'quiz' ? '1px solid rgba(99, 102, 241, 0.4)' : '1px solid transparent',
+-                        color: studyMode === 'quiz' ? 'white' : 'rgba(255,255,255,0.4)',
+-                        transition: 'all 0.3s ease'
+-                      }}
+-                    >INTERACTIVE QUIZ</button>
++                    <button onClick={() => setStudyMode('traditional')} style={{ flex: 1, padding: '0.5rem', borderRadius: '18px', fontSize: '0.75rem', fontWeight: 'bold', background: studyMode === 'traditional' ? 'rgba(99, 102, 241, 0.15)' : 'transparent', border: studyMode === 'traditional' ? '1px solid rgba(99, 102, 241, 0.4)' : '1px solid transparent', color: studyMode === 'traditional' ? 'white' : 'rgba(255,255,255,0.4)' }}>FLASHCARDS</button>
++                    <button onClick={() => setStudyMode('quiz')} style={{ flex: 1, padding: '0.5rem', borderRadius: '18px', fontSize: '0.75rem', fontWeight: 'bold', background: studyMode === 'quiz' ? 'rgba(99, 102, 241, 0.15)' : 'transparent', border: studyMode === 'quiz' ? '1px solid rgba(99, 102, 241, 0.4)' : '1px solid transparent', color: studyMode === 'quiz' ? 'white' : 'rgba(255,255,255,0.4)' }}>INTERACTIVE QUIZ</button>
+                   </div>
+                 </div>
+ 
+-                {/* QUIZ TYPE (Conditional) */}
+-                {studyMode === 'quiz' && (
+-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', paddingTop: '1.2rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+-                    <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Quiz Type</div>
+-                    <div style={{ display: 'flex', background: 'rgba(0,0,0,0.3)', borderRadius: '20px', padding: '3px', border: '1px solid rgba(255,255,255,0.05)' }}>
+-                      <button 
+-                        onClick={() => setQuizType('intelligent')}
+-                        style={{ 
+-                          flex: 1, padding: '0.5rem', borderRadius: '18px', fontSize: '0.75rem', fontWeight: 'bold',
+-                          background: quizType === 'intelligent' ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
+-                          border: quizType === 'intelligent' ? '1px solid rgba(99, 102, 241, 0.4)' : '1px solid transparent',
+-                          color: quizType === 'intelligent' ? 'white' : 'rgba(255,255,255,0.4)',
+-                          transition: 'all 0.3s ease'
+-                        }}
+-                      >SITUATIONAL (SJI)</button>
+-                      <button 
+-                        onClick={() => setQuizType('simple')}
+-                        style={{ 
+-                          flex: 1, padding: '0.5rem', borderRadius: '18px', fontSize: '0.75rem', fontWeight: 'bold',
+-                          background: quizType === 'simple' ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
+-                          border: quizType === 'simple' ? '1px solid rgba(99, 102, 241, 0.4)' : '1px solid transparent',
+-                          color: quizType === 'simple' ? 'white' : 'rgba(255,255,255,0.4)',
+-                          transition: 'all 0.3s ease'
+-                        }}
+-                      >RECALL (DEFINITION)</button>
++                {studyMode === 'quiz' ? (
++                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem', paddingTop: '1.2rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
++                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
++                        <label style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Quiz Type</label>
++                        <div style={{ display: 'flex', background: 'rgba(0,0,0,0.3)', borderRadius: '20px', padding: '3px', border: '1px solid rgba(255,255,255,0.05)' }}>
++                            <button onClick={() => setQuizType('intelligent')} style={{ flex: 1, padding: '0.5rem', borderRadius: '18px', fontSize: '0.75rem', fontWeight: 'bold', background: quizType === 'intelligent' ? 'rgba(99, 102, 241, 0.12)' : 'transparent', border: quizType === 'intelligent' ? '1px solid rgba(99, 102, 241, 0.3)' : '1px solid transparent', color: 'white' }}>SITUATIONAL (SJI)</button>
++                            <button onClick={() => setQuizType('simple')} style={{ flex: 1, padding: '0.5rem', borderRadius: '18px', fontSize: '0.75rem', fontWeight: 'bold', background: quizType === 'simple' ? 'rgba(99, 102, 241, 0.12)' : 'transparent', border: quizType === 'simple' ? '1px solid rgba(99, 102, 241, 0.3)' : '1px solid transparent', color: 'white' }}>RECALL (DEFINITION)</button>
++                        </div>
+                     </div>
+-                  </div>
+-                )}
+-
+-                {/* SELECT QUIZ LENGTH (DYNAMIC SLIDER) */}
+-                {studyMode === 'quiz' && (
+-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', paddingTop: '1.2rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+-                    {(() => {
+-                      const stats = vaultStats[selectedDomain] || { intelligent: 0, simple: 0, total: 0 };
+-                      const readyCount = quizType === 'intelligent' ? stats.intelligent : stats.simple;
+-                      const maxVal = Math.max(1, readyCount);
+-                      const isGlobal = selectedDomain === 'ALL';
+-                      const isExamReady = isGlobal && readyCount >= 134;
+-
+-                      return (
+-                        <>
+-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+-                            <label style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+-                              Test Question Size
+-                            </label>
+-                            <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--secondary)' }}>
+-                              {testLength === -1 ? `Full (${readyCount})` : `${testLength} Cards`}
+-                            </span>
+-                          </div>
+-
+-                          {/* PREMIUM SLIDER UI (With Boundaries and Snap-to-5) */}
+-                          <div style={{ padding: '0.5rem 0' }}>
+-                            <input 
+-                              type="range" 
+-                              min="5" 
+-                              max={maxVal} 
+-                              step="5"
+-                              list="tickmarks"
+-                              value={testLength === -1 ? maxVal : Math.min(testLength, maxVal)}
+-                              onChange={(e) => setTestLength(parseInt(e.target.value))}
+-                              className="premium-slider"
+-                              style={{ width: '100%', cursor: 'pointer' }}
+-                            />
+-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.3rem', fontSize: '0.7rem', color: 'rgba(255,255,255,0.7)', fontWeight: 'bold' }}>
+-                              <span>0</span>
+-                              <span>{maxVal}</span>
+-                            </div>
+-                            <datalist id="tickmarks">
+-                               {Array.from({ length: Math.floor(maxVal / 10) + 1 }, (_, i) => (
+-                                 <option key={i * 10} value={i * 10}></option>
+-                               ))}
+-                            </datalist>
+-                          </div>
+-
+-                          {/* EXAM SIMULATOR PULSE BUTTON (Unlocked at 134+ global) */}
+-                          {isExamReady && (
+-                            <div className="animate-fade-in" style={{ marginTop: '0.5rem' }}>
+-                              <button 
+-                                onClick={() => handleStartTestFromSidebar(true)}
+-                                className="pulse-button"
+-                                style={{ 
+-                                  width: '100%',
+-                                  padding: '0.7rem',
+-                                  borderRadius: '12px',
+-                                  background: 'linear-gradient(135deg, #fbbf24, #f59e0b)',
+-                                  border: 'none',
+-                                  color: '#0f172a',
+-                                  fontSize: '0.75rem',
+-                                  fontWeight: '900',
+-                                  cursor: 'pointer',
+-                                  boxShadow: '0 4px 15px rgba(245, 158, 11, 0.3)',
+-                                  display: 'flex',
+-                                  alignItems: 'center',
+-                                  justifyContent: 'center',
+-                                  gap: '0.6rem'
+-                                }}
+-                              >
+-                                <span className="material-symbols-outlined" style={{ fontSize: '1.2rem' }}>military_tech</span>
+-                                LAUNCH 134-QUESTION SIMULATION
+-                              </button>
+-                              <p style={{ fontSize: '0.6rem', color: '#fbbf24', textAlign: 'center', marginTop: '0.4rem', fontStyle: 'italic', opacity: 0.8 }}>
+-                                Full Exam Distribution (35% People | 35% Org | 30% Workplace)
+-                              </p>
+-                            </div>
+-                          )}
+-                        </>
+-                      );
+-                    })()}
+-                  </div>
+-                )}
+ 
+-                {/* POOL STRENGTH WARNING */}
+-                {(() => {
+-                  const stats = getVaultStats(certLevel, decks)[selectedDomain] || { intelligent: 0, simple: 0 };
+-                  const count = quizType === 'intelligent' ? stats.intelligent : stats.simple;
+-                  if (count > 0) return null;
+-                  return (
+-                    <div style={{ padding: '0.8rem', borderRadius: '12px', background: 'rgba(251, 191, 36, 0.05)', border: '1px solid rgba(251, 191, 36, 0.2)', display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+-                      <span className="material-symbols-outlined" style={{ color: '#fbbf24', fontSize: '1.2rem' }}>warning</span>
+-                      <div style={{ fontSize: '0.65rem', color: '#fbbf24', lineHeight: '1.3' }}>
+-                        <b>SYNC NEEDED</b>: 0 synced for {selectedDomain === 'ALL' ? 'Global Vault' : selectedDomain}.
+-                      </div>
++                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
++                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
++                            <label style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Test Question Size</label>
++                            <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#10b981' }}>{testLength === -1 ? (vaultStats[selectedDomain]?.total || 0) : testLength} Cards</span>
++                        </div>
++                        <input type="range" min="5" max={vaultStats[selectedDomain]?.total || 25} step="5" value={testLength === -1 ? (vaultStats[selectedDomain]?.total || 25) : testLength} onChange={(e) => setTestLength(parseInt(e.target.value))} className="custom-slider" style={{ width: '100%', height: '4px', borderRadius: '2px', background: 'rgba(255,255,255,0.1)', outline: 'none', cursor: 'pointer' }} />
++                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 'bold' }}><span>0</span><span>{vaultStats[selectedDomain]?.total || 90}</span></div>
+                     </div>
+-                  );
+-                })()}
+-
+-                {/* START STUDYING BUTTON */}
+-                <button 
+-                  onClick={() => handleStartTestFromSidebar(false)}
+-                  style={{ 
+-                    marginTop: '0.5rem',
+-                    width: '100%',
+-                    padding: '1rem', 
+-                    borderRadius: '16px',
+-                    background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+-                    border: 'none',
+-                    color: 'white',
+-                    fontSize: '0.9rem',
+-                    fontWeight: '800',
+-                    boxShadow: '0 8px 25px rgba(99, 102, 241, 0.3)',
+-                    display: 'flex',
+-                    alignItems: 'center',
+-                    justifyContent: 'center',
+-                    gap: '0.8rem',
+-                    transition: 'all 0.3s ease'
+-                  }}
+-                >
+-                  {selectedDomain === 'ALL' ? 'START GLOBAL STUDYING' : `LAUNCH ${selectedDomain.toUpperCase()} STUDY`}
+-                </button>
+-                
+-                {isWarmingUp && (
+-                  <div style={{ marginTop: '0.5rem', padding: '1rem', background: 'rgba(251,191,36,0.05)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: '12px' }}>
+-                    <div style={{ fontSize: '0.75rem', color: '#fbbf24', fontWeight: 'bold', marginBottom: '0.5rem' }}>{warmUpStatus}</div>
+-                    <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.05)', borderRadius: '10px', overflow: 'hidden' }}>
+-                      <div style={{ width: `${warmUpProgress}%`, height: '100%', background: '#fbbf24' }} />
+-                    </div>
+-                  </div>
+-                )}
+ 
+-                {warmUpError && (
+-                  <button 
+-                    onClick={handleBulkWarmUp}
+-                    style={{ width: '100%', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '0.7rem', borderRadius: '12px', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 'bold' }}
+-                  >
+-                    Resume Interrupted Sync
+-                  </button>
++                    <button onClick={handleStartTestFromSidebar} className="pulse-button" style={{ width: '100%', padding: '1rem', borderRadius: '15px', background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', border: 'none', color: 'white', fontWeight: 'bold', fontSize: '0.9rem', cursor: 'pointer', boxShadow: '0 10px 20px rgba(99, 102, 241, 0.3)', marginTop: '0.5rem' }}>
++                      LAUNCH {selectedDomain === 'ALL' ? 'ALL STUDY' : selectedDomain.toUpperCase() + ' STUDY'}
++                    </button>
++                  </div>
++                ) : (
++                  <div style={{ display: 'flex', gap: '10px', marginTop: '1.2rem', paddingTop: '1.2rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
++                    <button onClick={handleStartTestFromSidebar} className="pulse-button" style={{ flex: 1, padding: '1rem', borderRadius: '15px', background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', border: 'none', color: 'white', fontWeight: 'bold', fontSize: '0.9rem', cursor: 'pointer', boxShadow: '0 10px 20px rgba(99, 102, 241, 0.3)' }}>
++                      LAUNCH {selectedDomain === 'ALL' ? 'ALL STUDY' : selectedDomain.toUpperCase() + ' STUDY'}
++                    </button>
++                    <button onClick={() => handleStartTestDirectly({ domainId: selectedDomain, testLength: -1, testType: 'intelligent', certLevel, isAudio: true })} style={{ width: '55px', borderRadius: '15px', background: 'rgba(99, 102, 241, 0.1)', border: '1px solid rgba(99, 102, 241, 0.2)', color: '#a5b4fc', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }} title="Launch Audio Hub">
++                      <span className="material-symbols-outlined">headset</span>
++                    </button>
++                  </div>
+                 )}
+               </div>
+             </section>
+-            </div>
+           </div>
+         ) : (
+-          <div style={{ textAlign: 'center', padding: '5rem 2rem' }}>
++          <div style={{ textAlign: 'center', padding: '10rem 0' }}>
+             <span className="material-symbols-outlined" style={{ fontSize: '4rem', color: 'rgba(255,255,255,0.1)', marginBottom: '1.5rem' }}>upload_file</span>
+             <h2 style={{ marginBottom: '1rem' }}>No Study Material Found</h2>
+             <p style={{ color: 'var(--text-muted)', marginBottom: '2rem' }}>Please import your study material to begin.</p>
+@@ -927,22 +670,7 @@ function App() {
+               <span className="material-symbols-outlined">add_circle</span>
+               Add Your First Topic
+             </label>
+-          </div>
+-        )}
+-
+-        {decks.length > 0 && isMatrixOpen && (
+-          <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(11, 15, 25, 0.9)', backdropFilter: 'blur(10px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
+-            <div className="glass-panel animate-fade-in" style={{ width: '100%', maxWidth: '1100px', maxHeight: '90vh', overflowY: 'auto', position: 'relative', border: '1px solid rgba(255,255,255,0.1)' }}>
+-              <button 
+-                onClick={() => setIsMatrixOpen(false)} 
+-                style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'rgba(0,0,0,0.2)', border: 'none', color: 'white', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 100, transition: 'all 0.2s' }}
+-                onMouseEnter={(e) => e.target.style.background = 'rgba(0,0,0,0.4)'}
+-                onMouseLeave={(e) => e.target.style.background = 'rgba(0,0,0,0.2)'}
+-              >
+-                <span className="material-symbols-outlined" style={{ fontSize: '1.8rem' }}>close</span>
+-              </button>
+-              <VaultHealthMatrix decks={decks} onSmartSync={handleBulkWarmUp} isSyncing={isWarmingUp} syncProgress={warmUpProgress} syncStatus={warmUpStatus} certLevel={certLevel} />
+-            </div>
++            <DataImporter onDeckLoaded={handleDeckLoaded} />
+           </div>
+         )}
+       </main>
+diff --git a/frontend/src/utils/quizProcessor.js b/frontend/src/utils/quizProcessor.js
+index 82d6958..9b7a633 100644
+--- a/frontend/src/utils/quizProcessor.js
++++ b/frontend/src/utils/quizProcessor.js
+@@ -28,8 +28,11 @@ export async function getQuizDataByFilter(decks, filter = {}, requestedQuizType
+         deck.cards.forEach(card => {
+             const cleanId = String(card.id).replace(/[\s\n\r]/g, '');
+             const vaultData = vault[`${cleanId}:${requestedQuizType}:${certLevel}`];
+-            
+-            if (!vaultData) return;
++            if (studyMode === 'traditional') {
++                // Flashcards should NOT care about vaultData existence
++            } else if (!vaultData) {
++                return;
++            }
+ 
+             // STRUCTURAL SYNC: Universal Routing Hub
+             const cardDomains = resolveCardDomains(card, certLevel, deck.title, vault);
+@@ -38,11 +41,11 @@ export async function getQuizDataByFilter(decks, filter = {}, requestedQuizType
+             if (domainId && domainId !== 'ALL' && !cardDomains.includes(domainId)) return;
+ 
+             // Readiness Check
+-            let isReady = false;
++            let isReady = (studyMode === 'traditional' ? true : false);
+             if (requestedQuizType === 'intelligent') {
+-                isReady = !!vaultData.scenario && !!vaultData.rationale;
++                isReady = isReady || (!!vaultData?.scenario && !!vaultData?.rationale);
+             } else {
+-                isReady = Array.isArray(vaultData.distractors) && vaultData.distractors.length > 0;
++                isReady = isReady || (Array.isArray(vaultData?.distractors) && vaultData?.distractors.length > 0);
+             }
+ 
+             if (isReady) {
+@@ -92,14 +95,16 @@ export async function getQuizDataByFilter(decks, filter = {}, requestedQuizType
+         } else {
+             const unseenPool = pool.filter(card => !card[statusKey] || card[statusKey] === 'unseen');
+             
+-            console.error("ALERT: Need to solve this flashcard issue where array slice duplicates or ignores indices.");
+-
+-            if (unseenPool.length > 0) {
++            if (unseenPool.length >= length) {
+                 finalSelection = unseenPool.slice(0, length);
+             } else {
+-                finalSelection = pool.slice(0, length);
++                // Not enough unseen? Grab all unseen + some seen from start of main pool
++                const seenPool = pool.filter(card => card[statusKey] === 'seen');
++                const needed = length - unseenPool.length;
++                finalSelection = [...unseenPool, ...seenPool.slice(0, needed)];
+             }
+         }
++
+     }
+ 
+     const isUnderStrength = (length > 0 && totalReady < length);

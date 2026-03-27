@@ -255,8 +255,13 @@ export function resolveCardDomains(card, certLevel = 'CP', deckTitle = '', vault
     const intelKey = `${cleanId}:intelligent:${certLevel}`;
     const simpleKey = `${cleanId}:simple:${certLevel}`;
     
-    // Check vault for both possible keys
-    const vaultData = activeVault[intelKey] || activeVault[simpleKey] || {};
+    // Check vault for both possible keys AND both cert levels (Domain tags are content-based)
+    const otherCert = certLevel === 'CP' ? 'SCP' : 'CP';
+    const vaultData = activeVault[intelKey] || 
+                      activeVault[simpleKey] || 
+                      activeVault[`${cleanId}:intelligent:${otherCert}`] || 
+                      activeVault[`${cleanId}:simple:${otherCert}`] || 
+                      {};
     const domains = ['Competencies']; // Every card belongs to the master hub
     
     // 1. BASK DOMAIN (tag_bask) -> People/Organization/Workplace

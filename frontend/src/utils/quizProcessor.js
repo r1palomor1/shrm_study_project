@@ -36,19 +36,23 @@ export async function getQuizDataByFilter(decks, filter = {}, requestedQuizType 
 
             // STRUCTURAL SYNC: Universal Routing Hub
             const cardDomains = resolveCardDomains(card, certLevel, deck.title, vault);
-            const primaryDomain = cardDomains[0] !== 'Competencies' ? cardDomains[0] : 'Competencies';
             
-            if (domainId && domainId !== 'ALL' && !cardDomains.includes(domainId)) return;
-
-            // Readiness Check
-            let isReady = (studyMode === 'traditional' ? true : false);
-            if (requestedQuizType === 'intelligent') {
-                isReady = isReady || (!!vaultData?.scenario && !!vaultData?.rationale);
-            } else {
-                isReady = isReady || (Array.isArray(vaultData?.distractors) && vaultData?.distractors.length > 0);
+            // EXCELLENCE: Traditional mode bypasses AI-readiness (flashcards don't need scenarios)
+            let isReady = (studyMode === 'traditional');
+            if (!isReady && vaultData) {
+                if (requestedQuizType === 'intelligent') {
+                    isReady = !!vaultData.scenario && !!vaultData.rationale;
+                } else {
+                    isReady = Array.isArray(vaultData.distractors) && vaultData.distractors.length > 0;
+                }
             }
 
             if (isReady) {
+                // PRIMARY DOMAIN RESOLUTION: Pick the most specific BASK domain first, default to Competencies if generic.
+                const primaryDomain = cardDomains.find(d => d !== 'Competencies') || 'Competencies';
+                
+                if (domainId && domainId !== 'ALL' && !cardDomains.includes(domainId)) return;
+
                 pools[primaryDomain]?.push({
                     ...card,
                     aiData: vaultData
@@ -62,7 +66,10 @@ export async function getQuizDataByFilter(decks, filter = {}, requestedQuizType 
     let finalSelection = [];
     const totalReady = Object.values(pools).reduce((acc, p) => acc + p.length, 0);
 
-    if (isWeighted || (domainId === 'ALL' && (length === 134 || length === 50))) {
+    // SECURE BYPASS: Flashcards should ALWAYS show the full pool without weighted slicing.
+    const isTraditional = (studyMode === 'traditional');
+
+    if (!isTraditional && (isWeighted || (domainId === 'ALL' && (length === 134 || length === 50)))) {
         // Apply SHRM Weights
         const weights = { 'People': 0.35, 'Organization': 0.35, 'Workplace': 0.30, 'Competencies': 0.0 };
         const targetLen = length === -1 ? totalReady : length;
@@ -88,26 +95,52 @@ export async function getQuizDataByFilter(decks, filter = {}, requestedQuizType 
         const flatPool = Object.values(pools).flat();
         const pool = flatPool.sort((a, b) => String(a.id).localeCompare(String(b.id), undefined, {numeric: true}));
         
-        const firstUnseenIdx = pool.findIndex(card => !card[statusKey] || card[statusKey] === 'unseen');
-        
-        if (length === -1) {
+        // STRUCTURAL SYNC: Universal Length Handler (Restoring 1b817de Logic)
+        if (length === -1 || (isTraditional && length === 9999)) {
             finalSelection = pool;
-        } else {
-            const unseenPool = pool.filter(card => !card[statusKey] || card[statusKey] === 'unseen');
-            
+        } else if (studyMode === 'audio') {
+            // Audio Hub: Strict Unseen Persistence 
+            const unseenPool = pool.filter(card => !card.status_audio_seen || card.status_audio_seen !== 'seen');
             if (unseenPool.length >= length) {
                 finalSelection = unseenPool.slice(0, length);
             } else {
-                // Not enough unseen? Grab all unseen + some seen from start of main pool
-                const seenPool = pool.filter(card => card[statusKey] === 'seen');
+                const seenPool = pool.filter(card => card.status_audio_seen === 'seen');
                 const needed = length - unseenPool.length;
                 finalSelection = [...unseenPool, ...seenPool.slice(0, needed)];
             }
+        } else {
+            // BACKFILL ENGINE (from 1b817de): Prioritize unseen, fill remaining with played cards
+            const unseenPool = pool.filter(card => !card[statusKey] || card[statusKey] === 'unseen');
+            
+            if (unseenPool.length >= length) {
+                // We have enough unseen cards to fill the quota
+                finalSelection = unseenPool.slice(0, length);
+            } else {
+                // Not enough unseen — fill the gap with the earliest played cards
+                const playedPool = pool.filter(card => card[statusKey] && card[statusKey] !== 'unseen');
+                const needed = length - unseenPool.length;
+                finalSelection = [...unseenPool, ...playedPool.slice(0, needed)];
+            }
         }
-
     }
 
     const isUnderStrength = (length > 0 && totalReady < length);
+
+    if (studyMode === 'traditional' || (length > 0 && finalSelection.length !== length)) {
+        console.group('[SHRM ENGINE DIAGNOSTICS]');
+        console.table({
+            'Study Mode': studyMode,
+            'Domain ID': domainId,
+            'Requested Length': length === -1 ? 'Full Pool' : length,
+            'Actual Selection': finalSelection.length,
+            'Total Pool Available': totalReady,
+            'Weighted Simulation': isWeighted ? 'Yes' : 'No'
+        });
+        if (length > 0 && finalSelection.length !== length) {
+            console.warn(`[SHRM WARNING] Slicing Mismatch: Requested ${length} but returned ${finalSelection.length}. (Check Backfill/Weighted Logic)`);
+        }
+        console.groupEnd();
+    }
 
     return {
         cards: finalSelection,
