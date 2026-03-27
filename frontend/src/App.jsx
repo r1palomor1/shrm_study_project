@@ -64,7 +64,7 @@ function App() {
   // CORE PERFORMANCE OPTIMIZATION: Memoize the heavy vault JSON parse
   const vaultStats = useMemo(() => {
     return decks.length > 0 ? getVaultStats(certLevel, decks) : {};
-  }, [certLevel, decks]);
+  }, [certLevel, decks, isWarmingUp, isRefining, isPolishingGaps]);
 
   useEffect(() => {
     localStorage.setItem('shrm_cert_level', certLevel);

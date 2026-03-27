@@ -50,7 +50,7 @@ const TopicHealthCell = ({ count, total }) => {
  */
 const VaultHealthMatrix = ({ decks, onSmartSync, isSyncing, syncProgress, syncStatus, certLevel = 'CP' }) => {
   // Dynamic vault reload for real-time matrix updates during sync
-  const vault = useMemo(() => loadVaultFromStorage(), [isSyncing, syncProgress]);
+  const vault = useMemo(() => loadVaultFromStorage(), [decks, certLevel, isSyncing, syncProgress]);
 
   // Structural Logic: Calculate health stats for each topic
   const topicStats = useMemo(() => {
