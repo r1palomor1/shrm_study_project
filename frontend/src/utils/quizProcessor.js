@@ -28,8 +28,11 @@ export async function getQuizDataByFilter(decks, filter = {}, requestedQuizType 
         deck.cards.forEach(card => {
             const cleanId = String(card.id).replace(/[\s\n\r]/g, '');
             const vaultData = vault[`${cleanId}:${requestedQuizType}:${certLevel}`];
-            
-            if (!vaultData) return;
+            if (studyMode === 'traditional') {
+                // Flashcards should NOT care about vaultData existence
+            } else if (!vaultData) {
+                return;
+            }
 
             // STRUCTURAL SYNC: Universal Routing Hub
             const cardDomains = resolveCardDomains(card, certLevel, deck.title, vault);
@@ -38,11 +41,11 @@ export async function getQuizDataByFilter(decks, filter = {}, requestedQuizType 
             if (domainId && domainId !== 'ALL' && !cardDomains.includes(domainId)) return;
 
             // Readiness Check
-            let isReady = false;
+            let isReady = (studyMode === 'traditional' ? true : false);
             if (requestedQuizType === 'intelligent') {
-                isReady = !!vaultData.scenario && !!vaultData.rationale;
+                isReady = isReady || (!!vaultData?.scenario && !!vaultData?.rationale);
             } else {
-                isReady = Array.isArray(vaultData.distractors) && vaultData.distractors.length > 0;
+                isReady = isReady || (Array.isArray(vaultData?.distractors) && vaultData?.distractors.length > 0);
             }
 
             if (isReady) {
