@@ -198,28 +198,6 @@ export default function SettingsModal({
                 </div>
               </div>
 
-              {/* Surgical Nuke: Strategic Gaps */}
-              <div style={{ ...cardStyle, border: '1px solid rgba(251, 191, 36, 0.2)', background: 'rgba(251, 191, 36, 0.05)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                  <span className="material-symbols-outlined" style={{ color: '#fbbf24' }}>warning</span>
-                  <div>
-                    <div style={{ fontWeight: '600' }}>Upgrade Gaps Only</div>
-                    <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', lineHeight: '1.4' }}>
-                      Purge existing Trap Alert labels to force a 100% fresh strategic refresh.
-                    </div>
-                  </div>
-                </div>
-                <button onClick={onNukeGaps} style={{ 
-                  padding: '0.5rem 1rem', 
-                  borderRadius: '12px',
-                  background: 'rgba(251, 191, 36, 0.1)',
-                  border: '1px solid #fbbf24',
-                  color: '#fbbf24',
-                  fontSize: '0.8rem',
-                  fontWeight: '700'
-                }}>Purge Gaps</button>
-              </div>
-
               {/* Export SJI Audit Log */}
               <div style={cardStyle}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>

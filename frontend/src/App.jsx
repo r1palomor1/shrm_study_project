@@ -146,30 +146,6 @@ function App() {
     });
   };
 
-  const handleNukeGaps = () => {
-    setIsSettingsOpen(false);
-    setConfirmModal({
-      isOpen: true,
-      type: 'danger',
-      title: 'Structural Purge: Strategic Trap Alerts?',
-      message: `This will wipe ONLY the current Trap Alert labels for SHRM-${certLevel}. This forces a 100% fresh strategic refresh during the next Polish pass. Continue?`,
-      confirmText: 'Purge Gaps',
-      onConfirm: () => {
-        const vault = loadVaultFromStorage();
-        Object.keys(vault).forEach(key => {
-          if (key.includes(`intelligent:${certLevel}`)) {
-            if (vault[key].gap_analysis) {
-              delete vault[key].gap_analysis;
-            }
-          }
-        });
-        localStorage.setItem('shrm_distractor_vault', JSON.stringify(vault));
-        setDecks(loadDecksFromStorage());
-        setConfirmModal(prev => ({ ...prev, isOpen: false }));
-      }
-    });
-  };
-
   const handleResetProgress = (title) => {
     setIsSettingsOpen(false);
     setIsVaultManagerOpen(false);
@@ -425,6 +401,7 @@ function App() {
       try {
         let { missingCards: missingIntel } = await getQuizDataForDeck({ cards: targetCards }, 'intelligent', certLevel);
         let { missingCards: missingSimple } = await getQuizDataForDeck({ cards: targetCards }, 'simple', certLevel);
+        
         const totalToSync = missingIntel.length + missingSimple.length;
         let syncedCount = 0;
         let currentBatch = 0;
@@ -472,6 +449,7 @@ function App() {
           missingSimple = updated.missingCards;
         }
 
+
         setWarmUpStatus("COMPLETED: All Data Synced.");
         setWarmUpProgress(100);
         setTimeout(() => setIsWarmingUp(false), 2000);
@@ -508,47 +486,6 @@ function App() {
     setIsRefining(false); setDecks(loadDecksFromStorage());
   };
 
-  const handlePolishGaps = async () => {
-    if (decks.length === 0) return;
-    setIsPolishingGaps(true); 
-    setPolishingGapsProgress(0);
-    const vault = loadVaultFromStorage();
-    let cardsToPolish = [];
-
-    const isStrategicGap = (gap) => {
-      if (!gap) return false;
-      return gap.length > 30 && !gap.includes('Symptomatic Fix') && !gap.includes('Premature Escalation');
-    };
-
-    decks.forEach(deck => {
-      deck.cards.forEach(card => {
-        const cleanId = String(card.id).replace(/[\s\n\r]/g, '');
-        const iData = vault[`${cleanId}:intelligent:${certLevel}`];
-        if (iData?.scenario && !isStrategicGap(iData?.gap_analysis)) {
-           cardsToPolish.push({ ...card, topic: deck.title, aiData: iData });
-        }
-      });
-    });
-
-    if (cardsToPolish.length === 0) { setIsPolishingGaps(false); return; }
-    
-    const total = cardsToPolish.length;
-    let completed = 0;
-
-    for (let i = 0; i < cardsToPolish.length; i += 8) {
-      const batch = cardsToPolish.slice(i, i + 8);
-      const result = await polishGapsBatch(batch, certLevel);
-      if (result.success) {
-        completed += result.count;
-        setPolishingGapsProgress(Math.round((completed / total) * 100));
-        setDecks(loadDecksFromStorage());
-      } else { break; }
-      // API Safety Stagger
-      if (i + 8 < cardsToPolish.length) { await new Promise(r => setTimeout(r, 6000)); }
-    }
-    setIsPolishingGaps(false); 
-    setDecks(loadDecksFromStorage());
-  };
 
   const handleUpdateCardStatus = (cardId, status, historyData = {}) => {
     updateCardStatus(cardId, (isAudioMode ? 'audio' : studyMode), status, { 
@@ -668,8 +605,8 @@ function App() {
           </button>
         </div>
       </header>
-      {isSettingsOpen && <SettingsModal onClose={() => setIsSettingsOpen(false)} onExport={exportAppData} onImport={async (e) => { await importAppData(e.target.files[0]); setDecks(loadDecksFromStorage()); }} onMerge={async (e) => { await mergeAppData(e.target.files[0]); setDecks(loadDecksFromStorage()); }} onNukeAi={handleNukeAi} onNukeSimple={handleNukeSimple} onNukeGaps={handleNukeGaps} onDeleteDeck={handleDeleteDeck} onResetProgress={handleResetProgress} decks={decks} onOpenVault={() => { setIsSettingsOpen(false); setIsVaultManagerOpen(true); }} onOpenMatrix={() => { setIsSettingsOpen(false); setIsMatrixOpen(true); }} />}
-      {isVaultManagerOpen && <VaultManager decks={decks} onDeckLoaded={handleDeckLoaded} onDeleteDeck={handleDeleteDeck} onResetProgress={handleResetProgress} onResetAllProgress={() => handleResetProgress('ALL')} onDeleteAllDecks={() => handleDeleteDeck('ALL')} certLevel={certLevel} isWarmingUp={isWarmingUp} warmUpProgress={warmUpProgress} onRefineMetadata={handleRefineMetadata} isRefining={isRefining} refineProgress={refineProgress} onPolishGaps={handlePolishGaps} isPolishingGaps={isPolishingGaps} polishingGapsProgress={polishingGapsProgress} isOpen={isVaultManagerOpen} setIsOpen={setIsVaultManagerOpen} />}
+      {isSettingsOpen && <SettingsModal onClose={() => setIsSettingsOpen(false)} onExport={exportAppData} onImport={async (e) => { await importAppData(e.target.files[0]); setDecks(loadDecksFromStorage()); }} onMerge={async (e) => { await mergeAppData(e.target.files[0]); setDecks(loadDecksFromStorage()); }} onNukeAi={handleNukeAi} onNukeSimple={handleNukeSimple} onDeleteDeck={handleDeleteDeck} onResetProgress={handleResetProgress} decks={decks} onOpenVault={() => { setIsSettingsOpen(false); setIsVaultManagerOpen(true); }} onOpenMatrix={() => { setIsSettingsOpen(false); setIsMatrixOpen(true); }} />}
+      {isVaultManagerOpen && <VaultManager decks={decks} onDeckLoaded={handleDeckLoaded} onDeleteDeck={handleDeleteDeck} onResetProgress={handleResetProgress} onResetAllProgress={() => handleResetProgress('ALL')} onDeleteAllDecks={() => handleDeleteDeck('ALL')} certLevel={certLevel} isWarmingUp={isWarmingUp} warmUpProgress={warmUpProgress} onRefineMetadata={handleRefineMetadata} isRefining={isRefining} refineProgress={refineProgress} isOpen={isVaultManagerOpen} setIsOpen={setIsVaultManagerOpen} />}
       {isMatrixOpen && <div className="fixed-overlay animate-fade-in" onClick={() => setIsMatrixOpen(false)} style={{ zIndex: 10002 }}><div onClick={e => e.stopPropagation()} style={{ width: '90%', maxWidth: '1200px' }}><VaultHealthMatrix decks={decks} certLevel={certLevel} onSmartSync={handleBulkWarmUp} isSyncing={isWarmingUp} syncProgress={warmUpProgress} syncStatus={warmUpStatus} /></div></div>}
       {isResetOpen && <ResetModal isOpen={isResetOpen} targetTitle={resetTarget} currentMode={studyMode} quizType={quizType} onClose={() => setIsResetOpen(false)} onConfirm={handlePerformReset} />}
       <ConfirmationModal isOpen={confirmModal.isOpen} type={confirmModal.type} title={confirmModal.title} message={confirmModal.message} confirmText={confirmModal.confirmText} onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))} onConfirm={confirmModal.onConfirm} />

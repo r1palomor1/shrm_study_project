@@ -376,7 +376,7 @@ export default function QuizStudyMode({ deck, onBack, onUpdateCardStatus }) {
                         <div style={{ color: 'var(--secondary)', fontWeight: 'bold', fontSize: '0.8rem', textTransform: 'uppercase', marginBottom: '0.6rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                             🎓 Tutor Explanation:
                         </div>
-                        {currentAiData.rationale.replace(/^(Correct|Answer|Rationale):\s*/i, '')}
+                        {currentAiData.rationale}
                     </div>
                 )}
             </div>

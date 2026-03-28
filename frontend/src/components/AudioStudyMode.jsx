@@ -15,12 +15,16 @@ const AudioStudyMode = ({ deck, onExit, certLevel, updateCardStatus }) => {
     return saved === null ? false : JSON.parse(saved);
   });
   const [includeScenario, setIncludeScenario] = useState(() => {
-    const saved = localStorage.getItem('shrm_audio_include_scenario');
+    const saved = localStorage.getItem('shrm_audio_v2_include_scenario');
     return saved === null ? true : JSON.parse(saved);
   });
   const [includeTrapAlert, setIncludeTrapAlert] = useState(() => {
-    const saved = localStorage.getItem('shrm_audio_include_trap_alert');
+    const saved = localStorage.getItem('shrm_audio_v2_include_trap_alert');
     return saved === null ? true : JSON.parse(saved);
+  });
+  const [includeRationale, setIncludeRationale] = useState(() => {
+    const saved = localStorage.getItem('shrm_audio_v2_include_rationale');
+    return saved === null ? false : JSON.parse(saved);
   });
 
   const cards = deck.cards || [];
@@ -28,8 +32,9 @@ const AudioStudyMode = ({ deck, onExit, certLevel, updateCardStatus }) => {
   const total = cards.length;
 
   useEffect(() => { localStorage.setItem('shrm_audio_is_continuous', JSON.stringify(isContinuous)); }, [isContinuous]);
-  useEffect(() => { localStorage.setItem('shrm_audio_include_scenario', JSON.stringify(includeScenario)); }, [includeScenario]);
-  useEffect(() => { localStorage.setItem('shrm_audio_include_trap_alert', JSON.stringify(includeTrapAlert)); }, [includeTrapAlert]);
+  useEffect(() => { localStorage.setItem('shrm_audio_v2_include_scenario', JSON.stringify(includeScenario)); }, [includeScenario]);
+  useEffect(() => { localStorage.setItem('shrm_audio_v2_include_trap_alert', JSON.stringify(includeTrapAlert)); }, [includeTrapAlert]);
+  useEffect(() => { localStorage.setItem('shrm_audio_v2_include_rationale', JSON.stringify(includeRationale)); }, [includeRationale]);
 
   useEffect(() => {
     if (!hasMountedRef.current) { hasMountedRef.current = true; return; }
@@ -68,9 +73,15 @@ const AudioStudyMode = ({ deck, onExit, certLevel, updateCardStatus }) => {
     if (!currentCard || !hasUserStartedRef.current) return;
     synth.cancel();
     setIsPlaying(false);
+    
+    // EXCELLENCE: Strip redundant AI-generated labels before speaking or displaying
+    const cleanLabel = (text) => text ? text.replace(/^(Strategic )?(Coaching|Trap Alert|Rationale|Insight):\s*/i, '') : '';
+    
     const scText = (includeScenario && currentCard.aiData?.scenario) ? 'Scenario: ' + currentCard.aiData.scenario : '';
-    const gapText = (includeTrapAlert && currentCard.aiData?.gap_analysis) ? 'Trap Alert: ' + currentCard.aiData.gap_analysis : '';
-    const textToSpeak = `Term: ${currentCard.term || currentCard.question}. Definition: ${currentCard.definition || currentCard.answer}. ${scText} ${gapText}`;
+    const ratText = (includeRationale && currentCard.aiData?.rationale) ? 'Coaching: ' + cleanLabel(currentCard.aiData.rationale) : '';
+    const gapText = (includeTrapAlert && currentCard.aiData?.gap_analysis) ? 'Trap Alert: ' + cleanLabel(currentCard.aiData.gap_analysis) : '';
+    const textToSpeak = `Term: ${currentCard.term || currentCard.question}. Definition: ${currentCard.definition || currentCard.answer}. ${scText} ${ratText} ${gapText}`;
+    
     // 100ms delay after cancel prevents Chrome Speech Synthesis stuck-synth bug
     setTimeout(() => {
       const utterance = new SpeechSynthesisUtterance(textToSpeak);
@@ -196,16 +207,43 @@ const AudioStudyMode = ({ deck, onExit, certLevel, updateCardStatus }) => {
         <p style={{ fontSize: '0.95rem', lineHeight: '1.6', color: '#9ca3af', marginBottom: '1.5rem', maxWidth: '650px', margin: '0 auto 1.5rem' }}>{currentCard?.definition || currentCard?.answer}</p>
 
         {includeScenario && currentCard?.aiData?.scenario && (
-          <div style={{ padding: '1.2rem', background: 'rgba(99, 102, 241, 0.05)', borderLeft: '3px solid #6366f1', borderRadius: '10px', textAlign: 'left', fontStyle: 'italic', fontSize: '0.85rem', color: '#cbd5e1', lineHeight: '1.5' }}>
+          <div style={{ padding: '1.2rem', background: 'rgba(99, 102, 241, 0.05)', borderLeft: '3px solid #6366f1', borderRadius: '10px', textAlign: 'left', fontStyle: 'italic', fontSize: '0.85rem', color: '#a5b4fc', lineHeight: '1.5', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', width: '100%' }}>
+                <span className="material-symbols-outlined" style={{ fontSize: '1rem', color: '#6366f1' }}>description</span>
+                <strong style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap', color: '#6366f1' }}>Scenario</strong>
+             </div>
              {currentCard.aiData.scenario}
+          </div>
+        )}
+
+        {includeRationale && currentCard?.aiData?.rationale && (
+          <div style={{ 
+            marginTop: '1.2rem', 
+            padding: '1rem 1.2rem', 
+            background: 'rgba(99, 102, 241, 0.05)', 
+            borderLeft: '3px solid #6366f1', 
+            borderRadius: '10px', 
+            textAlign: 'left', 
+            fontSize: '0.82rem', 
+            color: '#a5b4fc', 
+            lineHeight: '1.4',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.6rem'
+          }}>
+             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', width: '100%' }}>
+                <span className="material-symbols-outlined" style={{ fontSize: '1rem', color: '#6366f1' }}>psychology</span>
+                <strong style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap', color: '#6366f1' }}>STRATEGIC COACHING</strong>
+             </div>
+             <span>{currentCard.aiData.rationale.replace(/^(Strategic )?(Coaching|Trap Alert|Rationale|Insight):\s*/i, '')}</span>
           </div>
         )}
 
         {includeTrapAlert && currentCard?.aiData?.gap_analysis && (
           <div style={{ 
             marginTop: '1.2rem', 
-            padding: '0.8rem 1.2rem', 
-            background: 'rgba(99, 102, 241, 0.05)', 
+            padding: '1rem 1.2rem', 
+            background: 'rgba(251, 191, 36, 0.05)', 
             borderLeft: '3px solid #fbbf24', 
             borderRadius: '10px', 
             textAlign: 'left', 
@@ -213,14 +251,14 @@ const AudioStudyMode = ({ deck, onExit, certLevel, updateCardStatus }) => {
             color: '#fbbf24', 
             lineHeight: '1.4',
             display: 'flex',
-            alignItems: 'center',
-            gap: '0.8rem'
+            flexDirection: 'column',
+            gap: '0.6rem'
           }}>
-             <span className="material-symbols-outlined" style={{ fontSize: '1rem', color: '#fbbf24', opacity: 0.8 }}>warning</span>
-             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <strong style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>Trap Alert:</strong>
-                <span>{currentCard.aiData.gap_analysis}</span>
+             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', width: '100%' }}>
+                <span className="material-symbols-outlined" style={{ fontSize: '1rem', color: '#fbbf24' }}>warning</span>
+                <strong style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap', color: '#fbbf24' }}>TRAP ALERT</strong>
              </div>
+             <span>{currentCard.aiData.gap_analysis.replace(/^(Strategic )?(Coaching|Trap Alert|Rationale|Insight):\s*/i, '')}</span>
           </div>
         )}
       </div>
@@ -235,7 +273,8 @@ const AudioStudyMode = ({ deck, onExit, certLevel, updateCardStatus }) => {
           <button onClick={() => setShowResetModal(true)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.65rem', fontWeight: '900' }}><span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>restart_alt</span> RESET</button>
           <button onClick={() => setIsContinuous(!isContinuous)} style={{ background: 'none', border: 'none', color: isContinuous ? '#60a5fa' : 'rgba(255,255,255,0.3)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.65rem', fontWeight: '900' }}><span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>{isContinuous ? 'repeat' : 'touch_app'}</span> {isContinuous ? 'CONTINUOUS' : 'MANUAL'}</button>
           <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: includeScenario ? '#a5b4fc' : 'rgba(255,255,255,0.3)', fontSize: '0.65rem', fontWeight: '900' }}><input type="checkbox" checked={includeScenario} onChange={() => setIncludeScenario(!includeScenario)} style={{ cursor: 'pointer', width: '12px', height: '12px' }} /> SCENARIOS</label>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: includeTrapAlert ? '#a5b4fc' : 'rgba(255,255,255,0.3)', fontSize: '0.65rem', fontWeight: '900' }}><input type="checkbox" checked={includeTrapAlert} onChange={() => setIncludeTrapAlert(!includeTrapAlert)} style={{ cursor: 'pointer', width: '12px', height: '12px' }} /> TRAP ALERTS</label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: includeTrapAlert ? '#a5b4fc' : 'rgba(255,255,255,0.3)', fontSize: '0.65rem', fontWeight: '900' }}><input type="checkbox" checked={includeTrapAlert} onChange={() => setIncludeTrapAlert(!includeTrapAlert)} style={{ cursor: 'pointer', width: '12px', height: '12px' }} /> TRAPS</label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', color: includeRationale ? '#a5b4fc' : 'rgba(255,255,255,0.3)', fontSize: '0.65rem', fontWeight: '900' }}><input type="checkbox" checked={includeRationale} onChange={() => setIncludeRationale(!includeRationale)} style={{ cursor: 'pointer', width: '12px', height: '12px' }} /> COACHING</label>
         </div>
       </div>
 

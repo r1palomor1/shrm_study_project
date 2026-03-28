@@ -73,7 +73,17 @@ async function handleGenerateDistractors(req, res) {
             - DO NOT output generic labels like "Symptomatic Fix" or "Premature Escalation".
             `;
         } else {
-            promptSystemInstructions = `ROLE: SHRM 2026 Architect. Generate full data in one call.`;
+            // --- MONOLITHIC STAGE: FULL 2026 ARCHITECTURE ---
+            promptSystemInstructions = `
+            ROLE: SHRM 2026 SJI Architect
+            TASK: Generate full Situational Judgment data tethered to the SHRM 2026 BASK.
+            
+            MANDATORY CONSTRAINTS:
+            1. SCENARIO: 3-4 sentence realistic workplace situation.
+            2. FOCUS: ${certLevel === 'SCP' ? 'Strategic Governance & Risk.' : 'Operational Policy & Execution.'}
+            3. TRAP ALERT: Single, high-density strategic sentence (15-25 words) coaching on the logic gap between the operational symptom and the strategic SHRM root cause.
+            4. NO LABELING: [Term] name must NOT appear in scenario or question.
+            `;
         }
     } else {
         // --- SHRM 2026: KNOWLEDGE DESIGNER (Simple Recall) ---
