@@ -22,6 +22,7 @@ import {
   mergeAppData,
   clearAiVault,
   clearSimpleVaultData,
+  clearDistractorsOnly,
   loadVaultFromStorage,
   getVaultStats,
   saveDomainSnapshot,
@@ -140,6 +141,38 @@ function App() {
       confirmText: 'Surgical Nuke',
       onConfirm: () => {
         clearSimpleVaultData();
+        setDecks(loadDecksFromStorage());
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+      }
+    });
+  };
+
+  const handleNukeSimpleDistractors = () => {
+    setIsSettingsOpen(false);
+    setConfirmModal({
+      isOpen: true,
+      type: 'warning',
+      title: 'Reset Simple Distractors?',
+      message: 'TEMPORARY: This will wipe ONLY the distractors for Simple Recall definition cards. This allows for a fresh sync with updated Visual Parity rules. History and tags remain safe.',
+      confirmText: 'Surgical Nuke (Recall)',
+      onConfirm: () => {
+        clearDistractorsOnly('simple', certLevel);
+        setDecks(loadDecksFromStorage());
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+      }
+    });
+  };
+
+  const handleNukeSjiDistractors = () => {
+    setIsSettingsOpen(false);
+    setConfirmModal({
+      isOpen: true,
+      type: 'warning',
+      title: 'Reset Intelligent Distractors?',
+      message: 'TEMPORARY: This will wipe ONLY the distractors for SJI cards. Scenarios, Rationales, and Behavioral Tags remain perfectly intact. Ready for fresh Parity sync?',
+      confirmText: 'Surgical Nuke (SJI)',
+      onConfirm: () => {
+        clearDistractorsOnly('intelligent', certLevel);
         setDecks(loadDecksFromStorage());
         setConfirmModal(prev => ({ ...prev, isOpen: false }));
       }
@@ -605,7 +638,21 @@ function App() {
           </button>
         </div>
       </header>
-      {isSettingsOpen && <SettingsModal onClose={() => setIsSettingsOpen(false)} onExport={exportAppData} onImport={async (e) => { await importAppData(e.target.files[0]); setDecks(loadDecksFromStorage()); }} onMerge={async (e) => { await mergeAppData(e.target.files[0]); setDecks(loadDecksFromStorage()); }} onNukeAi={handleNukeAi} onNukeSimple={handleNukeSimple} onDeleteDeck={handleDeleteDeck} onResetProgress={handleResetProgress} decks={decks} onOpenVault={() => { setIsSettingsOpen(false); setIsVaultManagerOpen(true); }} onOpenMatrix={() => { setIsSettingsOpen(false); setIsMatrixOpen(true); }} />}
+      {isSettingsOpen && <SettingsModal 
+        onClose={() => setIsSettingsOpen(false)} 
+        onExport={exportAppData} 
+        onImport={async (e) => { await importAppData(e.target.files[0]); setDecks(loadDecksFromStorage()); }} 
+        onMerge={async (e) => { await mergeAppData(e.target.files[0]); setDecks(loadDecksFromStorage()); }} 
+        onNukeAi={handleNukeAi} 
+        onNukeSimple={handleNukeSimple} 
+        onNukeSimpleDistractors={handleNukeSimpleDistractors}
+        onNukeSjiDistractors={handleNukeSjiDistractors}
+        onDeleteDeck={handleDeleteDeck} 
+        onResetProgress={handleResetProgress} 
+        decks={decks} 
+        onOpenVault={() => { setIsSettingsOpen(false); setIsVaultManagerOpen(true); }} 
+        onOpenMatrix={() => { setIsSettingsOpen(false); setIsMatrixOpen(true); }} 
+      />}
       {isVaultManagerOpen && <VaultManager decks={decks} onDeckLoaded={handleDeckLoaded} onDeleteDeck={handleDeleteDeck} onResetProgress={handleResetProgress} onResetAllProgress={() => handleResetProgress('ALL')} onDeleteAllDecks={() => handleDeleteDeck('ALL')} certLevel={certLevel} isWarmingUp={isWarmingUp} warmUpProgress={warmUpProgress} onRefineMetadata={handleRefineMetadata} isRefining={isRefining} refineProgress={refineProgress} isOpen={isVaultManagerOpen} setIsOpen={setIsVaultManagerOpen} />}
       {isMatrixOpen && <div className="fixed-overlay animate-fade-in" onClick={() => setIsMatrixOpen(false)} style={{ zIndex: 10002 }}><div onClick={e => e.stopPropagation()} style={{ width: '90%', maxWidth: '1200px' }}><VaultHealthMatrix decks={decks} certLevel={certLevel} onSmartSync={handleBulkWarmUp} isSyncing={isWarmingUp} syncProgress={warmUpProgress} syncStatus={warmUpStatus} /></div></div>}
       {isResetOpen && <ResetModal isOpen={isResetOpen} targetTitle={resetTarget} currentMode={studyMode} quizType={quizType} onClose={() => setIsResetOpen(false)} onConfirm={handlePerformReset} />}

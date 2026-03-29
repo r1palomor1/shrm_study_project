@@ -9,6 +9,8 @@ export default function SettingsModal({
   onResetProgress,
   onMerge,
   onNukeSimple,
+  onNukeSimpleDistractors,
+  onNukeSjiDistractors,
   onNukeGaps,
   decks,
   isRestoring,
@@ -176,17 +178,27 @@ export default function SettingsModal({
                     </div>
                   </div>
                 </div>
-                <div style={{ display: 'flex', gap: '0.6rem' }}>
-                  <button onClick={onNukeSimple} style={{ 
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
+                  <button onClick={onNukeSimpleDistractors} style={{ 
                     padding: '0.5rem 0.8rem', 
                     borderRadius: '12px',
                     background: 'rgba(245, 158, 11, 0.1)',
                     border: '1px solid rgba(245, 158, 11, 0.3)',
                     color: '#f59e0b',
-                    fontSize: '0.75rem',
+                    fontSize: '0.7rem',
                     fontWeight: '700'
-                  }}>Nuke Simple Only</button>
+                  }}>Nuke Recall Distractors</button>
+                  <button onClick={onNukeSjiDistractors} style={{ 
+                    padding: '0.5rem 0.8rem', 
+                    borderRadius: '12px',
+                    background: 'rgba(245, 158, 11, 0.1)',
+                    border: '1px solid rgba(245, 158, 11, 0.3)',
+                    color: '#f59e0b',
+                    fontSize: '0.7rem',
+                    fontWeight: '700'
+                  }}>Nuke SJI Distractors</button>
                   <button onClick={onNukeAi} style={{ 
+                    gridColumn: 'span 2',
                     padding: '0.5rem 0.8rem', 
                     borderRadius: '12px',
                     background: 'transparent',
@@ -194,7 +206,7 @@ export default function SettingsModal({
                     color: '#ef4444',
                     fontSize: '0.75rem',
                     fontWeight: '700'
-                  }}>Full Wipe</button>
+                  }}>Full Vault Wipe (Scenarios + All)</button>
                 </div>
               </div>
 

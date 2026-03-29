@@ -456,6 +456,38 @@ export function clearSimpleVaultData() {
     }
 }
 
+/**
+ * SURGICAL PURGE: Deletes ONLY the 'distractors' property for a specific quizType and certLevel.
+ * Keeps scenarios, rationales, and metadata (tags) completely intact.
+ */
+export function clearDistractorsOnly(quizType, certLevel) {
+    try {
+        const vault = JSON.parse(localStorage.getItem(VAULT_KEY) || '{}');
+        const keys = Object.keys(vault);
+        let count = 0;
+
+        keys.forEach(key => {
+            const entry = vault[key];
+            const cleanKey = key.split(':');
+            const eQuizType = cleanKey[1] || (entry.scenario ? 'intelligent' : 'simple');
+            const eCertLevel = cleanKey[2] || 'CP';
+
+            if (eQuizType === quizType && eCertLevel === certLevel) {
+                if (entry.distractors) {
+                    delete entry.distractors;
+                    count++;
+                }
+            }
+        });
+
+        localStorage.setItem(VAULT_KEY, JSON.stringify(vault));
+        return count;
+    } catch (error) {
+        console.error('Error in Distractor Purge:', error);
+        return false;
+    }
+}
+
 export function updateCardStatus(cardId, studyMode, newStatus, historyData = null) {
     const certLevel = historyData?.certLevel || 'CP';
 

@@ -168,8 +168,8 @@ export async function getQuizDataForDeck(deck, requestedQuizType = 'intelligent'
         let isValid = false;
         if (vaultData && vaultData.quizType === requestedQuizType) {
             if (requestedQuizType === 'intelligent') {
-                // Intelligent mode requires a scenario, rationale, and STRICT BASK tag
-                isValid = !!vaultData.scenario && !!vaultData.rationale && isValidBaskDomain(vaultData.tag_bask);
+                // Intelligent mode requires a scenario, rationale, distractors, and STRICT BASK tag
+                isValid = !!vaultData.scenario && !!vaultData.rationale && !!vaultData.distractors && isValidBaskDomain(vaultData.tag_bask);
             } else {
                 // Simple mode requires distractors AND a STRICT BASK tag
                 isValid = Array.isArray(vaultData.distractors) && vaultData.distractors.length > 0 && isValidBaskDomain(vaultData.tag_bask);
