@@ -214,43 +214,65 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
 
         try {
             if (quizType === 'intelligent') {
-                // --- STAGE 1: SEED (Scenario & Correct Answer) ---
-                let seedData = null;
-                let attempts = 0;
+                // --- STAGE 0: REUSE INVENTORY ---
+                const vault = loadVaultFromStorage();
+                let preSeededResults = [];
+                let toSeedCards = [];
 
-                // AUTO-RETRY: specifically for SEED_STAGE_FAILED
-                while (attempts < 2) {
-                    try {
-                        const seedResponse = await fetch('/api/study-coach', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                mode: 'generate-distractors',
-                                quizType: quizType,
-                                certLevel: certLevel,
-                                pipelineStage: 'seed',
-                                cards: batch.map(c => ({ id: c.id, topic: c.topic, question: c.question, answer: c.answer }))
-                            })
+                batch.forEach(c => {
+                    const cleanId = String(c.id).replace(/[\s\n\r]/g, '');
+                    const existing = vault[`${cleanId}:intelligent:${certLevel}`];
+                    // RULE: If scenario, rationale, and answer exist — SKIP Stage 1
+                    if (existing && existing.scenario && existing.correct_answer && existing.rationale) {
+                        preSeededResults.push({
+                            id: cleanId,
+                            scenario: existing.scenario,
+                            correct_answer: existing.correct_answer,
+                            rationale: existing.rationale,
+                            gap_analysis: existing.gap_analysis,
+                            tag_bask: existing.tag_bask,
+                            tag_behavior: existing.tag_behavior
                         });
+                    } else {
+                        toSeedCards.push({ id: c.id, topic: c.topic, question: c.question, answer: c.answer });
+                    }
+                });
 
-                        if (seedResponse.ok) {
-                            seedData = await seedResponse.json();
-                            break; // Success
+                // --- STAGE 1: SEED (Only for cards missing scenarios) ---
+                let seedData = { results: [] };
+                if (toSeedCards.length > 0) {
+                    let attempts = 0;
+                    while (attempts < 2) {
+                        try {
+                            const seedResponse = await fetch('/api/study-coach', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    mode: 'generate-distractors',
+                                    quizType: quizType,
+                                    certLevel: certLevel,
+                                    pipelineStage: 'seed',
+                                    cards: toSeedCards
+                                })
+                            });
+                            if (seedResponse.ok) {
+                                const responseJson = await seedResponse.json();
+                                seedData.results = responseJson.results || [];
+                                break;
+                            }
+                            attempts++;
+                            if (attempts >= 2) throw new Error('SEED_STAGE_FAILED');
+                        } catch (e) {
+                            attempts++;
+                            if (attempts >= 2) throw e;
+                            await new Promise(r => setTimeout(r, 2000));
                         }
-                        attempts++;
-                        if (attempts < 2) console.warn("Seed Stage Timeout/Fail. Self-Healing Auto-Retry 2 of 2...");
-                        else throw new Error('SEED_STAGE_FAILED');
-                    } catch (e) {
-                        attempts++;
-                        if (attempts >= 2) throw e;
-                        await new Promise(r => setTimeout(r, 2000));
                     }
                 }
 
-                // Save Seed Data (Scenario + Answer + Tags)
-                if (seedData && seedData.results) {
+                // Save New Seed Data
+                if (seedData.results.length > 0) {
                     seedData.results.forEach(res => {
-                        // EXTREME SANITIZATION: Force clean ID before it hits the storage
                         const cleanId = String(res.id).replace(/[\s\n\r]/g, '');
                         saveDistractorToVault(cleanId, {
                             quizType: quizType,
@@ -262,25 +284,48 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
                     });
                 }
 
-                // --- STAGE 2: EXPAND (Traps & Rationale) ---
-                const expandResponse = await fetch('/api/study-coach', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        mode: 'generate-distractors',
-                        quizType: quizType,
-                        certLevel: certLevel,
-                        pipelineStage: 'expand',
-                        cards: seedData.results.map(res => ({
-                            id: String(res.id).replace(/[\s\n\r]/g, ''), // EXTREME SANITIZE
-                            scenario: res.scenario,
-                            correct_answer: res.correct_answer
-                        }))
-                    })
-                });
+                // Combine Pre-Seeded with New Seeds for Stage 2
+                const allSeedResults = [...preSeededResults, ...seedData.results];
 
-                if (!expandResponse.ok) throw new Error('EXPAND_STAGE_FAILED');
-                const expandData = await expandResponse.json();
+                // --- STAGE 2: EXPAND (Fetch only missing Traps) ---
+                if (allSeedResults.length > 0) {
+                    const expandResponse = await fetch('/api/study-coach', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            mode: 'generate-distractors',
+                            quizType: quizType,
+                            certLevel: certLevel,
+                            pipelineStage: 'expand',
+                            cards: allSeedResults.map(res => ({
+                                id: res.id,
+                                scenario: res.scenario,
+                                correct_answer: res.correct_answer,
+                                rationale: res.rationale // Pass existing rationale for parity context
+                            }))
+                        })
+                    });
+
+                    if (expandResponse.ok) {
+                        const expandData = await expandResponse.json();
+                        if (expandData && expandData.results) {
+                            expandData.results.forEach(res => {
+                                const cleanId = String(res.id).replace(/[\s\n\r]/g, '');
+                                const existing = vault[`${cleanId}:intelligent:${certLevel}`];
+                                
+                                // MANDATE: If we already have the meta-data, keep it. 
+                                // Only overwrite THE DISTRACTORS to achieve Visual Parity.
+                                saveDistractorToVault(cleanId, {
+                                    quizType: quizType,
+                                    distractors: res.distractors,
+                                    rationale: (existing && existing.rationale) ? existing.rationale : res.rationale,
+                                    gap_analysis: (existing && existing.gap_analysis) ? existing.gap_analysis : res.gap_analysis
+                                }, certLevel);
+                            });
+                            successfulCount += allSeedResults.length;
+                        }
+                    }
+                }
 
                 // Save Expansion Data (Distractors + Rationale + Gap Analysis)
                 if (expandData.results) {
@@ -312,9 +357,18 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
                 const data = await response.json();
 
                 if (data.results) {
+                    const vault = loadVaultFromStorage();
                     data.results.forEach(res => {
                         const cleanId = String(res.id).replace(/[\s\n\r]/g, '');
-                        saveDistractorToVault(cleanId, { ...res, quizType: 'simple' }, certLevel);
+                        const existing = vault[`${cleanId}:simple:${certLevel}`];
+
+                        // SURGICAL: Preserve existing tags for Simple Recall
+                        saveDistractorToVault(cleanId, { 
+                            ...res, 
+                            quizType: 'simple',
+                            tag_bask: (existing && existing.tag_bask) ? existing.tag_bask : res.tag_bask,
+                            tag_behavior: (existing && existing.tag_behavior) ? existing.tag_behavior : res.tag_behavior
+                        }, certLevel);
                     });
                     successfulCount += data.results.length;
                 }
