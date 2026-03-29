@@ -329,23 +329,54 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
 
             } else {
                 // --- SIMPLE MODE (Monolithic Recall) ---
-                const response = await fetch('/api/study-coach', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        mode: 'generate-distractors',
-                        quizType: quizType,
-                        certLevel: certLevel,
-                        cards: batch.map(c => ({ id: c.id, topic: c.topic, question: c.question, answer: c.answer }))
-                    })
-                });
+                let simpleResults = [];
+                const cardsToProcess = batch.map(c => ({ id: c.id, topic: c.topic, question: c.question, answer: c.answer }));
 
-                if (!response.ok) throw new Error('SIMPLE_SYNC_FAILED');
-                const data = await response.json();
+                try {
+                    const response = await fetch('/api/study-coach', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            mode: 'generate-distractors',
+                            quizType: quizType,
+                            certLevel: certLevel,
+                            cards: cardsToProcess
+                        })
+                    });
 
-                if (data.results) {
+                    if (!response.ok) throw new Error('SIMPLE_BATCH_FAILURE');
+                    const data = await response.json();
+                    if (!data || !data.results) throw new Error('SIMPLE_BATCH_MALFORMED');
+                    simpleResults = data.results;
+                } catch (elasticError) {
+                    console.warn(`[SHRM ELASTIC SYNC] Triggering 8->4 Fallback for potential Token Overflow.`);
+                    // Regroup batch into two smaller 4-card requests
+                    const halves = [cardsToProcess.slice(0, 4), cardsToProcess.slice(4)];
+                    for (const half of halves) {
+                        try {
+                            const hResponse = await fetch('/api/study-coach', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    mode: 'generate-distractors',
+                                    quizType: quizType,
+                                    certLevel: certLevel,
+                                    cards: half
+                                })
+                            });
+                            if (hResponse.ok) {
+                                const hData = await hResponse.json();
+                                if (hData.results) simpleResults.push(...hData.results);
+                            }
+                        } catch (e) {
+                            console.error("[SHRM] Elastic Fallback also failed.");
+                        }
+                    }
+                }
+
+                if (simpleResults.length > 0) {
                     const vault = loadVaultFromStorage();
-                    data.results.forEach(res => {
+                    simpleResults.forEach(res => {
                         const cleanId = String(res.id).replace(/[\s\n\r]/g, '');
                         const existing = vault[`${cleanId}:simple:${certLevel}`];
 
@@ -357,7 +388,7 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
                             tag_behavior: (existing && existing.tag_behavior) ? existing.tag_behavior : res.tag_behavior
                         }, certLevel);
                     });
-                    successfulCount += data.results.length;
+                    successfulCount += simpleResults.length;
                 }
             }
 
