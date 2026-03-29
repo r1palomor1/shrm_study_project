@@ -48,7 +48,7 @@ const TopicHealthCell = ({ count, total }) => {
  * VaultHealthMatrix: Structural Component for AI Readiness Audit.
  * Provides a granular view of AI content presence across all topics.
  */
-const VaultHealthMatrix = ({ decks, onSmartSync, isSyncing, syncProgress, syncStatus, certLevel = 'CP' }) => {
+const VaultHealthMatrix = ({ decks, onSmartSync, onSyncTopic, isSyncing, syncProgress, syncStatus, certLevel = 'CP' }) => {
   // Dynamic vault reload for real-time matrix updates during sync
   const vault = useMemo(() => loadVaultFromStorage(), [decks, certLevel, isSyncing, syncProgress]);
 
@@ -160,6 +160,37 @@ const VaultHealthMatrix = ({ decks, onSmartSync, isSyncing, syncProgress, syncSt
               ))}
             </tr>
           ))}
+          <tr style={{ borderTop: '2px solid rgba(255,255,255,0.05)' }}>
+            <td style={{ padding: '1.2rem 1rem', fontSize: '0.75rem', fontWeight: 'bold', color: '#60a5fa', textTransform: 'uppercase' }}>
+              Surgical Actions
+            </td>
+            {topicStats.map(topic => {
+              const deck = decks.find(d => d.title === topic.name);
+              const isTopicReady = topic.intelligentDistractors === topic.total && topic.simple === topic.total;
+              
+              return (
+                <td key={topic.name} style={{ textAlign: 'center', padding: '1.2rem 0.5rem' }}>
+                  <button 
+                    onClick={() => onSyncTopic(deck)}
+                    disabled={isSyncing || isTopicReady}
+                    style={{
+                      padding: '0.4rem 0.8rem',
+                      borderRadius: '8px',
+                      fontSize: '0.65rem',
+                      fontWeight: 'bold',
+                      background: isTopicReady ? 'rgba(96, 165, 250, 0.1)' : 'rgba(251, 191, 36, 0.1)',
+                      border: `1px solid ${isTopicReady ? 'rgba(96, 165, 250, 0.3)' : 'rgba(251, 191, 36, 0.3)'}`,
+                      color: isTopicReady ? '#60a5fa' : '#fbbf24',
+                      cursor: (isSyncing || isTopicReady) ? 'default' : 'pointer',
+                      opacity: isSyncing ? 0.5 : 1
+                    }}
+                  >
+                    {isTopicReady ? 'FULLY READY' : 'SYNC TOPIC'}
+                  </button>
+                </td>
+              );
+            })}
+          </tr>
         </tbody>
       </table>
     </section>

@@ -57,7 +57,9 @@ async function handleGenerateDistractors(req, res) {
             promptSystemInstructions = `
             ROLE: SHRM 2026 Logic Expander (Expansion Stage)
             TASK: Generate traps and rationale for the Seed.
-            VISUAL PARITY: Match word count and complexity (+/- 3 words).
+            MANDATORY VISUAL PARITY: You MUST match the word count and complexity of the "Correct Answer" provided in the input (+/- 3 words). 
+            If the correct answer is a long sentence, the distractors MUST be long sentences. 
+            If it is a short phrase, the distractors MUST be short phrases.
             UI SYNC MANDATE: Prepare gap_analysis label.
             `;
         } else if (pipelineStage === 'polish-gaps') {
@@ -83,7 +85,7 @@ async function handleGenerateDistractors(req, res) {
             1. SCENARIO: 3-4 sentence realistic workplace situation.
             2. FOCUS: ${certLevel === 'SCP' ? 'Strategic Governance & Risk.' : 'Operational Policy & Execution.'}
             3. TRAP ALERT: Single, high-density strategic sentence (15-25 words) coaching on the logic gap between the operational symptom and the strategic SHRM root cause.
-            4. VISUAL PARITY: Match word count and complexity (+/- 3 words).
+            4. MANDATORY VISUAL PARITY: You MUST match the word count and complexity of the "Correct Answer" provided in the input (+/- 3 words).
             5. NO LABELING: [Term] name must NOT appear in scenario or question.
             `;
         }
@@ -92,9 +94,10 @@ async function handleGenerateDistractors(req, res) {
         promptSystemInstructions = `
         ROLE: SHRM 2026 Knowledge Designer (High-Fidelity Distractors).
         TASK: Generate 3 distractors and a BASK Domain tag.
-        1. VISUAL PARITY: Match word count and complexity (+/- 3 words).
-        2. TERMINOLOGY: Use SHRM 2026 BASK terminology.
-        3. DOMAIN TAGGING: Assign to [People, Organization, Workplace].
+        1. MANDATORY VISUAL PARITY: You MUST match the word count and complexity of the "Definition" (Correct Answer) provided in the input (+/- 3 words).
+        2. CONSISTENCY: If the Definition is a full sentence, ALL distractors must be full sentences. If it is a 2-word term, ALL distractors must be 2-word terms.
+        3. TERMINOLOGY: Use SHRM 2026 BASK terminology.
+        4. DOMAIN TAGGING: Assign to [People, Organization, Workplace].
         `;
     }
 

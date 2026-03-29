@@ -491,6 +491,56 @@ function App() {
     runWarming();
   };
 
+  const handleSurgicalTopicSync = async (deck) => {
+    if (!deck) return;
+    setIsWarmingUp(true);
+    setWarmUpStatus(`${deck.title}: Initializing...`);
+    setWarmUpProgress(0);
+    setWarmUpError(null);
+
+    const runSurgical = async () => {
+        try {
+            let { missingCards: missingIntel } = await getQuizDataForDeck(deck, 'intelligent', certLevel);
+            let { missingCards: missingSimple } = await getQuizDataForDeck(deck, 'simple', certLevel);
+            
+            const totalToSync = missingIntel.length + missingSimple.length;
+            let syncedCount = 0;
+
+            // Intelligent Sync (SJI)
+            for (let i = 0; i < missingIntel.length; i += 4) {
+                const batch = missingIntel.slice(i, i + 4);
+                setWarmUpStatus(`SJI: ${deck.title} (${Math.round((i/missingIntel.length)*100)}%)`);
+                const result = await generateDistractorsBatch(batch, 'intelligent', (p) => {
+                    const batchDone = Math.round((p / 100) * batch.length);
+                    setWarmUpProgress(Math.round(((syncedCount + batchDone) / totalToSync) * 100));
+                }, certLevel);
+                if (!result.success) throw new Error(result.error);
+                syncedCount += batch.length;
+            }
+
+            // Simple Sync (Recall)
+            for (let i = 0; i < missingSimple.length; i += 8) {
+                const batch = missingSimple.slice(i, i + 8);
+                setWarmUpStatus(`RECALL: ${deck.title} (${Math.round((i/missingSimple.length)*100)}%)`);
+                const result = await generateDistractorsBatch(batch, 'simple', (p) => {
+                    const batchDone = Math.round((p / 100) * batch.length);
+                    setWarmUpProgress(Math.round(((syncedCount + batchDone) / totalToSync) * 100));
+                }, certLevel);
+                if (!result.success) throw new Error(result.error);
+                syncedCount += batch.length;
+            }
+
+            setWarmUpStatus(`${deck.title} Ready!`);
+            setTimeout(() => setIsWarmingUp(false), 2000);
+        } catch (err) {
+            setWarmUpError(err.message);
+            setIsWarmingUp(false);
+        }
+    };
+
+    runSurgical();
+  };
+
   const handleRefineMetadata = async () => {
     if (decks.length === 0) return;
     setIsRefining(true); setRefineProgress(0);
@@ -654,7 +704,7 @@ function App() {
         onOpenMatrix={() => { setIsSettingsOpen(false); setIsMatrixOpen(true); }} 
       />}
       {isVaultManagerOpen && <VaultManager decks={decks} onDeckLoaded={handleDeckLoaded} onDeleteDeck={handleDeleteDeck} onResetProgress={handleResetProgress} onResetAllProgress={() => handleResetProgress('ALL')} onDeleteAllDecks={() => handleDeleteDeck('ALL')} certLevel={certLevel} isWarmingUp={isWarmingUp} warmUpProgress={warmUpProgress} onRefineMetadata={handleRefineMetadata} isRefining={isRefining} refineProgress={refineProgress} isOpen={isVaultManagerOpen} setIsOpen={setIsVaultManagerOpen} />}
-      {isMatrixOpen && <div className="fixed-overlay animate-fade-in" onClick={() => setIsMatrixOpen(false)} style={{ zIndex: 10002 }}><div onClick={e => e.stopPropagation()} style={{ width: '90%', maxWidth: '1200px' }}><VaultHealthMatrix decks={decks} certLevel={certLevel} onSmartSync={handleBulkWarmUp} isSyncing={isWarmingUp} syncProgress={warmUpProgress} syncStatus={warmUpStatus} /></div></div>}
+      {isMatrixOpen && <div className="fixed-overlay animate-fade-in" onClick={() => setIsMatrixOpen(false)} style={{ zIndex: 10002 }}><div onClick={e => e.stopPropagation()} style={{ width: '90%', maxWidth: '1200px' }}><VaultHealthMatrix decks={decks} certLevel={certLevel} onSmartSync={handleBulkWarmUp} onSyncTopic={handleSurgicalTopicSync} isSyncing={isWarmingUp} syncProgress={warmUpProgress} syncStatus={warmUpStatus} /></div></div>}
       {isResetOpen && <ResetModal isOpen={isResetOpen} targetTitle={resetTarget} currentMode={studyMode} quizType={quizType} onClose={() => setIsResetOpen(false)} onConfirm={handlePerformReset} />}
       <ConfirmationModal isOpen={confirmModal.isOpen} type={confirmModal.type} title={confirmModal.title} message={confirmModal.message} confirmText={confirmModal.confirmText} onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))} onConfirm={confirmModal.onConfirm} />
       <main style={{ padding: '0.5rem 0 5rem 0' }}>
