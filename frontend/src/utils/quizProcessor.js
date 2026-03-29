@@ -327,19 +327,6 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
                     }
                 }
 
-                // Save Expansion Data (Distractors + Rationale + Gap Analysis)
-                if (expandData.results) {
-                    expandData.results.forEach(res => {
-                        const cleanId = String(res.id).replace(/[\s\n\r]/g, '');
-                        saveDistractorToVault(cleanId, {
-                            quizType: quizType,
-                            distractors: res.distractors,
-                            rationale: res.rationale,
-                            gap_analysis: res.gap_analysis
-                        }, certLevel);
-                    });
-                    successfulCount += expandData.results.length;
-                }
             } else {
                 // --- SIMPLE MODE (Monolithic Recall) ---
                 const response = await fetch('/api/study-coach', {
