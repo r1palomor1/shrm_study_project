@@ -57,6 +57,7 @@ async function handleGenerateDistractors(req, res) {
             promptSystemInstructions = `
             ROLE: SHRM 2026 Logic Expander (Expansion Stage)
             TASK: Generate traps and rationale for the Seed.
+            VISUAL PARITY: Match word count and complexity (+/- 3 words).
             UI SYNC MANDATE: Prepare gap_analysis label.
             `;
         } else if (pipelineStage === 'polish-gaps') {
@@ -82,7 +83,8 @@ async function handleGenerateDistractors(req, res) {
             1. SCENARIO: 3-4 sentence realistic workplace situation.
             2. FOCUS: ${certLevel === 'SCP' ? 'Strategic Governance & Risk.' : 'Operational Policy & Execution.'}
             3. TRAP ALERT: Single, high-density strategic sentence (15-25 words) coaching on the logic gap between the operational symptom and the strategic SHRM root cause.
-            4. NO LABELING: [Term] name must NOT appear in scenario or question.
+            4. VISUAL PARITY: Match word count and complexity (+/- 3 words).
+            5. NO LABELING: [Term] name must NOT appear in scenario or question.
             `;
         }
     } else {

@@ -60,6 +60,7 @@ const VaultHealthMatrix = ({ decks, onSmartSync, isSyncing, syncProgress, syncSt
         total: deck.cards.length,
         simple: 0,
         scenarios: 0,
+        intelligentDistractors: 0,
         rationales: 0,
         tags: 0,
         simpleTags: 0,
@@ -82,6 +83,7 @@ const VaultHealthMatrix = ({ decks, onSmartSync, isSyncing, syncProgress, syncSt
         if (sData?.distractors) stats.simple++;
         if (isValidDomain(sData?.tag_bask)) stats.simpleTags++;
         if (iData?.scenario) stats.scenarios++;
+        if (iData?.distractors) stats.intelligentDistractors++;
         if (iData?.rationale) stats.rationales++;
         if (isValidDomain(iData?.tag_bask)) stats.tags++;
         const isStrategicGap = (gap) => {
@@ -96,9 +98,9 @@ const VaultHealthMatrix = ({ decks, onSmartSync, isSyncing, syncProgress, syncSt
     });
   }, [decks, vault, certLevel]);
 
-  const headers = ['Intelligent Scenarios', 'Strategic Rationales', 'Strategic Trap Alerts', 'Behavioral Bridge Tags', 'Simple Distractors', 'Recall Metadata Tags'];
-  const dataKeys = ['scenarios', 'rationales', 'gaps', 'tags', 'simple', 'simpleTags'];
-  const icons = ['psychology', 'description', 'warning', 'join_inner', 'format_list_bulleted', 'sell'];
+  const headers = ['Intelligent Scenarios', 'Intelligent Distractors', 'Strategic Rationales', 'Strategic Trap Alerts', 'Behavioral Bridge Tags', 'Simple Distractors', 'Recall Metadata Tags'];
+  const dataKeys = ['scenarios', 'intelligentDistractors', 'rationales', 'gaps', 'tags', 'simple', 'simpleTags'];
+  const icons = ['psychology', 'format_list_bulleted', 'description', 'warning', 'join_inner', 'format_list_bulleted', 'sell'];
 
   return (
     <section className="glass-panel" style={{
