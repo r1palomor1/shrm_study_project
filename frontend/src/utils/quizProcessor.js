@@ -79,7 +79,6 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
     const totalRequests = cards.length;
 
     for (let i = 0; i < cards.length; ) {
-        // --- SMART DENSITY BATCHING (Boss-Mode) ---
         const firstCard = cards[i];
         const ansLen = (firstCard.answer || "").length;
         
@@ -90,7 +89,7 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
             MAX_BATCH_SIZE = 8;
             STAGGER = 8000;
         } else if (ansLen > 250) {
-            MAX_BATCH_SIZE = 2; // Extra caution for complex SJIs
+            MAX_BATCH_SIZE = 2;
             STAGGER = 25000;
         }
 
@@ -128,9 +127,9 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
                         const targetLen = (matchingCard.answer || "").length;
                         const distLens = res.distractors?.map(d => d.length) || [];
                         const avgDistLen = distLens.length > 0 ? Math.round(distLens.reduce((a,b) => a+b, 0) / distLens.length) : 0;
-                        const isParityMatch = Math.abs(avgDistLen - targetLen) < 15;
+                        // RELIEF LOGIC: Threshold increased to 25 to match Matrix Forensic Audit.
+                        const isParityMatch = Math.abs(avgDistLen - targetLen) < 25;
 
-                        // HEAD HONCHO HUD: 3-STAGE EXECUTION FLOW
                         if (res.scenario) {
                             console.log(`%c [PHASE 1: SEED] 🟢 Card ${cleanId}: Situation & Key Generated.`, 'color: #10b981; font-weight: bold;');
                         }

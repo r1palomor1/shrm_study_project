@@ -86,7 +86,8 @@ const VaultHealthMatrix = ({ decks, onSmartSync, onSyncTopic, isSyncing, syncPro
             const matchLen = (card.answer || "").length;
             const distLens = iData.distractors.map(d => d.length);
             const avgLen = distLens.reduce((a,b) => a+b, 0) / distLens.length;
-            if (Math.abs(avgLen - matchLen) < 15) stats.distractors++; // Only count if within 15 chars parity
+            // RELIEF LOGIC: 15 -> 25 chars (accounts for AI variance while catching longest-answer bias)
+            if (Math.abs(avgLen - matchLen) < 25) stats.distractors++; 
         }
 
         // Phase 3 Polish Check (Rationale + Gap Analysis)
