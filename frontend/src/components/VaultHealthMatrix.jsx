@@ -81,19 +81,27 @@ const VaultHealthMatrix = ({ decks, onSmartSync, onSyncTopic, isSyncing, syncPro
         const iData = vault[`${cleanId}:intelligent:${safeCertLevel}`];
         const isValidDomain = (tag) => tag && (tag.toLowerCase().includes('people') || tag.toLowerCase().includes('organization') || tag.toLowerCase().includes('workplace'));
 
-        // FORENSIC AUDIT LOGIC (PHASE-GATE VALIDATION)
+        // PHASE 1: SCENARIO SEED
         if (iData?.scenario) stats.scenarios++;
         
-        // Phase 2 Mirror Check (Character-Length Parity)
+        // PHASE 2: STRUCTURAL SYMMETRY VALIDATOR (PATTERN RECOGNITION)
         if (Array.isArray(iData?.distractors) && iData.distractors.length > 0) {
-            const matchLen = (card.answer || "").length;
+            const targetLen = (card.answer || "").length;
             const distLens = iData.distractors.map(d => d.length);
-            const avgLen = distLens.reduce((a,b) => a+b, 0) / distLens.length;
-            // Parity: Threshold set to 25 chars.
-            if (Math.abs(avgLen - matchLen) < 25) stats.distractors++; 
+            const avgLen = distLens.reduce((a, b) => a + b, 0) / distLens.length;
+
+            // Step 1: Percentage-Based Tolerance Cap (Visual Block Safety)
+            // Caps at 40 chars, or 15% of length for shorter strings.
+            const tolerance = Math.min(40, Math.max(12, targetLen * 0.15));
+            const isWithinRange = Math.abs(avgLen - targetLen) < tolerance;
+
+            // Step 2: Structural Marker Match (The Semicolon Check)
+            const hasSemicolonMatch = (card.answer?.includes(';') === iData.distractors[0]?.includes(';'));
+
+            if (isWithinRange && hasSemicolonMatch) stats.distractors++; 
         }
 
-        // Phase 3 Polish Check (Rationale + Gap Analysis)
+        // PHASE 3: POLISH & STRATEGIC GAP
         if (iData?.rationale && iData?.gap_analysis) {
             stats.rationales++;
             stats.traps++;

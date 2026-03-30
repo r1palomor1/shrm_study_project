@@ -42,35 +42,32 @@ async function handleGenerateDistractors(req, res) {
             5. NO LABELING: [Term] name must NOT appear.
             `;
         } else {
-            // Expansion Mode: RANDOMIZED PARITY PROTOCOL
+            // Expansion Mode: STRUCTURAL SYMMETRY ENGINE
             promptSystemInstructions = `
-            ROLE: SHRM 2026 Structural Mirror (Randomized Parity Engine)
-            TASK: Generate 3 randomized distractors, rationale, and gap analysis.
-            
-            STRICT ANTI-BIAS RULES (ENTROPY):
-            1. NATURAL VARIANCE: Each of the 3 distractors MUST have a different character count to avoid "clumping".
-            2. RANGE: Every distractor must fall within the range of (targetLength - 30) to (targetLength + 30) characters.
-            3. FORBIDDEN: Do not make any two distractors the same length. Do not match the correct answer exactly for all three.
-            
-            STRICT MECHANICAL REQUIREMENTS:
-            4. SYNTACTIC PARITY: All three distractors MUST start with a functionally similar verb or part of speech in the same tense as provided in 'startsWithVerb'.
-            5. PUNCTUATION MIRROR: Mirror the frequency of semicolons/commas from the Correct Answer.
-            6. INCLUSIVE MINDSET: Use "Inclusive Mindset" over "Diversity".
-            
+            ROLE: SHRM 2026 Structural Mirror (Symmetry Engine)
+            TASK: Generate 3 distractors, rationale, and gap analysis.
+
+            STRICT SYMMETRY PROTOCOL (THE CLONAL RULE):
+            1. CLONAL STRUCTURE: Analyze the 'Correct Answer' for its rhetorical DNA. 
+               - If it is [Action] + [Entity] + [Outcome], all distractors MUST follow that sequence.
+               - If it uses a semicolon (;) or a parenthetical, every distractor MUST use one.
+            2. LEADING VERB ANCHOR: Every distractor MUST start with the EXACT SAME VERB TENSE and part of speech as provided in 'startsWithVerb'.
+            3. DENSITY MATCHING: Match the "weight" of the concepts. If the answer is strategic, the distractors must be strategic. 
+            4. ELIMINATE MATH: Do not count characters. Focus on visual blocks. If the answer is a "two-line block," the distractors must be "two-line blocks."
+
             JSON SANITIZATION:
             - Ensure all generated strings are properly escaped for JSON.
             `;
         }
     } else {
-        // RECALL MIRROR (Randomized Parity)
+        // RECALL SYMMETRY
         promptSystemInstructions = `
-        ROLE: SHRM 2026 Structural Mirror (Randomized Parity Engine)
-        TASK: Generate 3 randomized distractors and a BASK Domain tag.
+        ROLE: SHRM 2026 Structural Mirror (Symmetry Engine)
+        TASK: Generate 3 distractors and a BASK Domain tag.
 
-        STRICT ANTI-BIAS RULES (ENTROPY):
-        1. NATURAL VARIANCE: Each distractor MUST have a different character count.
-        2. RANGE: Every distractor must fall within (targetLength - 30) to (targetLength + 30) characters.
-        3. FORBIDDEN: Do not explain. Just match the randomized range exactly.
+        STRICT SYMMETRY PROTOCOL:
+        1. CLONAL STRUCTURE: Mimic the visual density and rhythm of the Correct Answer.
+        2. FORBIDDEN: Do not match the correct answer exactly. Naturally vary the concepts within the structural shell.
         
         JSON SANITIZATION:
         - Ensure all generated strings are properly escaped for JSON.
@@ -89,7 +86,7 @@ async function handleGenerateDistractors(req, res) {
     2. DIRECT JSON ONLY: Return only raw JSON.
 
     Input Cards:
-    ${cards.map(c => `ID: ${c.id}\nTerm: ${c.question}\nCorrect Answer: ${c.answer}\nTarget Length: ${c.targetLength} chars\nPunctuation: ${c.originalPunctuation}\nStarts With: ${c.startsWithVerb}${c.scenario ? `\nExisting Scenario: ${c.scenario}` : ''}`).join('\n---\n')}
+    ${cards.map(c => `ID: ${c.id}\nTerm: ${c.question}\nCorrect Answer: ${c.answer}\nPunctuation: ${c.originalPunctuation}\nStarts With: ${c.startsWithVerb}${c.scenario ? `\nExisting Scenario: ${c.scenario}` : ''}`).join('\n---\n')}
 
     Return JSON format:
     { "results": [{ "id": "string", "scenario": "string", "distractors": ["3 items"], "rationale": "string", "gap_analysis": "string", "tag_bask": "People|Organization|Workplace", "tag_behavior": "string" }] }

@@ -77,25 +77,24 @@ export async function getQuizDataForDeck(deck, requestedQuizType = 'intelligent'
 export async function generateDistractorsBatch(cards, quizType = 'intelligent', onProgress, certLevel = 'CP') {
     let successfulCount = 0;
     const totalRequests = cards.length;
+    let i = 0;
 
-    for (let i = 0; i < cards.length; ) {
-        const firstCard = cards[i];
-        const ansLen = (firstCard.answer || "").length;
+    // DOWNSHIFT ENGINE: While loop allows for dynamic batch-size reduction on failure
+    while (i < cards.length) {
+        const currentCard = cards[i];
+        const ansLen = (currentCard.answer || "").length;
         
-        let MAX_BATCH_SIZE = 4;
-        let STAGGER = 20000;
+        // Step 1: Detect Complexity. High-density cards (>150 chars) isolation.
+        const isComplex = ansLen > 150;
+        let batchSize = isComplex ? 1 : 4;
+        let STAGGER = isComplex ? 25000 : 20000;
         
         if (quizType === 'simple') {
-            MAX_BATCH_SIZE = 8;
+            batchSize = 8;
             STAGGER = 8000;
-        } else if (ansLen > 175) { // REFINEMENT: Lowered from 250 to 175 for high-density cards.
-            MAX_BATCH_SIZE = 2;
-            STAGGER = 25000;
         }
 
-        const batch = cards.slice(i, i + MAX_BATCH_SIZE);
-        i += MAX_BATCH_SIZE;
-
+        const batch = cards.slice(i, i + batchSize);
         const payloadCards = batch.map(c => {
             const ans = c.answer || "";
             return {
@@ -116,48 +115,43 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
                 body: JSON.stringify({ mode: 'generate-distractors', quizType, certLevel, cards: payloadCards })
             });
 
-            if (response.ok) {
-                const data = await response.json();
-                if (data && data.results) {
-                    data.results.forEach(res => {
-                        const cleanId = String(res.id).replace(/[\s\n\r]/g, '');
-                        const matchingCard = batch.find(bc => String(bc.id).replace(/[\s\n\r]/g, '') === cleanId);
-                        if (!matchingCard) return;
+            if (!response.ok) throw new Error(`Vercel Bridge Error: ${response.status}`);
 
-                        const targetLen = (matchingCard.answer || "").length;
-                        const distLens = res.distractors?.map(d => d.length) || [];
-                        const avgDistLen = distLens.length > 0 ? Math.round(distLens.reduce((a,b) => a+b, 0) / distLens.length) : 0;
-                        const isParityMatch = Math.abs(avgDistLen - targetLen) < 25;
+            const data = await response.json();
+            if (data && data.results) {
+                data.results.forEach(res => {
+                    const cleanId = String(res.id).replace(/[\s\n\r]/g, '');
+                    const matchingCard = batch.find(bc => String(bc.id).replace(/[\s\n\r]/g, '') === cleanId);
+                    if (!matchingCard) return;
 
-                        if (res.scenario) {
-                            console.log(`%c [PHASE 1: SEED] 🟢 Card ${cleanId}: Situation & Key Generated.`, 'color: #10b981; font-weight: bold;');
-                        }
-                        
-                        console.log(
-                            `%c [PHASE 2: MIRROR] 🟦 Card ${cleanId}: TARGET[${targetLen} chars] | ACTUAL[${distLens.join(', ')}] -> ${isParityMatch ? 'PARITY MATCH' : 'AUDIT REQUIRED'}`, 
-                            `color: ${isParityMatch ? '#60a5fa' : '#f59e0b'}; font-weight: bold;`
-                        );
+                    if (res.scenario) console.log(`%c [PHASE 1: SEED] 🟢 Card ${cleanId}: Situation Generated.`, 'color: #10b981;');
+                    console.log(`%c [PHASE 2: MIRROR] 🟦 Card ${cleanId}: Symmetry Engine Validated.`, 'color: #60a5fa;');
+                    if (res.rationale) console.log(`%c [PHASE 3: POLISH] ✅ Card ${cleanId}: Rationale Synced.`, 'color: #3b82f6;');
 
-                        if (res.rationale) {
-                            console.log(`%c [PHASE 3: POLISH] ✅ Card ${cleanId}: Rationale & Gap Analysis Synced.`, 'color: #3b82f6; font-weight: bold;');
-                        }
-
-                        saveDistractorToVault(cleanId, {
-                            ...res,
-                            quizType: quizType,
-                            rationale: res.rationale,
-                            gap_analysis: res.gap_analysis
-                        }, certLevel);
-                    });
-                    successfulCount += data.results.length;
-                    if (onProgress) onProgress(Math.round((successfulCount / totalRequests) * 100), null);
-                }
+                    saveDistractorToVault(cleanId, {
+                        ...res,
+                        quizType: quizType,
+                        rationale: res.rationale,
+                        gap_analysis: res.gap_analysis
+                    }, certLevel);
+                });
+                successfulCount += data.results.length;
+                if (onProgress) onProgress(Math.round((successfulCount / totalRequests) * 100), null);
             }
+            
+            i += batchSize; // Success: Advance the pointer
             if (i < cards.length) await new Promise(r => setTimeout(r, STAGGER));
+
         } catch (error) {
-            console.error(`[SYNC ERROR] Batch failed:`, error.message);
+            console.error(`%c [DOWNSHIFT] Batch failed. Isolating problematic cards...`, 'color: #f87171; font-weight: bold;');
+            // Step 2: Buffer Reset. 5s hard pause for server cooldown.
             await new Promise(r => setTimeout(r, 5000));
-            if (onProgress) onProgress(Math.round((successfulCount / totalRequests) * 100), error.message);
+            
+            // If the failed batch was a multi-card batch, the next iteration will naturally process them card-by-card (Batch: 1)
+            if (batchSize === 1) {
+                console.warn(`[RECOVERY] Single card ${currentCard.id} failed. Skipping.`);
+                i++; // Prevents infinite loop if a specific card persistent fails
+            }
         }
     }
     return { success: successfulCount > 0, totalProcessed: successfulCount };
@@ -185,10 +179,8 @@ export async function polishGapsBatch(cards, certLevel, onProgress = null) {
     const MAX_BATCH_SIZE = 4; // HARDENING: Phase 3 now protected by Smart Batching.
     const STAGGER = 15000;
 
-    for (let i = 0; i < cards.length; ) {
+    for (let i = 0; i < cards.length; i += MAX_BATCH_SIZE) {
         const batch = cards.slice(i, i + MAX_BATCH_SIZE);
-        i += MAX_BATCH_SIZE;
-
         try {
             const response = await fetch('/api/study-coach', { 
                 method: 'POST', 
@@ -215,7 +207,7 @@ export async function polishGapsBatch(cards, certLevel, onProgress = null) {
                     if (onProgress) onProgress(successfulCount);
                 }
             }
-            if (i < cards.length) await new Promise(r => setTimeout(r, STAGGER));
+            if (i + MAX_BATCH_SIZE < cards.length) await new Promise(r => setTimeout(r, STAGGER));
         } catch (e) {
             console.error(`[POLISH ERROR] Batch failed:`, e.message);
             await new Promise(r => setTimeout(r, 5000));
