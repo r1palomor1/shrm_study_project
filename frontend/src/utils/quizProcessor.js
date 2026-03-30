@@ -88,7 +88,7 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
         if (quizType === 'simple') {
             MAX_BATCH_SIZE = 8;
             STAGGER = 8000;
-        } else if (ansLen > 250) {
+        } else if (ansLen > 175) { // REFINEMENT: Lowered from 250 to 175 for high-density cards.
             MAX_BATCH_SIZE = 2;
             STAGGER = 25000;
         }
@@ -127,7 +127,6 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
                         const targetLen = (matchingCard.answer || "").length;
                         const distLens = res.distractors?.map(d => d.length) || [];
                         const avgDistLen = distLens.length > 0 ? Math.round(distLens.reduce((a,b) => a+b, 0) / distLens.length) : 0;
-                        // RELIEF LOGIC: Threshold increased to 25 to match Matrix Forensic Audit.
                         const isParityMatch = Math.abs(avgDistLen - targetLen) < 25;
 
                         if (res.scenario) {
@@ -180,14 +179,47 @@ export async function refineMetadataBatch(cards, certLevel, onProgress = null) {
 
 export async function polishGapsBatch(cards, certLevel, onProgress = null) {
     if (!cards || cards.length === 0) return { success: true, count: 0 };
-    try {
-        const response = await fetch('/api/study-coach', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: 'generate-distractors', quizType: 'intelligent', certLevel, pipelineStage: 'polish-gaps', cards: cards.map(c => ({ id: String(c.id).replace(/[\s\n\r]/g, ''), question: c.question, answer: c.answer, scenario: c.aiData?.scenario })) })});
-        const data = await response.json();
-        if (data && data.results) {
-            data.results.forEach(res => saveDistractorToVault(String(res.id).replace(/[\s\n\r]/g, ''), { quizType: 'intelligent', gap_analysis: res.gap_analysis }, certLevel));
-            if (onProgress) onProgress(data.results.length);
-            return { success: true, count: data.results.length };
+    
+    let successfulCount = 0;
+    const totalRequests = cards.length;
+    const MAX_BATCH_SIZE = 4; // HARDENING: Phase 3 now protected by Smart Batching.
+    const STAGGER = 15000;
+
+    for (let i = 0; i < cards.length; ) {
+        const batch = cards.slice(i, i + MAX_BATCH_SIZE);
+        i += MAX_BATCH_SIZE;
+
+        try {
+            const response = await fetch('/api/study-coach', { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify({ 
+                    mode: 'generate-distractors', 
+                    quizType: 'intelligent', 
+                    certLevel, 
+                    pipelineStage: 'polish-gaps', 
+                    cards: batch.map(c => ({ 
+                        id: String(c.id).replace(/[\s\n\r]/g, ''), 
+                        question: c.question, 
+                        answer: c.answer, 
+                        scenario: c.aiData?.scenario 
+                    })) 
+                })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data && data.results) {
+                    data.results.forEach(res => saveDistractorToVault(String(res.id).replace(/[\s\n\r]/g, ''), { quizType: 'intelligent', gap_analysis: res.gap_analysis }, certLevel));
+                    successfulCount += data.results.length;
+                    if (onProgress) onProgress(successfulCount);
+                }
+            }
+            if (i < cards.length) await new Promise(r => setTimeout(r, STAGGER));
+        } catch (e) {
+            console.error(`[POLISH ERROR] Batch failed:`, e.message);
+            await new Promise(r => setTimeout(r, 5000));
         }
-        throw new Error('Polishing failed');
-    } catch (e) { return { success: false, error: e.message }; }
+    }
+    return { success: successfulCount > 0, count: successfulCount };
 }
