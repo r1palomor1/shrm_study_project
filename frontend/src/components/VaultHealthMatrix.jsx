@@ -1,18 +1,25 @@
 import React, { useMemo } from 'react';
 import { loadVaultFromStorage } from '../utils/storage';
 
-/**
- * TopicHealthCell: Sub-component for individual matrix cells.
- * Encapsulates the visual logic for READY/SYNC states.
- */
-const TopicHealthCell = ({ count, total }) => {
+const TopicHealthCell = ({ count, total, status = 'incomplete' }) => {
   const isComplete = count === total && total > 0;
+  
+  // HUD Color Logic based on Phase
+  const getPhaseColor = () => {
+    if (!isComplete) return '#fbbf24'; // Yellow (Sync Needed)
+    if (status === 'phase1') return '#10b981'; // Green (Seed Set)
+    if (status === 'phase2') return '#60a5fa'; // Blue (Mirror Parity)
+    if (status === 'phase3') return '#f59e0b'; // Gold (Polish/Gaps)
+    return '#60a5fa'; // Default
+  };
+
+  const color = getPhaseColor();
 
   return (
     <td style={{ textAlign: 'center', padding: '1rem 0.5rem' }}>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem' }}>
         {isComplete ? (
-          <span className="material-symbols-outlined" style={{ fontSize: '1.4rem', color: '#60a5fa' }}>verified</span>
+          <span className="material-symbols-outlined" style={{ fontSize: '1.4rem', color }}>verified</span>
         ) : (
           <span className="material-symbols-outlined" style={{
             fontSize: '1.4rem',
@@ -24,7 +31,7 @@ const TopicHealthCell = ({ count, total }) => {
         <div style={{
           fontSize: '0.85rem',
           fontWeight: '900',
-          color: isComplete ? '#60a5fa' : '#fbbf24',
+          color,
           fontFamily: 'monospace'
         }}>
           {count} / {total}
@@ -33,7 +40,7 @@ const TopicHealthCell = ({ count, total }) => {
         <div style={{
           fontSize: '0.55rem',
           textTransform: 'uppercase',
-          color: isComplete ? '#60a5fa' : '#fbbf24',
+          color,
           fontWeight: '900',
           letterSpacing: '0.1em'
         }}>
@@ -44,97 +51,80 @@ const TopicHealthCell = ({ count, total }) => {
   );
 };
 
-/**
- * VaultHealthMatrix: Structural Component for AI Readiness Audit.
- * Provides a granular view of AI content presence across all topics.
- */
 const VaultHealthMatrix = ({ decks, onSmartSync, onSyncTopic, isSyncing, syncProgress, syncStatus, certLevel = 'CP' }) => {
-  // Dynamic vault reload for real-time matrix updates during sync
   const vault = useMemo(() => loadVaultFromStorage(), [decks, certLevel, isSyncing, syncProgress]);
 
-  // Structural Logic: Calculate health stats for each topic
   const topicStats = useMemo(() => {
-    return decks.map(deck => {
-      const stats = {
-        name: deck.title,
-        total: deck.cards.length,
-        simple: 0,
-        scenarios: 0,
-        intelligentDistractors: 0,
-        rationales: 0,
-        tags: 0,
-        simpleTags: 0,
-        gaps: 0
+    const domains = ['Competencies', 'Organization', 'People', 'Workplace'];
+    
+    return domains.map(domName => {
+      const targetDeck = decks.find(d => d.title.includes(domName)) || { cards: [], title: domName };
+      const stats = { 
+        name: domName, 
+        deckObject: targetDeck,
+        total: targetDeck.cards.length, 
+        scenarios: 0, 
+        distractors: 0, 
+        rationales: 0, 
+        traps: 0, 
+        behavioral: 0, 
+        simple: 0, 
+        recallTags: 0 
       };
 
-      deck.cards.forEach(card => {
-        // HANDSHAKE V2: Extreme ID Sanitization (strip all whitespace/control chars)
+      targetDeck.cards.forEach(card => {
         const cleanId = String(card.id).replace(/[\s\n\r]/g, '');
         const sData = vault[`${cleanId}:simple:${certLevel}`];
         const iData = vault[`${cleanId}:intelligent:${certLevel}`];
+        const isValidDomain = (tag) => tag && (tag.toLowerCase().includes('people') || tag.toLowerCase().includes('organization') || tag.toLowerCase().includes('workplace'));
 
-        // PHYSICAL DATA CHECK: No shadow logic, just strict domain compliance
-        const isValidDomain = (tag) => {
-          if (!tag) return false;
-          const lower = tag.toLowerCase();
-          return lower.includes('people') || lower.includes('organization') || lower.includes('workplace');
-        };
-
-        if (sData?.distractors) stats.simple++;
-        if (isValidDomain(sData?.tag_bask)) stats.simpleTags++;
+        // FORENSIC AUDIT LOGIC (PHASE-GATE VALIDATION)
         if (iData?.scenario) stats.scenarios++;
-        if (iData?.distractors) stats.intelligentDistractors++;
-        if (iData?.rationale) stats.rationales++;
-        if (isValidDomain(iData?.tag_bask)) stats.tags++;
-        const isStrategicGap = (gap) => {
-          if (!gap) return false;
-          // MANDATE: Strategic gaps must be descriptive insights, not 2-word labels (e.g. "Symptomatic Fix")
-          return gap.length > 30 && !gap.includes('Symptomatic Fix') && !gap.includes('Premature Escalation');
-        };
-        if (isStrategicGap(iData?.gap_analysis)) stats.gaps++;
-      });
+        
+        // Phase 2 Mirror Check (Character-Length Parity)
+        if (Array.isArray(iData?.distractors) && iData.distractors.length > 0) {
+            const matchLen = (card.answer || "").length;
+            const distLens = iData.distractors.map(d => d.length);
+            const avgLen = distLens.reduce((a,b) => a+b, 0) / distLens.length;
+            if (Math.abs(avgLen - matchLen) < 15) stats.distractors++; // Only count if within 15 chars parity
+        }
 
+        // Phase 3 Polish Check (Rationale + Gap Analysis)
+        if (iData?.rationale && iData?.gap_analysis) {
+            stats.rationales++;
+            stats.traps++;
+        }
+        
+        if (isValidDomain(iData?.tag_bask)) stats.behavioral++;
+        if (Array.isArray(sData?.distractors) && sData.distractors.length > 0) stats.simple++;
+        if (isValidDomain(sData?.tag_bask)) stats.recallTags++;
+      });
       return stats;
     });
   }, [decks, vault, certLevel]);
 
-  const headers = ['Intelligent Scenarios', 'Intelligent Distractors', 'Strategic Rationales', 'Strategic Trap Alerts', 'Behavioral Bridge Tags', 'Simple Distractors', 'Recall Metadata Tags'];
-  const dataKeys = ['scenarios', 'intelligentDistractors', 'rationales', 'gaps', 'tags', 'simple', 'simpleTags'];
-  const icons = ['psychology', 'format_list_bulleted', 'description', 'warning', 'join_inner', 'format_list_bulleted', 'sell'];
+  const headers = [
+    { label: 'Intelligent Scenarios', key: 'scenarios', icon: 'psychology', status: 'phase1' },
+    { label: 'Intelligent Distractors', key: 'distractors', icon: 'list_alt', status: 'phase2' },
+    { label: 'Strategic Rationales', key: 'rationales', icon: 'description', status: 'phase3' },
+    { label: 'Strategic Trap Alerts', key: 'traps', icon: 'warning', status: 'phase3' },
+    { label: 'Behavioral Bridge Tags', key: 'behavioral', icon: 'link', status: 'phase3' },
+    { label: 'Simple Distractors', key: 'simple', icon: 'format_list_bulleted', status: 'phase1' },
+    { label: 'Recall Metadata Tags', key: 'recallTags', icon: 'sell', status: 'phase1' }
+  ];
 
   return (
-    <section className="glass-panel" style={{
-      padding: '2rem',
-      overflowX: 'auto',
-      border: '1px solid rgba(255,255,255,0.05)'
-    }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', gap: '1rem' }}>
-        <h3 style={{ margin: 0, fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.8rem', fontWeight: '800', flexShrink: 0 }}>
+    <div className="glass-panel" style={{ padding: '2rem', border: '1px solid rgba(255,255,255,0.05)', overflowX: 'auto' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+        <h2 style={{ fontSize: '1.2rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.8rem', color: 'white' }}>
           <span className="material-symbols-outlined" style={{ color: '#60a5fa' }}>verified_user</span>
           AI READINESS MATRIX - {certLevel}
-        </h3>
-        <button
-          onClick={onSmartSync}
-          disabled={isSyncing}
-          className={isSyncing ? "glass-panel" : "btn-primary"}
-          style={{
-            padding: '0.6rem 1.2rem',
-            fontSize: '0.8rem',
-            fontWeight: 'bold',
-            color: isSyncing ? '#fbbf24' : 'white',
-            border: isSyncing ? '1px solid rgba(251,191,36,0.3)' : 'none',
-            whiteSpace: 'nowrap'
-          }}
-        >
-          {isSyncing ? `SYNCING ${syncProgress}% - ${syncStatus || 'Processing...'}` : 'SMART SYNC ALL'}
+        </h2>
+        <button onClick={onSmartSync} disabled={isSyncing} className="btn-primary" style={{ padding: '0.6rem 1.2rem', borderRadius: '12px' }}>
+          {isSyncing ? `Syncing ${syncProgress}%` : 'SMART SYNC ALL'}
         </button>
       </div>
-      {/* Dynamic progress bar for Smart Sync */}
-      {isSyncing && (
-        <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.08)', borderRadius: '10px', marginBottom: '1.5rem', overflow: 'hidden' }}>
-          <div style={{ width: `${syncProgress}%`, height: '100%', background: '#fbbf24', transition: 'width 0.3s' }} />
-        </div>
-      )}
+
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
           <tr style={{ borderBottom: '2px solid rgba(255,255,255,0.05)' }}>
@@ -142,58 +132,54 @@ const VaultHealthMatrix = ({ decks, onSmartSync, onSyncTopic, isSyncing, syncPro
               AI CONTENT ELEMENT
             </th>
             {topicStats.map(t => (
-              <th key={t.name} style={{ padding: '1rem', fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+              <th key={t.name} style={{ textAlign: 'center', padding: '1rem', fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
                 {t.name}
               </th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {headers.map((label, idx) => (
-            <tr key={label} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
-              <td style={{ padding: '1.2rem 1rem', fontSize: '0.85rem', color: 'var(--text-white)', display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-                <span className="material-symbols-outlined" style={{ fontSize: '1.2rem', color: '#60a5fa' }}>{icons[idx]}</span>
-                {label}
+          {headers.map(h => (
+            <tr key={h.key} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+              <td style={{ padding: '1.2rem 1rem', fontSize: '0.85rem', color: 'white', display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                <span className="material-symbols-outlined" style={{ fontSize: '1.2rem', color: '#60a5fa' }}>{h.icon}</span>
+                {h.label}
               </td>
               {topicStats.map(topic => (
-                <TopicHealthCell key={topic.name} count={topic[dataKeys[idx]]} total={topic.total} />
+                <TopicHealthCell key={`${topic.name}-${h.key}`} count={topic[h.key]} total={topic.total} status={h.status} />
               ))}
             </tr>
           ))}
-          <tr style={{ borderTop: '2px solid rgba(255,255,255,0.05)' }}>
-            <td style={{ padding: '1.2rem 1rem', fontSize: '0.75rem', fontWeight: 'bold', color: '#60a5fa', textTransform: 'uppercase' }}>
-              Surgical Actions
+          {/* SURGICAL ACTIONS ROW (Preserved Original) */}
+          <tr>
+            <td style={{ padding: '1.5rem 1rem', fontSize: '0.75rem', color: '#60a5fa', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+              SURGICAL ACTIONS
             </td>
-            {topicStats.map(topic => {
-              const deck = decks.find(d => d.title === topic.name);
-              const isTopicReady = topic.intelligentDistractors === topic.total && topic.simple === topic.total;
-              
-              return (
-                <td key={topic.name} style={{ textAlign: 'center', padding: '1.2rem 0.5rem' }}>
-                  <button 
-                    onClick={() => onSyncTopic(deck)}
-                    disabled={isSyncing || isTopicReady}
-                    style={{
-                      padding: '0.4rem 0.8rem',
-                      borderRadius: '8px',
-                      fontSize: '0.65rem',
-                      fontWeight: 'bold',
-                      background: isTopicReady ? 'rgba(96, 165, 250, 0.1)' : 'rgba(251, 191, 36, 0.1)',
-                      border: `1px solid ${isTopicReady ? 'rgba(96, 165, 250, 0.3)' : 'rgba(251, 191, 36, 0.3)'}`,
-                      color: isTopicReady ? '#60a5fa' : '#fbbf24',
-                      cursor: (isSyncing || isTopicReady) ? 'default' : 'pointer',
-                      opacity: isSyncing ? 0.5 : 1
-                    }}
-                  >
-                    {isTopicReady ? 'FULLY READY' : 'SYNC TOPIC'}
-                  </button>
-                </td>
-              );
-            })}
+            {topicStats.map(topic => (
+              <td key={`action-${topic.name}`} style={{ textAlign: 'center', padding: '1rem' }}>
+                <button 
+                  onClick={() => onSyncTopic(topic.deckObject)}
+                  disabled={isSyncing || topic.total === 0}
+                  style={{
+                    background: 'rgba(245, 158, 11, 0.1)',
+                    border: '1px solid rgba(245, 158, 11, 0.3)',
+                    color: '#f59e0b',
+                    borderRadius: '8px',
+                    padding: '0.5rem 1rem',
+                    fontSize: '0.7rem',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    opacity: topic.total === 0 ? 0.5 : 1
+                  }}
+                >
+                  {topic.total > 0 && (topic.simple === topic.total && topic.distractors === topic.total) ? 'FULLY READY' : 'SYNC TOPIC'}
+                </button>
+              </td>
+            ))}
           </tr>
         </tbody>
       </table>
-    </section>
+    </div>
   );
 };
 
