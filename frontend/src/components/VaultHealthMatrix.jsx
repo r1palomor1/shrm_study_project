@@ -57,6 +57,9 @@ const VaultHealthMatrix = ({ decks, onSmartSync, onSyncTopic, isSyncing, syncPro
   const topicStats = useMemo(() => {
     const domains = ['Competencies', 'Organization', 'People', 'Workplace'];
     
+    // HEAD HONCHO FIX: Case-Sensitivity Hardening
+    const safeCertLevel = String(certLevel || 'CP').toUpperCase();
+
     return domains.map(domName => {
       const targetDeck = decks.find(d => d.title.includes(domName)) || { cards: [], title: domName };
       const stats = { 
@@ -74,8 +77,8 @@ const VaultHealthMatrix = ({ decks, onSmartSync, onSyncTopic, isSyncing, syncPro
 
       targetDeck.cards.forEach(card => {
         const cleanId = String(card.id).replace(/[\s\n\r]/g, '');
-        const sData = vault[`${cleanId}:simple:${certLevel}`];
-        const iData = vault[`${cleanId}:intelligent:${certLevel}`];
+        const sData = vault[`${cleanId}:simple:${safeCertLevel}`];
+        const iData = vault[`${cleanId}:intelligent:${safeCertLevel}`];
         const isValidDomain = (tag) => tag && (tag.toLowerCase().includes('people') || tag.toLowerCase().includes('organization') || tag.toLowerCase().includes('workplace'));
 
         // FORENSIC AUDIT LOGIC (PHASE-GATE VALIDATION)
@@ -86,7 +89,7 @@ const VaultHealthMatrix = ({ decks, onSmartSync, onSyncTopic, isSyncing, syncPro
             const matchLen = (card.answer || "").length;
             const distLens = iData.distractors.map(d => d.length);
             const avgLen = distLens.reduce((a,b) => a+b, 0) / distLens.length;
-            // RELIEF LOGIC: 15 -> 25 chars (accounts for AI variance while catching longest-answer bias)
+            // Parity: Threshold set to 25 chars.
             if (Math.abs(avgLen - matchLen) < 25) stats.distractors++; 
         }
 
@@ -151,7 +154,7 @@ const VaultHealthMatrix = ({ decks, onSmartSync, onSyncTopic, isSyncing, syncPro
               ))}
             </tr>
           ))}
-          {/* SURGICAL ACTIONS ROW (Preserved Original) */}
+          {/* SURGICAL ACTIONS ROW */}
           <tr>
             <td style={{ padding: '1.5rem 1rem', fontSize: '0.75rem', color: '#60a5fa', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
               SURGICAL ACTIONS

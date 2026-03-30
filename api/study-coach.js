@@ -7,12 +7,10 @@ export default async function handler(req, res) {
 
     const { mode } = req.body;
 
-    // Route based on requested mode
     if (mode === 'generate-distractors') {
         return handleGenerateDistractors(req, res);
     }
 
-    // Default to coaching insight
     return handleCoachingInsight(req, res);
 }
 
@@ -24,8 +22,6 @@ async function handleGenerateDistractors(req, res) {
     }
 
     const geminiKey = process.env.GEMINI_API_KEY;
-
-    // 1. System Instructions for SHRM 2026 Psychometric Mirror
     let promptSystemInstructions = "";
 
     if (quizType === 'intelligent') {
@@ -46,34 +42,35 @@ async function handleGenerateDistractors(req, res) {
             5. NO LABELING: [Term] name must NOT appear.
             `;
         } else {
-            // EXPANSION or MONOLITHIC: The Psychometrician Override
+            // Expansion Mode: RANDOMIZED PARITY PROTOCOL
             promptSystemInstructions = `
-            ROLE: SHRM 2026 Psychometrician
-            TASK: Generate 3 distractors, rationale, and gap analysis that are visually indistinguishable from the Correct Answer.
-
+            ROLE: SHRM 2026 Structural Mirror (Randomized Parity Engine)
+            TASK: Generate 3 randomized distractors, rationale, and gap analysis.
+            
+            STRICT ANTI-BIAS RULES (ENTROPY):
+            1. NATURAL VARIANCE: Each of the 3 distractors MUST have a different character count to avoid "clumping".
+            2. RANGE: Every distractor must fall within the range of (targetLength - 30) to (targetLength + 30) characters.
+            3. FORBIDDEN: Do not make any two distractors the same length. Do not match the correct answer exactly for all three.
+            
             STRICT MECHANICAL REQUIREMENTS:
-            1. TARGET LENGTH: You MUST match the provided targetLength (+/- 10 characters). 
-            2. PUNCTUATION MIRROR: If the Correct Answer uses ";" or ",", you MUST use them with similar frequency.
-            3. SYNTACTIC PARITY: The Correct Answer starts with the word provided in 'startsWithVerb'. All three distractors MUST start with a functionally similar verb or part of speech in the same tense.
-            4. NO SHORT-CUTS: If the correct answer is a complex 3-line sentence, a 1-line distractor is a FAILURE.
-            5. INCLUSIVE MINDSET: Always use "Inclusive Mindset" instead of "Diversity".
+            4. SYNTACTIC PARITY: All three distractors MUST start with a functionally similar verb or part of speech in the same tense as provided in 'startsWithVerb'.
+            5. PUNCTUATION MIRROR: Mirror the frequency of semicolons/commas from the Correct Answer.
+            6. INCLUSIVE MINDSET: Use "Inclusive Mindset" over "Diversity".
             
             JSON SANITIZATION:
-            - Ensure all generated strings are properly escaped for JSON. 
-            - Do not use unescaped double quotes or raw newlines inside the strings.
+            - Ensure all generated strings are properly escaped for JSON.
             `;
         }
     } else {
-        // RECALL MIRROR (Recall Designer)
+        // RECALL MIRROR (Randomized Parity)
         promptSystemInstructions = `
-        ROLE: SHRM 2026 Knowledge Designer (High-Fidelity Distractors)
-        TASK: Generate 3 distractors and a BASK Domain tag.
+        ROLE: SHRM 2026 Structural Mirror (Randomized Parity Engine)
+        TASK: Generate 3 randomized distractors and a BASK Domain tag.
 
-        STRICT MECHANICAL REQUIREMENTS:
-        1. TARGET LENGTH: Mirror the provided targetLength (+/- 10 characters).
-        2. SYNTACTIC PARITY: Mirror the grammatical structure (e.g., Noun-Phrase) of the correct answer.
-        3. CONCEPTUAL BOUNDARIES: Ensure distractors touch conceptual boundaries of the SHRM BASK to test knowledge depth, not just word-matching.
-        4. INCLUSIVE MINDSET: Use "Inclusive Mindset" over "Diversity".
+        STRICT ANTI-BIAS RULES (ENTROPY):
+        1. NATURAL VARIANCE: Each distractor MUST have a different character count.
+        2. RANGE: Every distractor must fall within (targetLength - 30) to (targetLength + 30) characters.
+        3. FORBIDDEN: Do not explain. Just match the randomized range exactly.
         
         JSON SANITIZATION:
         - Ensure all generated strings are properly escaped for JSON.
@@ -95,7 +92,7 @@ async function handleGenerateDistractors(req, res) {
     ${cards.map(c => `ID: ${c.id}\nTerm: ${c.question}\nCorrect Answer: ${c.answer}\nTarget Length: ${c.targetLength} chars\nPunctuation: ${c.originalPunctuation}\nStarts With: ${c.startsWithVerb}${c.scenario ? `\nExisting Scenario: ${c.scenario}` : ''}`).join('\n---\n')}
 
     Return JSON format:
-    { "results": [{ "id": "string", "scenario": "string (for SJIs)", "distractors": ["3 items"], "rationale": "string", "gap_analysis": "string", "tag_bask": "People|Organization|Workplace", "tag_behavior": "string" }] }
+    { "results": [{ "id": "string", "scenario": "string", "distractors": ["3 items"], "rationale": "string", "gap_analysis": "string", "tag_bask": "People|Organization|Workplace", "tag_behavior": "string" }] }
     `;
 
     if (!geminiKey) return res.status(500).json({ message: "AI Provider Failed", error: "GEMINI_API_KEY is missing" });
