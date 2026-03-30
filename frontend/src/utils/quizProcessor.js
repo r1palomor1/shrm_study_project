@@ -79,16 +79,20 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
     const totalRequests = cards.length;
     let i = 0;
 
-    // DOWNSHIFT ENGINE: While loop allows for dynamic batch-size reduction on failure
+    // DOWNSHIFT ENGINE: Structural Safety Control
     while (i < cards.length) {
         const currentCard = cards[i];
         const ansLen = (currentCard.answer || "").length;
         
-        // Step 1: Detect Complexity. High-density cards (>150 chars) isolation.
+        // High-density (>150 chars) card ISOLATION.
         const isComplex = ansLen > 150;
         let batchSize = isComplex ? 1 : 4;
         let STAGGER = isComplex ? 25000 : 20000;
         
+        if (isComplex) {
+            console.log(`%c [DOWNSHIFT: SAFETY] 🚨 Card ${currentCard.id} (>150 chars). Isolating to Single-Card Request.`, 'color: #fca5a5; font-weight: bold;');
+        }
+
         if (quizType === 'simple') {
             batchSize = 8;
             STAGGER = 8000;
@@ -124,9 +128,21 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
                     const matchingCard = batch.find(bc => String(bc.id).replace(/[\s\n\r]/g, '') === cleanId);
                     if (!matchingCard) return;
 
-                    if (res.scenario) console.log(`%c [PHASE 1: SEED] 🟢 Card ${cleanId}: Situation Generated.`, 'color: #10b981;');
-                    console.log(`%c [PHASE 2: MIRROR] 🟦 Card ${cleanId}: Symmetry Engine Validated.`, 'color: #60a5fa;');
-                    if (res.rationale) console.log(`%c [PHASE 3: POLISH] ✅ Card ${cleanId}: Rationale Synced.`, 'color: #3b82f6;');
+                    // UPDATED: SYMMETRY ENGINE HUD
+                    const targetLen = (matchingCard.answer || "").length;
+                    const distLens = res.distractors?.map(d => d.length) || [];
+                    const avgLen = distLens.reduce((a, b) => a + b, 0) / distLens.length;
+                    const variance = Math.round((Math.abs(avgLen - targetLen) / targetLen) * 100);
+                    const markerMatch = (matchingCard.answer?.includes(';') === res.distractors[0]?.includes(';'));
+
+                    if (res.scenario) console.log(`%c [PHASE 1: SEED] 🟢 Card ${cleanId}: Situation Generated.`, 'color: #10b981; font-weight: bold;');
+                    
+                    console.log(
+                        `%c [PHASE 2: SYMMETRY] 🟦 Card ${cleanId}: Structure [Marker: ${markerMatch ? 'PASS' : 'FAIL'}] | Density [${variance}% Variance] -> CLONE READY`, 
+                        `color: #60a5fa; font-weight: bold;`
+                    );
+
+                    if (res.rationale) console.log(`%c [PHASE 3: POLISH] ✅ Card ${cleanId}: Rationale Synced.`, 'color: #3b82f6; font-weight: bold;');
 
                     saveDistractorToVault(cleanId, {
                         ...res,
@@ -139,19 +155,13 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
                 if (onProgress) onProgress(Math.round((successfulCount / totalRequests) * 100), null);
             }
             
-            i += batchSize; // Success: Advance the pointer
+            i += batchSize; 
             if (i < cards.length) await new Promise(r => setTimeout(r, STAGGER));
 
         } catch (error) {
-            console.error(`%c [DOWNSHIFT] Batch failed. Isolating problematic cards...`, 'color: #f87171; font-weight: bold;');
-            // Step 2: Buffer Reset. 5s hard pause for server cooldown.
+            console.error(`%c [DOWNSHIFT] Batch failed. Performing Hard Buffer Reset...`, 'color: #f87171; font-weight: bold;');
             await new Promise(r => setTimeout(r, 5000));
-            
-            // If the failed batch was a multi-card batch, the next iteration will naturally process them card-by-card (Batch: 1)
-            if (batchSize === 1) {
-                console.warn(`[RECOVERY] Single card ${currentCard.id} failed. Skipping.`);
-                i++; // Prevents infinite loop if a specific card persistent fails
-            }
+            if (batchSize === 1) i++; 
         }
     }
     return { success: successfulCount > 0, totalProcessed: successfulCount };
@@ -176,8 +186,10 @@ export async function polishGapsBatch(cards, certLevel, onProgress = null) {
     
     let successfulCount = 0;
     const totalRequests = cards.length;
-    const MAX_BATCH_SIZE = 4; // HARDENING: Phase 3 now protected by Smart Batching.
+    const MAX_BATCH_SIZE = 4; 
     const STAGGER = 15000;
+
+    console.log(`%c [POLISH: HARDENED] 🛡️ Phase 3 Protection Active (Size: 4). Joining relay...`, 'color: #3b82f6; font-weight: bold;');
 
     for (let i = 0; i < cards.length; i += MAX_BATCH_SIZE) {
         const batch = cards.slice(i, i + MAX_BATCH_SIZE);
