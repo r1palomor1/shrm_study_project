@@ -1,4 +1,4 @@
-// VERCEL EDGE RUNTIME: REQUIRES FETCH REST API (SDK IS NOT COMPATIBLE)
+// VERCEL EDGE RUNTIME: REQUIRES PURE WEB FETCH (SDK IS NODE-ONLY)
 export const config = { runtime: 'edge' };
 
 export default async function handler(req) {
@@ -16,21 +16,21 @@ export default async function handler(req) {
         }
 
         if (mode !== 'generate-distractors') {
-            // Handle Insight (Simplified for Edge)
-            const insightPrompt = `ROLE: Study Coach. Task: Provide 1 coaching bridge using "Inclusive Mindset". Data: ${JSON.stringify(body)}`;
-            return callGeminiREST(insightPrompt, geminiKey);
+            const promptInsight = `ROLE: Study Coach. Data: ${JSON.stringify(body)}. Task: Provide 1 coaching bridge using "Inclusive Mindset".`;
+            return callGeminiREST(promptInsight, geminiKey);
         }
 
         let promptSystemInstructions = "";
         if (quizType === 'intelligent') {
             if (pipelineStage === 'seed') {
                 const verbTaxonomy = certLevel === 'SCP' ? "[Design, Evaluate, Analyze, Interpret, Champion]" : "[Implement, Coordinate, Apply, Review, Identify]";
-                promptSystemInstructions = `ROLE: SHRM 2026 SJI Architect. TASK: Generate Situation and Correct Answer. Constraints: 3-4 sentences. Start answer with ${verbTaxonomy}. No [Term] labeling.`;
+                promptSystemInstructions = `ROLE: SHRM 2026 SJI Architect. Situation Scenario + Tethered-Action Correct Answer. Start answer with ${verbTaxonomy}. No [Term] labeling.`;
             } else {
-                promptSystemInstructions = `ROLE: SHRM 2026 Structural Mirror (Symmetry Engine). STRICT SYMMETRY PROTOCOL: 1. CLONAL STRUCTURE: Analyze Correct Answer DNA. If [Action]+[Entity]+[Outcome], mirror it. If it uses semicolons (;), mirror it. 2. LEADING VERB ANCHOR: Start all distractors with same verb tense as startsWithVerb. 3. DENSITY MATCHING: Match visual weight/block density. ELIMINATE MATH.`;
+                // SYMMETRY ENGINE (PHASE 2)
+                promptSystemInstructions = `ROLE: SHRM 2026 Structural Mirror. TASK: 3 distractors, rationale, gap. STRICT SYMMETRY PROTOCOL: 1. CLONAL STRUCTURE: Analyze Correct Answer DNA. Mirror rhetorical weight/blocks. If semicolon (;), mirror it. 2. LEADING VERB ANCHOR: Start all distractors with same verb tense as startsWithVerb. 3. ELIMINATE MATH.`;
             }
         } else {
-            promptSystemInstructions = `ROLE: SHRM 2026 Structural Mirror (Symmetry Engine). Mimic visual density and rhythm of Correct Answer. Naturally vary concepts.`;
+            promptSystemInstructions = `ROLE: SHRM 2026 Structural Mirror. Mimic visual density of answer. Naturally vary concepts. Return JSON.`;
         }
 
         const prompt = `${promptSystemInstructions}\nInput Cards:\n${cards.map(c => `ID: ${c.id}\nTerm: ${c.question}\nCorrect Answer: ${c.answer}\nPunctuation: ${c.originalPunctuation}\nStarts With: ${c.startsWithVerb}${c.scenario ? `\nExisting Scenario: ${c.scenario}` : ''}`).join('\n---\n')}\nReturn JSON: { "results": [{ "id": "string", "scenario": "string", "distractors": ["3 items"], "rationale": "string", "gap_analysis": "string", "tag_bask": "People|Organization|Workplace" }] }`;
@@ -55,14 +55,14 @@ async function callGeminiREST(prompt, apiKey) {
     });
 
     const data = await response.json();
-    if (!response.ok) return new Response(JSON.stringify({ message: "AI Provider Failed", error: data }), { status: 500 });
+    if (!response.ok) return new Response(JSON.stringify({ message: "AI Error", error: data }), { status: 500 });
 
     try {
         const text = data.candidates[0].content.parts[0].text;
         const parsed = parseAIResponse(text);
-        return new Response(JSON.stringify(parsed), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        return new Response(JSON.stringify(parsed), { status: 200 });
     } catch (e) {
-        return new Response(JSON.stringify({ message: "Invalid AI Format", raw: data }), { status: 500 });
+        return new Response(JSON.stringify({ message: "Invalid Response Format" }), { status: 500 });
     }
 }
 
