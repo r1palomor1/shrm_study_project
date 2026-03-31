@@ -1,32 +1,35 @@
 import React, { useMemo } from 'react';
 import { loadVaultFromStorage } from '../utils/storage';
 
-const TopicHealthCell = ({ count, total, status = 'incomplete' }) => {
-  const isComplete = count === total && total > 0;
+const TopicHealthCell = ({ gold, stabilized, total }) => {
+  const isComplete = (gold + stabilized) >= total && total > 0;
+  const isGold = gold === total && total > 0;
   
-  // HUD Color Logic based on Phase
-  const getPhaseColor = () => {
+  // HUD Color Logic: Green = Gold, Indigo = Stabilized, Yellow = Sync Needed
+  const getStatusColor = () => {
     if (!isComplete) return '#fbbf24'; // Yellow (Sync Needed)
-    if (status === 'phase1') return '#10b981'; // Green (Seed Set)
-    if (status === 'phase2') return '#60a5fa'; // Blue (Mirror Parity)
-    if (status === 'phase3') return '#f59e0b'; // Gold (Polish/Gaps)
-    return '#60a5fa'; // Default
+    if (isGold) return '#10b981';      // Green (Pure Gold)
+    return '#818cf8';                  // Indigo (Stabilized)
   };
 
-  const color = getPhaseColor();
+  const getStatusIcon = () => {
+    if (!isComplete) return 'bolt';
+    if (isGold) return 'verified';
+    return 'auto_mode'; // Stabilization Gear
+  };
+
+  const color = getStatusColor();
 
   return (
     <td style={{ textAlign: 'center', padding: '1rem 0.5rem' }}>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem' }}>
-        {isComplete ? (
-          <span className="material-symbols-outlined" style={{ fontSize: '1.4rem', color }}>verified</span>
-        ) : (
-          <span className="material-symbols-outlined" style={{
-            fontSize: '1.4rem',
-            color: '#fbbf24',
-            animation: 'pulse 2s infinite'
-          }}>bolt</span>
-        )}
+        <span className="material-symbols-outlined" style={{ 
+            fontSize: '1.4rem', 
+            color,
+            animation: !isComplete ? 'pulse 2s infinite' : 'none'
+        }}>
+            {getStatusIcon()}
+        </span>
 
         <div style={{
           fontSize: '0.85rem',
@@ -34,7 +37,7 @@ const TopicHealthCell = ({ count, total, status = 'incomplete' }) => {
           color,
           fontFamily: 'monospace'
         }}>
-          {count} / {total}
+          {gold + stabilized} / {total}
         </div>
 
         <div style={{
@@ -42,9 +45,17 @@ const TopicHealthCell = ({ count, total, status = 'incomplete' }) => {
           textTransform: 'uppercase',
           color,
           fontWeight: '900',
-          letterSpacing: '0.1em'
+          letterSpacing: '0.1em',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center'
         }}>
-          {isComplete ? 'READY' : 'SYNC NEEDED'}
+          <span>{isComplete ? 'READY' : 'SYNC NEEDED'}</span>
+          {stabilized > 0 && isComplete && (
+            <span style={{ fontSize: '0.45rem', opacity: 0.8, marginTop: '2px' }}>
+                ({stabilized} STABILIZED)
+            </span>
+          )}
         </div>
       </div>
     </td>
@@ -56,8 +67,6 @@ const VaultHealthMatrix = ({ decks, onSmartSync, onSyncTopic, isSyncing, syncPro
 
   const topicStats = useMemo(() => {
     const domains = ['Competencies', 'Organization', 'People', 'Workplace'];
-    
-    // HEAD HONCHO FIX: Case-Sensitivity Hardening
     const safeCertLevel = String(certLevel || 'CP').toUpperCase();
 
     return domains.map(domName => {
@@ -65,14 +74,15 @@ const VaultHealthMatrix = ({ decks, onSmartSync, onSyncTopic, isSyncing, syncPro
       const stats = { 
         name: domName, 
         deckObject: targetDeck,
-        total: targetDeck.cards.length, 
-        scenarios: 0, 
-        distractors: 0, 
-        rationales: 0, 
-        traps: 0, 
-        behavioral: 0, 
-        simple: 0, 
-        recallTags: 0 
+        total: targetDeck.cards.length,
+        // Track { gold: 0, stabilized: 0 } for each row
+        scenarios: { gold: 0, stabilized: 0 },
+        distractors: { gold: 0, stabilized: 0 },
+        rationales: { gold: 0, stabilized: 0 },
+        traps: { gold: 0, stabilized: 0 },
+        behavioral: { gold: 0, stabilized: 0 },
+        simple: { gold: 0, stabilized: 0 },
+        recallTags: { gold: 0, stabilized: 0 }
       };
 
       targetDeck.cards.forEach(card => {
@@ -81,45 +91,46 @@ const VaultHealthMatrix = ({ decks, onSmartSync, onSyncTopic, isSyncing, syncPro
         const iData = vault[`${cleanId}:intelligent:${safeCertLevel}`];
         const isValidDomain = (tag) => tag && (tag.toLowerCase().includes('people') || tag.toLowerCase().includes('organization') || tag.toLowerCase().includes('workplace'));
 
-        // PHASE 1: SCENARIO SEED
-        if (iData?.scenario) stats.scenarios++;
-        
-        // PHASE 2: STRUCTURAL SYMMETRY VALIDATOR (SEMICOLON ONLY - NUKE LENGTH)
+        // Intelligent Scenarios
+        if (iData?.scenario) stats.scenarios.gold++; // Scenarios default to gold if they exist
+
+        // Intelligent Distractors (The Symmetry King)
         if (Array.isArray(iData?.distractors) && iData.distractors.length > 0) {
-            // SYMMETRY OVERHAUL: We are moving from Measuring-Tape to Structural Marker check.
             const hasSemicolonMatch = (card.answer?.includes(';') === iData.distractors[0]?.includes(';'));
-            if (hasSemicolonMatch) stats.distractors++; 
+            if (hasSemicolonMatch) stats.distractors.gold++;
+            else stats.distractors.stabilized++;
         }
 
-        // PHASE 3: POLISH & STRATEGIC GAP
+        // Strategic Rationales & Gaps
         if (iData?.rationale && iData?.gap_analysis) {
-            stats.rationales++;
-            stats.traps++;
+            stats.rationales.gold++;
+            stats.traps.gold++;
         }
         
-        if (isValidDomain(iData?.tag_bask)) stats.behavioral++;
-        if (Array.isArray(sData?.distractors) && sData.distractors.length > 0) stats.simple++;
-        if (isValidDomain(sData?.tag_bask)) stats.recallTags++;
+        // Tags
+        if (isValidDomain(iData?.tag_bask)) stats.behavioral.gold++;
+        if (Array.isArray(sData?.distractors) && sData.distractors.length > 0) stats.simple.gold++;
+        if (isValidDomain(sData?.tag_bask)) stats.recallTags.gold++;
       });
       return stats;
     });
   }, [decks, vault, certLevel]);
 
   const headers = [
-    { label: 'Intelligent Scenarios', key: 'scenarios', icon: 'psychology', status: 'phase1' },
-    { label: 'Intelligent Distractors', key: 'distractors', icon: 'list_alt', status: 'phase2' },
-    { label: 'Strategic Rationales', key: 'rationales', icon: 'description', status: 'phase3' },
-    { label: 'Strategic Trap Alerts', key: 'traps', icon: 'warning', status: 'phase3' },
-    { label: 'Behavioral Bridge Tags', key: 'behavioral', icon: 'link', status: 'phase3' },
-    { label: 'Simple Distractors', key: 'simple', icon: 'format_list_bulleted', status: 'phase1' },
-    { label: 'Recall Metadata Tags', key: 'recallTags', icon: 'sell', status: 'phase1' }
+    { label: 'Intelligent Scenarios', key: 'scenarios', icon: 'psychology' },
+    { label: 'Intelligent Distractors', key: 'distractors', icon: 'list_alt' },
+    { label: 'Strategic Rationales', key: 'rationales', icon: 'description' },
+    { label: 'Strategic Trap Alerts', key: 'traps', icon: 'warning' },
+    { label: 'Behavioral Bridge Tags', key: 'behavioral', icon: 'link' },
+    { label: 'Simple Distractors', key: 'simple', icon: 'format_list_bulleted' },
+    { label: 'Recall Metadata Tags', key: 'recallTags', icon: 'sell' }
   ];
 
   return (
     <div className="glass-panel" style={{ padding: '2rem', border: '1px solid rgba(255,255,255,0.05)', overflowX: 'auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <h2 style={{ fontSize: '1.2rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.8rem', color: 'white' }}>
-          <span className="material-symbols-outlined" style={{ color: '#60a5fa' }}>verified_user</span>
+          <span className="material-symbols-outlined" style={{ color: '#6366f1' }}>verified_user</span>
           AI READINESS MATRIX - {certLevel}
         </h2>
         <button onClick={onSmartSync} disabled={isSyncing} className="btn-primary" style={{ padding: '0.6rem 1.2rem', borderRadius: '12px' }}>
@@ -144,17 +155,22 @@ const VaultHealthMatrix = ({ decks, onSmartSync, onSyncTopic, isSyncing, syncPro
           {headers.map(h => (
             <tr key={h.key} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
               <td style={{ padding: '1.2rem 1rem', fontSize: '0.85rem', color: 'white', display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-                <span className="material-symbols-outlined" style={{ fontSize: '1.2rem', color: '#60a5fa' }}>{h.icon}</span>
+                <span className="material-symbols-outlined" style={{ fontSize: '1.2rem', color: '#6366f1' }}>{h.icon}</span>
                 {h.label}
               </td>
               {topicStats.map(topic => (
-                <TopicHealthCell key={`${topic.name}-${h.key}`} count={topic[h.key]} total={topic.total} status={h.status} />
+                <TopicHealthCell 
+                  key={`${topic.name}-${h.key}`} 
+                  gold={topic[h.key].gold} 
+                  stabilized={topic[h.key].stabilized} 
+                  total={topic.total} 
+                />
               ))}
             </tr>
           ))}
           {/* SURGICAL ACTIONS ROW */}
           <tr>
-            <td style={{ padding: '1.5rem 1rem', fontSize: '0.75rem', color: '#60a5fa', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+            <td style={{ padding: '1.5rem 1rem', fontSize: '0.75rem', color: '#6366f1', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
               SURGICAL ACTIONS
             </td>
             {topicStats.map(topic => (
@@ -163,9 +179,11 @@ const VaultHealthMatrix = ({ decks, onSmartSync, onSyncTopic, isSyncing, syncPro
                   onClick={() => onSyncTopic(topic.deckObject)}
                   disabled={isSyncing || topic.total === 0}
                   style={{
-                    background: 'rgba(245, 158, 11, 0.1)',
-                    border: '1px solid rgba(245, 158, 11, 0.3)',
-                    color: '#f59e0b',
+                    background: topic.total > 0 && (topic.simple.gold + topic.distractors.gold + topic.distractors.stabilized >= topic.total * 2) 
+                        ? 'rgba(16, 185, 129, 0.1)' 
+                        : 'rgba(99, 102, 241, 0.1)',
+                    border: `1px solid ${topic.total > 0 && (topic.simple.gold === topic.total && topic.distractors.gold === topic.total) ? '#10b981' : '#6366f1'}`,
+                    color: topic.total > 0 && (topic.simple.gold === topic.total && topic.distractors.gold === topic.total) ? '#10b981' : '#6366f1',
                     borderRadius: '8px',
                     padding: '0.5rem 1rem',
                     fontSize: '0.7rem',
@@ -174,7 +192,7 @@ const VaultHealthMatrix = ({ decks, onSmartSync, onSyncTopic, isSyncing, syncPro
                     opacity: topic.total === 0 ? 0.5 : 1
                   }}
                 >
-                  {topic.total > 0 && (topic.simple === topic.total && topic.distractors === topic.total) ? 'FULLY READY' : 'SYNC TOPIC'}
+                  {topic.total > 0 && (topic.simple.gold + topic.simple.stabilized === topic.total && topic.distractors.gold + topic.distractors.stabilized === topic.total) ? 'FULLY READY' : 'SYNC TOPIC'}
                 </button>
               </td>
             ))}
