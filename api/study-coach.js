@@ -1,69 +1,55 @@
-// VERCEL EDGE RUNTIME: REQUIRES PURE WEB FETCH (SDK IS NODE-ONLY)
-export const config = { runtime: 'edge' };
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 
-export default async function handler(req) {
+module.exports = async (req, res) => {
     if (req.method !== 'POST') {
-        return new Response(JSON.stringify({ message: 'Method Not Allowed' }), { status: 405 });
+        return res.status(405).json({ message: 'Method Not Allowed' });
     }
 
     try {
-        const body = await req.json();
-        const { cards, quizType = 'intelligent', certLevel = 'CP', pipelineStage = 'monolithic', mode } = body;
-        const geminiKey = process.env.GEMINI_API_KEY;
-
-        if (!cards || !Array.isArray(cards)) {
-            return new Response(JSON.stringify({ message: 'Invalid card data' }), { status: 400 });
+        const { mode } = req.body;
+        if (mode === 'generate-distractors') {
+            return await handleGenerateDistractors(req, res);
         }
-
-        if (mode !== 'generate-distractors') {
-            const promptInsight = `ROLE: Study Coach. Data: ${JSON.stringify(body)}. Task: Provide 1 coaching bridge using "Inclusive Mindset".`;
-            return callGeminiREST(promptInsight, geminiKey);
-        }
-
-        let promptSystemInstructions = "";
-        if (quizType === 'intelligent') {
-            if (pipelineStage === 'seed') {
-                const verbTaxonomy = certLevel === 'SCP' ? "[Design, Evaluate, Analyze, Interpret, Champion]" : "[Implement, Coordinate, Apply, Review, Identify]";
-                promptSystemInstructions = `ROLE: SHRM 2026 SJI Architect. Situation Scenario + Tethered-Action Correct Answer. Start answer with ${verbTaxonomy}. No [Term] labeling.`;
-            } else {
-                // SYMMETRY ENGINE (PHASE 2)
-                promptSystemInstructions = `ROLE: SHRM 2026 Structural Mirror. TASK: 3 distractors, rationale, gap. STRICT SYMMETRY PROTOCOL: 1. CLONAL STRUCTURE: Analyze Correct Answer DNA. Mirror rhetorical weight/blocks. If semicolon (;), mirror it. 2. LEADING VERB ANCHOR: Start all distractors with same verb tense as startsWithVerb. 3. ELIMINATE MATH.`;
-            }
-        } else {
-            promptSystemInstructions = `ROLE: SHRM 2026 Structural Mirror. Mimic visual density of answer. Naturally vary concepts. Return JSON.`;
-        }
-
-        const prompt = `${promptSystemInstructions}\nInput Cards:\n${cards.map(c => `ID: ${c.id}\nTerm: ${c.question}\nCorrect Answer: ${c.answer}\nPunctuation: ${c.originalPunctuation}\nStarts With: ${c.startsWithVerb}${c.scenario ? `\nExisting Scenario: ${c.scenario}` : ''}`).join('\n---\n')}\nReturn JSON: { "results": [{ "id": "string", "scenario": "string", "distractors": ["3 items"], "rationale": "string", "gap_analysis": "string", "tag_bask": "People|Organization|Workplace" }] }`;
-
-        return callGeminiREST(prompt, geminiKey);
-
+        return await handleCoachingInsight(req, res);
     } catch (err) {
-        return new Response(JSON.stringify({ message: 'Internal Server Error', error: err.message }), { status: 500 });
+        console.error('SERVER ERROR:', err.message);
+        return res.status(500).json({ message: 'Internal Server Error', error: err.message });
     }
-}
+};
 
-async function callGeminiREST(prompt, apiKey) {
-    if (!apiKey) return new Response(JSON.stringify({ message: "Key Missing" }), { status: 500 });
+async function handleGenerateDistractors(req, res) {
+    const { cards, quizType = 'intelligent', certLevel = 'CP', pipelineStage = 'monolithic' } = req.body;
+    if (!cards || !Array.isArray(cards)) return res.status(400).json({ message: 'Invalid card data' });
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { responseMimeType: "application/json", temperature: 0.1 }
-        })
+    const geminiKey = process.env.GEMINI_API_KEY;
+    if (!geminiKey) return res.status(500).json({ message: "AI Provider Failed", error: "GEMINI_API_KEY is missing" });
+
+    let promptSystemInstructions = "";
+    if (quizType === 'intelligent') {
+        if (pipelineStage === 'seed') {
+            const verbTaxonomy = certLevel === 'SCP' ? "[Design, Evaluate, Analyze, Interpret, Champion]" : "[Implement, Coordinate, Apply, Review, Identify]";
+            promptSystemInstructions = `ROLE: SHRM 2026 SJI Architect. Situation Scenario + Tethered-Action Correct Answer. Start answer with ${verbTaxonomy}. No [Term] labeling.`;
+        } else {
+            promptSystemInstructions = `ROLE: SHRM 2026 Structural Mirror (Symmetry Engine). 3 distractors, rationale, gap. STRICT SYMMETRY PROTOCOL: 1. CLONAL STRUCTURE: Analyze Correct Answer DNA. Mirror rhetorical weight/blocks. If semicolon (;), mirror it. 2. LEADING VERB ANCHOR: Start all distractors with same verb tense as startsWithVerb. 3. ELIMINATE MATH.`;
+        }
+    } else {
+        promptSystemInstructions = `ROLE: SHRM 2026 Structural Mirror. Mimic visual density of answer. Naturally vary concepts.`;
+    }
+
+    const prompt = `${promptSystemInstructions}\nInput Cards:\n${cards.map(c => `ID: ${c.id}\nTerm: ${c.question}\nCorrect Answer: ${c.answer}\nPunctuation: ${c.originalPunctuation}\nStarts With: ${c.startsWithVerb}${c.scenario ? `\nExisting Scenario: ${c.scenario}` : ''}`).join('\n---\n')}\nReturn JSON: { "results": [{ "id": "string", "scenario": "string", "distractors": ["3 items"], "rationale": "string", "gap_analysis": "string", "tag_bask": "People|Organization|Workplace" }] }`;
+
+    const genAI = new GoogleGenerativeAI(geminiKey);
+    const model = genAI.getGenerativeModel({
+        model: "gemini-1.5-flash",
+        generationConfig: { responseMimeType: "application/json", temperature: 0.1 }
     });
 
-    const data = await response.json();
-    if (!response.ok) return new Response(JSON.stringify({ message: "AI Error", error: data }), { status: 500 });
+    const result = await model.generateContent(prompt);
+    const responseText = result.response.text();
+    const parsedData = parseAIResponse(responseText);
 
-    try {
-        const text = data.candidates[0].content.parts[0].text;
-        const parsed = parseAIResponse(text);
-        return new Response(JSON.stringify(parsed), { status: 200 });
-    } catch (e) {
-        return new Response(JSON.stringify({ message: "Invalid Response Format" }), { status: 500 });
-    }
+    if (parsedData) return res.status(200).json(parsedData);
+    throw new Error("Invalid Response Format");
 }
 
 function parseAIResponse(text) {
@@ -75,4 +61,16 @@ function parseAIResponse(text) {
         cleanText = cleanText.substring(startIdx, endIdx + 1);
         return JSON.parse(cleanText);
     } catch (e) { return null; }
+}
+
+async function handleCoachingInsight(req, res) {
+    const { masteryPercent, counts } = req.body;
+    const geminiKey = process.env.GEMINI_API_KEY;
+    if (!geminiKey) return res.status(500).json({ insight: "Keep pushing." });
+    try {
+        const genAI = new GoogleGenerativeAI(geminiKey);
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const result = await model.generateContent(`ROLE: Study Coach. Mastery: ${masteryPercent}%. Data: ${JSON.stringify(counts)}. Task: 1 coaching bridge using "Inclusive Mindset".`);
+        return res.status(200).json({ insight: result.response.text() });
+    } catch (err) { return res.status(500).json({ insight: "Tactical precision is key." }); }
 }
