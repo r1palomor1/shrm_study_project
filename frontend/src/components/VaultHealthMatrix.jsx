@@ -69,13 +69,15 @@ const VaultHealthMatrix = ({ decks, onSmartSync, onSyncTopic, isSyncing, syncPro
     const domains = ['Competencies', 'Organization', 'People', 'Workplace'];
     const safeCertLevel = String(certLevel || 'CP').toUpperCase();
 
-    return domains.map(domName => {
+    // RECALL AUDIT ARRAYS (Captured during memo calculation)
+    const missingRecalls = [];
+
+    const statsArray = domains.map(domName => {
       const targetDeck = decks.find(d => d.title.includes(domName)) || { cards: [], title: domName };
       const stats = { 
         name: domName, 
         deckObject: targetDeck,
         total: targetDeck.cards.length,
-        // Track { gold: 0, stabilized: 0 } for each row
         scenarios: { gold: 0, stabilized: 0 },
         distractors: { gold: 0, stabilized: 0 },
         rationales: { gold: 0, stabilized: 0 },
@@ -91,29 +93,40 @@ const VaultHealthMatrix = ({ decks, onSmartSync, onSyncTopic, isSyncing, syncPro
         const iData = vault[`${cleanId}:intelligent:${safeCertLevel}`];
         const isValidDomain = (tag) => tag && (tag.toLowerCase().includes('people') || tag.toLowerCase().includes('organization') || tag.toLowerCase().includes('workplace'));
 
-        // Intelligent Scenarios
-        if (iData?.scenario) stats.scenarios.gold++; // Scenarios default to gold if they exist
-
-        // Intelligent Distractors (The Symmetry King)
+        // Intelligent Section
+        if (iData?.scenario) stats.scenarios.gold++;
         if (Array.isArray(iData?.distractors) && iData.distractors.length > 0) {
             const hasSemicolonMatch = (card.answer?.includes(';') === iData.distractors[0]?.includes(';'));
             if (hasSemicolonMatch) stats.distractors.gold++;
             else stats.distractors.stabilized++;
         }
-
-        // Strategic Rationales & Gaps
         if (iData?.rationale && iData?.gap_analysis) {
             stats.rationales.gold++;
             stats.traps.gold++;
         }
-        
-        // Tags
         if (isValidDomain(iData?.tag_bask)) stats.behavioral.gold++;
-        if (Array.isArray(sData?.distractors) && sData.distractors.length > 0) stats.simple.gold++;
-        if (isValidDomain(sData?.tag_bask)) stats.recallTags.gold++;
+
+        // Simple Recall Section & AUDIT
+        const hasSimple = Array.isArray(sData?.distractors) && sData.distractors.length > 0;
+        const hasTags = isValidDomain(sData?.tag_bask);
+
+        if (hasSimple) stats.simple.gold++;
+        if (hasTags) stats.recallTags.gold++;
+
+        // RECALL AUDIT TRIGGER
+        if (domName === 'People' && (!hasSimple || !hasTags)) {
+            missingRecalls.push({ id: cleanId, question: card.question, issue: !hasSimple ? 'Missing Distractors' : 'Invalid BASK Tags' });
+        }
       });
       return stats;
     });
+
+    // Output Audit to Console if missing items exist
+    if (missingRecalls.length > 0) {
+        console.warn(`[RECALL AUDIT] Found ${missingRecalls.length} unfinished Problem-Child cards in PEOPLE:`, missingRecalls);
+    }
+
+    return statsArray;
   }, [decks, vault, certLevel]);
 
   const headers = [
