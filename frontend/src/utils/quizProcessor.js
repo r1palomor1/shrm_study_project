@@ -83,7 +83,7 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
     let i = 0;
     let forceSolo = false;
 
-    // THE MAITRE D' (V4.2): ADAPTIVE DYNAMIC BATCHING + GEAR SHIFT RECOVERY
+    // THE MAITRE D' (V4.3): DEEP-TRACE PROBE ENABLED
     while (i < cards.length) {
         const currentCard = cards[i];
         const ansLen = (currentCard.answer || "").length;
@@ -120,7 +120,17 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
                 body: JSON.stringify({ mode: 'generate-distractors', quizType, certLevel, cards: payloadCards })
             });
 
-            if (!response.ok) throw new Error(`Vercel Bridge Error: ${response.status}`);
+            if (!response.ok) {
+                // THE DEEP TRACE PROBE: Parsing the Vercel 500 response body
+                let traceInfo = "No Trace Provided";
+                try {
+                    const errorPayload = await response.json();
+                    traceInfo = JSON.stringify(errorPayload, null, 2);
+                } catch (e) { traceInfo = "Response was not JSON. (Platform Crash)"; }
+                
+                console.error(`%c [VERCEL TRACE: DEEP PROBE] 🆘 Bridge Failure Identified:\nStatus: ${response.status}\nPayload: ${traceInfo}`, 'color: #ef4444; font-weight: bold;');
+                throw new Error(`Vercel Bridge Error: ${response.status}`);
+            }
 
             const data = await response.json();
             if (data && data.results) {
