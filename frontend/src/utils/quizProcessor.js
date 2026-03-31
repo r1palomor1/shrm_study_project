@@ -13,7 +13,9 @@ export async function getQuizDataByFilter(decks, filter = {}, requestedQuizType 
             let isReady = (studyMode === 'traditional');
             if (!isReady && vaultData) {
                 if (requestedQuizType === 'intelligent') {
-                    isReady = !!vaultData.scenario && !!vaultData.rationale;
+                    // SEMICOLON VALIDATOR: Symmetrical Punctuation as proxy for READY
+                    const hasDna = (card.answer?.includes(';') === vaultData.distractors?.[0]?.includes(';'));
+                    isReady = !!vaultData.scenario && !!vaultData.rationale && hasDna;
                 } else {
                     isReady = Array.isArray(vaultData.distractors) && vaultData.distractors.length > 0;
                 }
@@ -64,8 +66,9 @@ export async function getQuizDataForDeck(deck, requestedQuizType = 'intelligent'
         const isValidBaskDomain = (tag) => tag && (tag.toLowerCase().includes('people') || tag.toLowerCase().includes('organization') || tag.toLowerCase().includes('workplace'));
         let isValid = false;
         if (vaultData && vaultData.quizType === requestedQuizType) {
+            const hasDna = (card.answer?.includes(';') === vaultData.distractors?.[0]?.includes(';'));
             isValid = (requestedQuizType === 'intelligent') 
-                ? (!!vaultData.scenario && !!vaultData.rationale && !!vaultData.distractors && isValidBaskDomain(vaultData.tag_bask))
+                ? (!!vaultData.scenario && !!vaultData.rationale && !!vaultData.distractors && isValidBaskDomain(vaultData.tag_bask) && hasDna)
                 : (Array.isArray(vaultData.distractors) && vaultData.distractors.length > 0 && isValidBaskDomain(vaultData.tag_bask));
         }
         return { ...card, aiData: isValid ? vaultData : null };
@@ -78,18 +81,21 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
     let successfulCount = 0;
     const totalRequests = cards.length;
     let i = 0;
+    let forceSolo = false;
 
-    // THE MAITRE D' (V4.1): ADAPTIVE DYNAMIC BATCHING + CIRCUIT BREAKER
+    // THE MAITRE D' (V4.2): ADAPTIVE DYNAMIC BATCHING + GEAR SHIFT RECOVERY
     while (i < cards.length) {
         const currentCard = cards[i];
         const ansLen = (currentCard.answer || "").length;
         
-        // SENSOR: Proactive Throttling for high-density cards (>150 chars)
-        const isComplex = ansLen > 150;
+        // GEAR 2: Solo-Mode forcing if previous batch failed
+        const isComplex = ansLen > 150 || forceSolo;
         let batchSize = isComplex ? 1 : (quizType === 'simple' ? 8 : 4);
         let STAGGER = isComplex ? 25000 : 20000;
         
-        if (isComplex) {
+        if (forceSolo) {
+            console.warn(`%c [GEAR 2: RECOVERY] ⚙️ Forcing Solo Gear for Card ${currentCard.id}.`, 'color: #fbbf24; font-weight: bold;');
+        } else if (isComplex) {
             console.log(`%c [DOWNSHIFT: SAFETY] 🚨 Card ${currentCard.id} (>150 chars). Isolating to Single-Card Request.`, 'color: #fca5a5; font-weight: bold;');
         }
 
@@ -146,17 +152,20 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
             }
             
             i += batchSize; 
+            forceSolo = false; // Reset to standard gear on success
             if (i < cards.length) await new Promise(r => setTimeout(r, STAGGER));
 
         } catch (error) {
+            console.error(`ERROR in generateDistractorsBatch:`, error.message);
             if (batchSize > 1) {
                 console.warn(`%c [RECOVERY] Batch failed. Throttling down to Solo-Mode for recovery...`, 'color: #fbbf24; font-weight: bold;');
+                forceSolo = true; // Engage GEAR 2
                 await new Promise(r => setTimeout(r, 8000));
-                // Retrying at batch 1 happens implicitly by not increasing i
             } else {
-                // THE CIRCUIT BREAKER: The "Problem Child" skip rule
-                console.error(`%c [SURGICAL AUDIT REQUIRED] ⚠️ Card ${currentCard.id} failed Solo-Sync. Skipping to maintain train momentum.`, 'color: #f87171; font-weight: bold;');
-                i++; // Advance past the problem child to clear the stall
+                // THE CIRCUIT BREAKER: Force-Skip the problem child and reset gear
+                console.error(`%c [SURGICAL AUDIT REQUIRED] ⚠️ Card ${currentCard.id} failed Solo-Sync twice or is a hard-fail. Skipping.`, 'color: #f87171; font-weight: bold;');
+                i++; 
+                forceSolo = false; // Downshift back to standard gear for next card
                 await new Promise(r => setTimeout(r, 5000));
             }
         }

@@ -1,6 +1,6 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
-module.exports = async (req, res) => {
+export default async function handler(req, res) {
     if (req.method !== 'POST') {
         return res.status(405).json({ message: 'Method Not Allowed' });
     }
@@ -15,7 +15,7 @@ module.exports = async (req, res) => {
         console.error('SERVER ERROR:', err.message);
         return res.status(500).json({ message: 'Internal Server Error', error: err.message });
     }
-};
+}
 
 async function handleGenerateDistractors(req, res) {
     const { cards, quizType = 'intelligent', certLevel = 'CP', pipelineStage = 'monolithic' } = req.body;
