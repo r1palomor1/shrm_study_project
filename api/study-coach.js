@@ -12,36 +12,13 @@ export default async function handler(req, res) {
 
     try {
         const { mode } = req.body;
-        
-        // DEEP PROBE: Internal Health Report
-        if (mode === 'probe' || !req.body.cards) {
-             return res.status(200).json({
-                status: "PROBE_SUCCESS",
-                environment: {
-                    nodeVersion: process.version,
-                    type: "module",
-                    keyPresent: !!process.env.GEMINI_API_KEY,
-                    sdkLoaded: !!GoogleGenerativeAI
-                }
-            });
-        }
-
         if (mode === 'generate-distractors') {
             return await handleGenerateDistractors(req, res);
         }
         return await handleCoachingInsight(req, res);
     } catch (err) {
         console.error('SERVER ERROR:', err.message);
-        // VERBOSE 500: Returning the specific crash reason for front-end deep tracing
-        return res.status(500).json({ 
-            message: 'Internal Server Error', 
-            error: err.message, 
-            stack: err.stack,
-            context: {
-                nodeVersion: process.version,
-                keyPresent: !!process.env.GEMINI_API_KEY
-            }
-        });
+        return res.status(500).json({ message: 'Internal Server Error', error: err.message });
     }
 }
 
@@ -50,11 +27,7 @@ async function handleGenerateDistractors(req, res) {
     if (!cards || !Array.isArray(cards)) return res.status(400).json({ message: 'Invalid card data' });
 
     const geminiKey = process.env.GEMINI_API_KEY;
-    if (!geminiKey) return res.status(500).json({ 
-        message: "AI Provider Failed", 
-        error: "GEMINI_API_KEY is missing from Vercel Dashboard",
-        node: process.version
-    });
+    if (!geminiKey) return res.status(500).json({ message: "AI Provider Failed", error: "GEMINI_API_KEY is missing" });
 
     let promptSystemInstructions = "";
     if (quizType === 'intelligent') {
@@ -72,8 +45,12 @@ async function handleGenerateDistractors(req, res) {
 
     const genAI = new GoogleGenerativeAI(geminiKey);
     const model = genAI.getGenerativeModel({
-        model: "gemini-1.5-flash",
-        generationConfig: { responseMimeType: "application/json", temperature: 0.1 }
+        model: "gemini-3.1-flash-lite-preview",
+        generationConfig: { 
+            responseMimeType: "application/json", 
+            temperature: 0.1,
+            maxOutputTokens: 4096
+        }
     });
 
     const result = await model.generateContent(prompt);
@@ -81,12 +58,7 @@ async function handleGenerateDistractors(req, res) {
     const parsedData = parseAIResponse(responseText);
 
     if (parsedData) return res.status(200).json(parsedData);
-    
-    // TRACE: Invalid Logic Probe
-    return res.status(500).json({
-        message: "SDK Response Format Error",
-        rawText: responseText.substring(0, 500)
-    });
+    throw new Error("Invalid Response Format");
 }
 
 function parseAIResponse(text) {
@@ -106,8 +78,8 @@ async function handleCoachingInsight(req, res) {
     if (!geminiKey) return res.status(500).json({ insight: "Keep pushing." });
     try {
         const genAI = new GoogleGenerativeAI(geminiKey);
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-        const result = await model.generateContent(`ROLE: Study Coach. Mastery: ${masteryPercent}%. Data: ${JSON.stringify(counts)}. Task: 1 coaching bridge using "Inclusive Mindset".`);
+        const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite-preview" });
+        const result = await model.generateContent(`ROLE: Study Coach. Mastery: ${masteryPercent}%. Data: ${JSON.stringify(counts)}. Task: Provide 1 coaching bridge using "Inclusive Mindset".`);
         return res.status(200).json({ insight: result.response.text() });
     } catch (err) { return res.status(500).json({ insight: "Tactical precision is key." }); }
 }
