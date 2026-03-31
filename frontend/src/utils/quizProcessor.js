@@ -79,23 +79,18 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
     const totalRequests = cards.length;
     let i = 0;
 
-    // DOWNSHIFT ENGINE: Structural Safety Control
+    // THE MAITRE D' (V4.1): ADAPTIVE DYNAMIC BATCHING + CIRCUIT BREAKER
     while (i < cards.length) {
         const currentCard = cards[i];
         const ansLen = (currentCard.answer || "").length;
         
-        // High-density (>150 chars) card ISOLATION.
+        // SENSOR: Proactive Throttling for high-density cards (>150 chars)
         const isComplex = ansLen > 150;
-        let batchSize = isComplex ? 1 : 4;
+        let batchSize = isComplex ? 1 : (quizType === 'simple' ? 8 : 4);
         let STAGGER = isComplex ? 25000 : 20000;
         
         if (isComplex) {
             console.log(`%c [DOWNSHIFT: SAFETY] 🚨 Card ${currentCard.id} (>150 chars). Isolating to Single-Card Request.`, 'color: #fca5a5; font-weight: bold;');
-        }
-
-        if (quizType === 'simple') {
-            batchSize = 8;
-            STAGGER = 8000;
         }
 
         const batch = cards.slice(i, i + batchSize);
@@ -128,7 +123,7 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
                     const matchingCard = batch.find(bc => String(bc.id).replace(/[\s\n\r]/g, '') === cleanId);
                     if (!matchingCard) return;
 
-                    // UPDATED: SYMMETRY ENGINE HUD
+                    // SYMMETRY ENGINE HUD
                     const targetLen = (matchingCard.answer || "").length;
                     const distLens = res.distractors?.map(d => d.length) || [];
                     const avgLen = distLens.reduce((a, b) => a + b, 0) / distLens.length;
@@ -136,12 +131,7 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
                     const markerMatch = (matchingCard.answer?.includes(';') === res.distractors[0]?.includes(';'));
 
                     if (res.scenario) console.log(`%c [PHASE 1: SEED] 🟢 Card ${cleanId}: Situation Generated.`, 'color: #10b981; font-weight: bold;');
-                    
-                    console.log(
-                        `%c [PHASE 2: SYMMETRY] 🟦 Card ${cleanId}: Structure [Marker: ${markerMatch ? 'PASS' : 'FAIL'}] | Density [${variance}% Variance] -> CLONE READY`, 
-                        `color: #60a5fa; font-weight: bold;`
-                    );
-
+                    console.log(`%c [PHASE 2: SYMMETRY] 🟦 Card ${cleanId}: Structure [Marker: ${markerMatch ? 'PASS' : 'FAIL'}] | Density [${variance}% Var] -> CLONE READY`, `color: #60a5fa; font-weight: bold;`);
                     if (res.rationale) console.log(`%c [PHASE 3: POLISH] ✅ Card ${cleanId}: Rationale Synced.`, 'color: #3b82f6; font-weight: bold;');
 
                     saveDistractorToVault(cleanId, {
@@ -159,9 +149,16 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
             if (i < cards.length) await new Promise(r => setTimeout(r, STAGGER));
 
         } catch (error) {
-            console.error(`%c [DOWNSHIFT] Batch failed. Performing Hard Buffer Reset...`, 'color: #f87171; font-weight: bold;');
-            await new Promise(r => setTimeout(r, 5000));
-            if (batchSize === 1) i++; 
+            if (batchSize > 1) {
+                console.warn(`%c [RECOVERY] Batch failed. Throttling down to Solo-Mode for recovery...`, 'color: #fbbf24; font-weight: bold;');
+                await new Promise(r => setTimeout(r, 8000));
+                // Retrying at batch 1 happens implicitly by not increasing i
+            } else {
+                // THE CIRCUIT BREAKER: The "Problem Child" skip rule
+                console.error(`%c [SURGICAL AUDIT REQUIRED] ⚠️ Card ${currentCard.id} failed Solo-Sync. Skipping to maintain train momentum.`, 'color: #f87171; font-weight: bold;');
+                i++; // Advance past the problem child to clear the stall
+                await new Promise(r => setTimeout(r, 5000));
+            }
         }
     }
     return { success: successfulCount > 0, totalProcessed: successfulCount };

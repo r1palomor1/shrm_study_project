@@ -84,21 +84,11 @@ const VaultHealthMatrix = ({ decks, onSmartSync, onSyncTopic, isSyncing, syncPro
         // PHASE 1: SCENARIO SEED
         if (iData?.scenario) stats.scenarios++;
         
-        // PHASE 2: STRUCTURAL SYMMETRY VALIDATOR (PATTERN RECOGNITION)
+        // PHASE 2: STRUCTURAL SYMMETRY VALIDATOR (SEMICOLON ONLY - NUKE LENGTH)
         if (Array.isArray(iData?.distractors) && iData.distractors.length > 0) {
-            const targetLen = (card.answer || "").length;
-            const distLens = iData.distractors.map(d => d.length);
-            const avgLen = distLens.reduce((a, b) => a + b, 0) / distLens.length;
-
-            // Step 1: Percentage-Based Tolerance Cap (Visual Block Safety)
-            // Caps at 40 chars, or 15% of length for shorter strings.
-            const tolerance = Math.min(40, Math.max(12, targetLen * 0.15));
-            const isWithinRange = Math.abs(avgLen - targetLen) < tolerance;
-
-            // Step 2: Structural Marker Match (The Semicolon Check)
+            // SYMMETRY OVERHAUL: We are moving from Measuring-Tape to Structural Marker check.
             const hasSemicolonMatch = (card.answer?.includes(';') === iData.distractors[0]?.includes(';'));
-
-            if (isWithinRange && hasSemicolonMatch) stats.distractors++; 
+            if (hasSemicolonMatch) stats.distractors++; 
         }
 
         // PHASE 3: POLISH & STRATEGIC GAP

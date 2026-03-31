@@ -1,112 +1,68 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+// VERCEL EDGE RUNTIME: REQUIRES FETCH REST API (SDK IS NOT COMPATIBLE)
+export const config = { runtime: 'edge' };
 
-export default async function handler(req, res) {
+export default async function handler(req) {
     if (req.method !== 'POST') {
-        return res.status(405).json({ message: 'Method Not Allowed' });
+        return new Response(JSON.stringify({ message: 'Method Not Allowed' }), { status: 405 });
     }
-
-    const { mode } = req.body;
-
-    if (mode === 'generate-distractors') {
-        return handleGenerateDistractors(req, res);
-    }
-
-    return handleCoachingInsight(req, res);
-}
-
-async function handleGenerateDistractors(req, res) {
-    const { cards, quizType = 'intelligent', certLevel = 'CP', pipelineStage = 'monolithic' } = req.body;
-
-    if (!cards || !Array.isArray(cards)) {
-        return res.status(400).json({ message: 'Invalid card data' });
-    }
-
-    const geminiKey = process.env.GEMINI_API_KEY;
-    let promptSystemInstructions = "";
-
-    if (quizType === 'intelligent') {
-        if (pipelineStage === 'seed') {
-            const verbTaxonomy = certLevel === 'SCP'
-                ? "[Design, Evaluate, Analyze, Interpret, Champion]"
-                : "[Implement, Coordinate, Apply, Review, Identify]";
-
-            promptSystemInstructions = `
-            ROLE: SHRM 2026 SJI Architect
-            TASK: Generate a Situation and a "Tethered-Action" Correct Answer.
-
-            MANDATORY CONSTRAINTS:
-            1. SCENARIO: 3-4 sentence realistic workplace situation.
-            2. FOCUS: ${certLevel === 'SCP' ? 'Strategic Governance.' : 'Operational Policy.'}
-            3. CORRECT_ANSWER: A functional, verbed translation of the definition.
-            4. TACTICAL SYNC: Start the 'correct_answer' with one of ${verbTaxonomy}.
-            5. NO LABELING: [Term] name must NOT appear.
-            `;
-        } else {
-            // Expansion Mode: STRUCTURAL SYMMETRY ENGINE
-            promptSystemInstructions = `
-            ROLE: SHRM 2026 Structural Mirror (Symmetry Engine)
-            TASK: Generate 3 distractors, rationale, and gap analysis.
-
-            STRICT SYMMETRY PROTOCOL (THE CLONAL RULE):
-            1. CLONAL STRUCTURE: Analyze the 'Correct Answer' for its rhetorical DNA. 
-               - If it is [Action] + [Entity] + [Outcome], all distractors MUST follow that sequence.
-               - If it uses a semicolon (;) or a parenthetical, every distractor MUST use one.
-            2. LEADING VERB ANCHOR: Every distractor MUST start with the EXACT SAME VERB TENSE and part of speech as provided in 'startsWithVerb'.
-            3. DENSITY MATCHING: Match the "weight" of the concepts. If the answer is strategic, the distractors must be strategic. 
-            4. ELIMINATE MATH: Do not count characters. Focus on visual blocks. If the answer is a "two-line block," the distractors must be "two-line blocks."
-
-            JSON SANITIZATION:
-            - Ensure all generated strings are properly escaped for JSON.
-            `;
-        }
-    } else {
-        // RECALL SYMMETRY
-        promptSystemInstructions = `
-        ROLE: SHRM 2026 Structural Mirror (Symmetry Engine)
-        TASK: Generate 3 distractors and a BASK Domain tag.
-
-        STRICT SYMMETRY PROTOCOL:
-        1. CLONAL STRUCTURE: Mimic the visual density and rhythm of the Correct Answer.
-        2. FORBIDDEN: Do not match the correct answer exactly. Naturally vary the concepts within the structural shell.
-        
-        JSON SANITIZATION:
-        - Ensure all generated strings are properly escaped for JSON.
-        `;
-    }
-
-    const prompt = `
-    ${promptSystemInstructions}
-
-    MANDATORY 2026 MAPPING:
-    - Domains: [People, Organization, Workplace]
-    - Competencies: [Leadership, Interpersonal, Business, Inclusive Mindset]
-
-    STRICT MECHANICAL RULES:
-    1. STRICT ID MATCHING: return the 'id' exactly as in the input.
-    2. DIRECT JSON ONLY: Return only raw JSON.
-
-    Input Cards:
-    ${cards.map(c => `ID: ${c.id}\nTerm: ${c.question}\nCorrect Answer: ${c.answer}\nPunctuation: ${c.originalPunctuation}\nStarts With: ${c.startsWithVerb}${c.scenario ? `\nExisting Scenario: ${c.scenario}` : ''}`).join('\n---\n')}
-
-    Return JSON format:
-    { "results": [{ "id": "string", "scenario": "string", "distractors": ["3 items"], "rationale": "string", "gap_analysis": "string", "tag_bask": "People|Organization|Workplace", "tag_behavior": "string" }] }
-    `;
-
-    if (!geminiKey) return res.status(500).json({ message: "AI Provider Failed", error: "GEMINI_API_KEY is missing" });
 
     try {
-        const genAI = new GoogleGenerativeAI(geminiKey);
-        const model = genAI.getGenerativeModel({
-            model: "gemini-3.1-flash-lite-preview",
-            generationConfig: { responseMimeType: "application/json", temperature: 0.1, maxOutputTokens: 4096 }
-        });
-        const result = await model.generateContent(prompt);
-        const responseText = result.response.text();
-        const parsedData = parseAIResponse(responseText);
-        if (parsedData) return res.status(200).json(parsedData);
-        throw new Error("Invalid AI Data Format");
+        const body = await req.json();
+        const { cards, quizType = 'intelligent', certLevel = 'CP', pipelineStage = 'monolithic', mode } = body;
+        const geminiKey = process.env.GEMINI_API_KEY;
+
+        if (!cards || !Array.isArray(cards)) {
+            return new Response(JSON.stringify({ message: 'Invalid card data' }), { status: 400 });
+        }
+
+        if (mode !== 'generate-distractors') {
+            // Handle Insight (Simplified for Edge)
+            const insightPrompt = `ROLE: Study Coach. Task: Provide 1 coaching bridge using "Inclusive Mindset". Data: ${JSON.stringify(body)}`;
+            return callGeminiREST(insightPrompt, geminiKey);
+        }
+
+        let promptSystemInstructions = "";
+        if (quizType === 'intelligent') {
+            if (pipelineStage === 'seed') {
+                const verbTaxonomy = certLevel === 'SCP' ? "[Design, Evaluate, Analyze, Interpret, Champion]" : "[Implement, Coordinate, Apply, Review, Identify]";
+                promptSystemInstructions = `ROLE: SHRM 2026 SJI Architect. TASK: Generate Situation and Correct Answer. Constraints: 3-4 sentences. Start answer with ${verbTaxonomy}. No [Term] labeling.`;
+            } else {
+                promptSystemInstructions = `ROLE: SHRM 2026 Structural Mirror (Symmetry Engine). STRICT SYMMETRY PROTOCOL: 1. CLONAL STRUCTURE: Analyze Correct Answer DNA. If [Action]+[Entity]+[Outcome], mirror it. If it uses semicolons (;), mirror it. 2. LEADING VERB ANCHOR: Start all distractors with same verb tense as startsWithVerb. 3. DENSITY MATCHING: Match visual weight/block density. ELIMINATE MATH.`;
+            }
+        } else {
+            promptSystemInstructions = `ROLE: SHRM 2026 Structural Mirror (Symmetry Engine). Mimic visual density and rhythm of Correct Answer. Naturally vary concepts.`;
+        }
+
+        const prompt = `${promptSystemInstructions}\nInput Cards:\n${cards.map(c => `ID: ${c.id}\nTerm: ${c.question}\nCorrect Answer: ${c.answer}\nPunctuation: ${c.originalPunctuation}\nStarts With: ${c.startsWithVerb}${c.scenario ? `\nExisting Scenario: ${c.scenario}` : ''}`).join('\n---\n')}\nReturn JSON: { "results": [{ "id": "string", "scenario": "string", "distractors": ["3 items"], "rationale": "string", "gap_analysis": "string", "tag_bask": "People|Organization|Workplace" }] }`;
+
+        return callGeminiREST(prompt, geminiKey);
+
     } catch (err) {
-        return res.status(500).json({ message: "AI Provider Failed", error: err.message });
+        return new Response(JSON.stringify({ message: 'Internal Server Error', error: err.message }), { status: 500 });
+    }
+}
+
+async function callGeminiREST(prompt, apiKey) {
+    if (!apiKey) return new Response(JSON.stringify({ message: "Key Missing" }), { status: 500 });
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { responseMimeType: "application/json", temperature: 0.1 }
+        })
+    });
+
+    const data = await response.json();
+    if (!response.ok) return new Response(JSON.stringify({ message: "AI Provider Failed", error: data }), { status: 500 });
+
+    try {
+        const text = data.candidates[0].content.parts[0].text;
+        const parsed = parseAIResponse(text);
+        return new Response(JSON.stringify(parsed), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    } catch (e) {
+        return new Response(JSON.stringify({ message: "Invalid AI Format", raw: data }), { status: 500 });
     }
 }
 
@@ -116,33 +72,7 @@ function parseAIResponse(text) {
         const startIdx = cleanText.indexOf('{');
         const endIdx = cleanText.lastIndexOf('}');
         if (startIdx === -1 || endIdx === -1) return null;
-        cleanText = cleanText.substring(startIdx, endIdx + 1)
-            .replace(/[\u201C\u201D]/g, '"')
-            .replace(/[\u2018\u2019]/g, "'");
-        try {
-            return JSON.parse(cleanText);
-        } catch (jsonErr) {
-            if (cleanText.includes('"results": [') && !cleanText.endsWith(']}')) {
-                return JSON.parse(cleanText + (cleanText.endsWith('}') ? ']}' : '}]}'));
-            }
-            throw jsonErr;
-        }
-    } catch (e) {
-        return null;
-    }
-}
-
-async function handleCoachingInsight(req, res) {
-    try {
-        const { masteryPercent, counts } = req.body;
-        const geminiKey = process.env.GEMINI_API_KEY;
-        if (!geminiKey) throw new Error("Key Missing");
-        const genAI = new GoogleGenerativeAI(geminiKey);
-        const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite-preview" });
-        const prompt = `ROLE: Study Coach. Mastery: ${masteryPercent}%. Counts: ${JSON.stringify(counts)}. Task: Provide 1 coaching bridge using "Inclusive Mindset".`;
-        const result = await model.generateContent(prompt);
-        return res.status(200).json({ insight: result.response.text() });
-    } catch (err) {
-        return res.status(500).json({ insight: "Keep pushing. The 2026 BASK requires tactical precision." });
-    }
+        cleanText = cleanText.substring(startIdx, endIdx + 1);
+        return JSON.parse(cleanText);
+    } catch (e) { return null; }
 }
