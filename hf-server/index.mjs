@@ -19,12 +19,16 @@ app.get('/', (req, res) => {
 app.post('/generate-distractors', async (req, res) => {
     const { cards, quizType = 'intelligent', certLevel = 'CP' } = req.body;
     
+    console.log(`[TRACE] Incoming Sync Request | Cards: ${cards?.length || 0} | Type: ${quizType} | Cert: ${certLevel}`);
+
     if (!cards || !Array.isArray(cards)) {
+        console.error('[TRACE] FAILED: Invalid card array received.');
         return res.status(400).json({ message: 'Invalid card data' });
     }
 
     const geminiKey = process.env.GEMINI_API_KEY;
     if (!geminiKey) {
+        console.error('[TRACE] FAILED: GEMINI_API_KEY is missing from process.env');
         return res.status(500).json({ message: "AI Provider Failed", error: "GEMINI_API_KEY is missing from HF Secrets" });
     }
 

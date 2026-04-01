@@ -121,10 +121,6 @@ const VaultHealthMatrix = ({ decks, onSmartSync, onSyncTopic, onClose, isSyncing
       return stats;
     });
 
-    // Output Audit to Console if missing items exist
-    if (missingRecalls.length > 0) {
-        console.warn(`[RECALL AUDIT] Found ${missingRecalls.length} unfinished Problem-Child cards in PEOPLE:`, missingRecalls);
-    }
 
     return statsArray;
   }, [decks, vault, certLevel]);
