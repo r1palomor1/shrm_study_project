@@ -62,7 +62,7 @@ const TopicHealthCell = ({ gold, stabilized, total }) => {
   );
 };
 
-const VaultHealthMatrix = ({ decks, onSmartSync, onSyncTopic, isSyncing, syncProgress, syncStatus, certLevel = 'CP' }) => {
+const VaultHealthMatrix = ({ decks, onSmartSync, onSyncTopic, onClose, isSyncing, syncProgress, syncStatus, certLevel = 'CP' }) => {
   const vault = useMemo(() => loadVaultFromStorage(), [decks, certLevel, isSyncing, syncProgress]);
 
   const topicStats = useMemo(() => {
@@ -140,15 +140,26 @@ const VaultHealthMatrix = ({ decks, onSmartSync, onSyncTopic, isSyncing, syncPro
   ];
 
   return (
-    <div className="glass-panel" style={{ padding: '2rem', border: '1px solid rgba(255,255,255,0.05)', overflowX: 'auto' }}>
+    <div className="glass-panel" style={{ padding: '2rem', border: '1px solid rgba(255,255,255,0.05)', overflowX: 'auto', position: 'relative' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <h2 style={{ fontSize: '1.2rem', margin: 0, display: 'flex', alignItems: 'center', gap: '0.8rem', color: 'white' }}>
           <span className="material-symbols-outlined" style={{ color: '#6366f1' }}>verified_user</span>
           AI READINESS MATRIX - {certLevel}
         </h2>
-        <button onClick={onSmartSync} disabled={isSyncing} className="btn-primary" style={{ padding: '0.6rem 1.2rem', borderRadius: '12px' }}>
-          {isSyncing ? `Syncing ${syncProgress}%` : 'SMART SYNC ALL'}
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.2rem' }}>
+          <button onClick={onSmartSync} disabled={isSyncing} className="btn-primary" style={{ padding: '0.6rem 1.2rem', borderRadius: '12px' }}>
+            {isSyncing ? `Syncing ${syncProgress}%` : 'SMART SYNC ALL'}
+          </button>
+          {onClose && (
+            <button 
+              onClick={onClose} 
+              style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', display: 'flex', padding: '4px' }}
+              className="hover-bright"
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: '1.8rem' }}>close</span>
+            </button>
+          )}
+        </div>
       </div>
 
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>

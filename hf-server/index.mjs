@@ -38,19 +38,23 @@ MANDATORY "FOUR ANCHOR" ARCHITECTURE:
 3. BASK LOGIC CONFLICT: Explicitly test Behavioral Competencies. Force the user to choose between "Ethical Practice" and "Business Acumen."
 4. GREY-AREA DISTRACTORS: All four options must be plausible and professional. Only one is BEST per 2026 BASK logic.
 
-VISUAL PARITY & "CLONAL DNA" MANDATE (EXTREME SYMMETRY):
-- STRUCTURAL MIRRORING: All 3 distractors MUST share the EXACT same sentence structure and rhetorical rhythm as the "Correct Answer" (Verb + Noun + Clause).
-- WORD-COUNT LOCK: Distractors MUST be within ±2 words of the correct answer (Universal Elite Requirement).
+VISUAL PARITY & "CLONAL DNA" MANDATE (ULTIMATE ELITE):
+- RHETORICAL RANDOMIZATION: To prevent robotic predictability, the AI MUST rotate between three distinct Elite Sentence Structures. All 4 options in a single card must use the SAME structure, but that structure must change between cards:
+    1. The "While" Bridge: [Verb] + [Noun], while [Gerund] + [Outcome].
+    2. The "To Ensure" Anchor: [Verb] + [Noun] to ensure [Competency/Standard] + [Outcome].
+    3. The "By Integrating" Synthesis: [Verb] + [Noun] by integrating [Process] + [Outcome].
+- STRUCTURAL MIRRORING: All 3 distractors MUST share the EXACT same sentence structure and rhetorical rhythm as the "Correct Answer."
+- WORD-COUNT LOCK: Distractors MUST be within ±2 words of the correct answer (no exceptions).
 - PUNCTUATION CLONING: Identical use of commas, semicolons, and lists across all 4 options.
 - LINGUISTIC DENSITY: Ensure each distractor has the same "Visual Weight" (line density) when displayed.
 - LEADING VERB ANCHOR: Start all options with a verb from the ${certLevel} taxonomy: ${certLevel === 'SCP' ? '[Design, Evaluate, Analyze, Interpret, Champion]' : '[Implement, Coordinate, Apply, Review, Identify]'}.
 
 OUTPUT REQUIREMENTS (JSON):
-- scenario: A 3-5 sentence "High-Fidelity Theater" conflict. Add 2026 themes like AI Ethics or Psychological Safety where appropriate.
+- scenario: A 3-5 sentence "High-Fidelity Theater" conflict. Add 2026 themes like AI Ethics, Pay Transparency, or Psychological Safety where appropriate.
 - question: Ends with "What is the BEST action for the HR Professional to take?"
 - correct_answer: The provided answer, refined for professional tone.
 - distractors: 3 psychometric distractors that match the visual and genomic footprint of the correct answer perfectly.
-- rationale: A 2-part expert breakdown: (1) Why the correct answer is the most effective and (2) Why the distractors are sub-optimal.
+- rationale: A 2-part expert breakdown: (1) Why the correct answer is the most effective and (2) A forensic itemization of exactly which SHRM 2026 Competency Anchor justifies the correct answer and explicitly naming the competency failed by each distractor (e.g., "Distractor 2 fails the Ethical Practice anchor").
 - gap_analysis: Identify the specific "Cognitive Gap" this item tests.
 - tag_bask: exactly one of: [People, Organization, Workplace].
 - tag_behavior: exactly one of: [Leadership & Navigation, Ethical Practice, Relationship Management, Communication, Inclusive Mindset, Business Acumen, Consultation, Analytical Aptitude].`;

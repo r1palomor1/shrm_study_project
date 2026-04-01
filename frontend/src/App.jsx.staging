@@ -1,0 +1,17 @@
+// Part of App.jsx - Line 707 update
+{isMatrixOpen && (
+  <div className="fixed-overlay animate-fade-in" onClick={() => setIsMatrixOpen(false)} style={{ zIndex: 10002 }}>
+    <div onClick={e => e.stopPropagation()} style={{ width: '90%', maxWidth: '1200px' }}>
+      <VaultHealthMatrix 
+        decks={decks} 
+        certLevel={certLevel} 
+        onSmartSync={handleBulkWarmUp} 
+        onSyncTopic={handleSurgicalTopicSync} 
+        onClose={() => setIsMatrixOpen(false)}
+        isSyncing={isWarmingUp} 
+        syncProgress={warmUpProgress} 
+        syncStatus={warmUpStatus} 
+      />
+    </div>
+  </div>
+)}
