@@ -59,7 +59,7 @@ OUTPUT REQUIREMENTS (JSON):
     try {
         const genAI = new GoogleGenerativeAI(geminiKey);
         const model = genAI.getGenerativeModel({
-            model: "gemini-1.5-flash-latest", // Using latest stable flash for max reliability
+            model: "gemini-3.1-flash-lite-preview", 
             generationConfig: { 
                 responseMimeType: "application/json", 
                 temperature: 0.1,
