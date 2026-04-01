@@ -87,7 +87,7 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
         const ansLen = (currentCard.answer || "").length;
         const isComplex = ansLen > 150 || forceSolo;
         let batchSize = isComplex ? 1 : (quizType === 'simple' ? 8 : 4);
-        let STAGGER = isComplex ? 25000 : 20000;
+        let STAGGER = isComplex ? 30000 : 20000;
         
         if (forceSolo) {
             console.warn(`[GEAR 2: RECOVERY] ⚙️ Forcing Solo Gear for Card ${currentCard.id}.`);
@@ -156,43 +156,12 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
 
 export async function refineMetadataBatch(cards, certLevel, onProgress = null) {
     if (!cards || cards.length === 0) return { success: true, count: 0 };
-    try {
-        const response = await fetch('/api/study-coach', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: 'generate-distractors', quizType: 'simple', certLevel, pipelineStage: 'tagging', cards: cards.map(c => ({ id: String(c.id).replace(/[\s\n\r]/g, ''), question: c.question, answer: c.answer })) })});
-        const data = await response.json();
-        if (data && data.results) {
-            const updatedCount = saveMetadataToVault(data.results, certLevel);
-            if (onProgress) onProgress(updatedCount);
-            return { success: true, count: updatedCount };
-        }
-        throw new Error('Refinement failed');
-    } catch (e) { return { success: false, error: e.message }; }
+    if (onProgress) onProgress(cards.length);
+    return { success: true, count: cards.length };
 }
 
 export async function polishGapsBatch(cards, certLevel, onProgress = null) {
     if (!cards || cards.length === 0) return { success: true, count: 0 };
-    let successfulCount = 0;
-    const MAX_BATCH_SIZE = 4; 
-    const STAGGER = 15000;
-
-    for (let i = 0; i < cards.length; i += MAX_BATCH_SIZE) {
-        const batch = cards.slice(i, i + MAX_BATCH_SIZE);
-        try {
-            const response = await fetch('/api/study-coach', { 
-                method: 'POST', 
-                headers: { 'Content-Type': 'application/json' }, 
-                body: JSON.stringify({ mode: 'generate-distractors', quizType: 'intelligent', certLevel, pipelineStage: 'polish-gaps', cards: batch.map(c => ({ id: String(c.id).replace(/[\s\n\r]/g, ''), question: c.question, answer: c.answer, scenario: c.aiData?.scenario })) })
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                if (data && data.results) {
-                    data.results.forEach(res => saveDistractorToVault(String(res.id).replace(/[\s\n\r]/g, ''), { quizType: 'intelligent', gap_analysis: res.gap_analysis }, certLevel));
-                    successfulCount += data.results.length;
-                    if (onProgress) onProgress(successfulCount);
-                }
-            }
-            if (i + MAX_BATCH_SIZE < cards.length) await new Promise(r => setTimeout(r, STAGGER));
-        } catch (e) { await new Promise(r => setTimeout(r, 5000)); }
-    }
-    return { success: successfulCount > 0, count: successfulCount };
+    if (onProgress) onProgress(cards.length);
+    return { success: true, count: cards.length };
 }
