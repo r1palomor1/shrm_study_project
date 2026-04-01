@@ -308,7 +308,7 @@ export function getVaultStats(certLevel, decks) {
             // 1. MASTER COUNT (Unique IDs only)
             stats['ALL'].total++;
             if (intelData && intelData.scenario && intelData.rationale) stats['ALL'].intelligent++;
-            if (simpleData && Array.isArray(simpleData.distractors) && simpleData.distractors.length > 0) stats['ALL'].simple++;
+            if (simpleData && simpleData.scenario && simpleData.rationale && Array.isArray(simpleData.distractors) && simpleData.distractors.length > 0) stats['ALL'].simple++;
 
             // 2. DOMAIN REPLICATION (A card can belong to a Domain and a Competency card)
             const targetDomains = resolveCardDomains(card, certLevel, deck.title, vault);
@@ -320,7 +320,7 @@ export function getVaultStats(certLevel, decks) {
                     if (intelData && intelData.scenario && intelData.rationale) {
                         stats[domain].intelligent++;
                     }
-                    if (simpleData && Array.isArray(simpleData.distractors) && simpleData.distractors.length > 0) {
+                    if (simpleData && simpleData.scenario && simpleData.rationale && Array.isArray(simpleData.distractors) && simpleData.distractors.length > 0) {
                         stats[domain].simple++;
                     }
                 }

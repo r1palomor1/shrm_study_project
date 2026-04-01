@@ -447,7 +447,7 @@ function App() {
 
           const result = await generateDistractorsBatch(batchToProcess, 'intelligent', (p, error) => {
             const batchDone = Math.round((p / 100) * batchToProcess.length);
-            const currentP = Math.round(((syncedCount + batchDone) / totalToSync) * 100);
+            const currentP = Math.min(100, Math.round(((syncedCount + batchDone) / totalToSync) * 100));
             setWarmUpProgress(prev => currentP);
             if (error === 'RATE_LIMIT') rateLimited = true;
           }, certLevel);
@@ -470,7 +470,7 @@ function App() {
           setWarmUpStatus(`RECALL SYNC: Batch ${currentBatch}...`);
           const result = await generateDistractorsBatch(batchToProcess, 'simple', (p, error) => {
             const batchDone = Math.round((p / 100) * batchToProcess.length);
-            const currentP = Math.round(((syncedCount + batchDone) / totalToSync) * 100);
+            const currentP = Math.min(100, Math.round(((syncedCount + batchDone) / totalToSync) * 100));
             setWarmUpProgress(prev => currentP);
             if (error === 'RATE_LIMIT') rateLimited = true;
           }, certLevel);
@@ -512,7 +512,7 @@ function App() {
                 setWarmUpStatus(`SJI: ${deck.title} (${Math.round((i/missingIntel.length)*100)}%)`);
                 const result = await generateDistractorsBatch(batch, 'intelligent', (p) => {
                     const batchDone = Math.round((p / 100) * batch.length);
-                    setWarmUpProgress(Math.round(((syncedCount + batchDone) / totalToSync) * 100));
+                    setWarmUpProgress(Math.min(100, Math.round(((syncedCount + batchDone) / totalToSync) * 100)));
                 }, certLevel);
                 if (!result.success) throw new Error(result.error);
                 syncedCount += batch.length;
@@ -524,7 +524,7 @@ function App() {
                 setWarmUpStatus(`RECALL: ${deck.title} (${Math.round((i/missingSimple.length)*100)}%)`);
                 const result = await generateDistractorsBatch(batch, 'simple', (p) => {
                     const batchDone = Math.round((p / 100) * batch.length);
-                    setWarmUpProgress(Math.round(((syncedCount + batchDone) / totalToSync) * 100));
+                    setWarmUpProgress(Math.min(100, Math.round(((syncedCount + batchDone) / totalToSync) * 100)));
                 }, certLevel);
                 if (!result.success) throw new Error(result.error);
                 syncedCount += batch.length;

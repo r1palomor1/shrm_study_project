@@ -12,12 +12,9 @@ export async function getQuizDataByFilter(decks, filter = {}, requestedQuizType 
             const cardDomains = resolveCardDomains(card, certLevel, deck.title, vault);
             let isReady = (studyMode === 'traditional');
             if (!isReady && vaultData) {
-                if (requestedQuizType === 'intelligent') {
-                    const hasDna = (card.answer?.includes(';') === vaultData.distractors?.[0]?.includes(';'));
-                    isReady = !!vaultData.scenario && !!vaultData.rationale && hasDna;
-                } else {
-                    isReady = Array.isArray(vaultData.distractors) && vaultData.distractors.length > 0;
-                }
+                // UNIFIED ELITE VALIDATION: Scenario + Rationale mandatory for ALL modes
+                const hasDna = (card.answer?.includes(';') === (vaultData.distractors?.[0]?.includes(';') || false));
+                isReady = !!vaultData.scenario && !!vaultData.rationale && Array.isArray(vaultData.distractors) && vaultData.distractors.length > 0 && hasDna;
             }
             if (isReady) {
                 const primaryDomain = cardDomains.find(d => d !== 'Competencies') || 'Competencies';
@@ -63,12 +60,16 @@ export async function getQuizDataForDeck(deck, requestedQuizType = 'intelligent'
     const cardsWithData = deck.cards.map(card => {
         const vaultData = getDistractorFromVault(card.id, requestedQuizType, certLevel);
         const isValidBaskDomain = (tag) => tag && (tag.toLowerCase().includes('people') || tag.toLowerCase().includes('organization') || tag.toLowerCase().includes('workplace'));
+        // UNIFIED ELITE VALIDATION: Purging all thinned data
         let isValid = false;
         if (vaultData && vaultData.quizType === requestedQuizType) {
-            const hasDna = (card.answer?.includes(';') === vaultData.distractors?.[0]?.includes(';'));
-            isValid = (requestedQuizType === 'intelligent') 
-                ? (!!vaultData.scenario && !!vaultData.rationale && !!vaultData.distractors && isValidBaskDomain(vaultData.tag_bask) && hasDna)
-                : (Array.isArray(vaultData.distractors) && vaultData.distractors.length > 0 && isValidBaskDomain(vaultData.tag_bask));
+            const hasDna = (card.answer?.includes(';') === (vaultData.distractors?.[0]?.includes(';') || false));
+            isValid = !!vaultData.scenario && 
+                      !!vaultData.rationale && 
+                      Array.isArray(vaultData.distractors) && 
+                      vaultData.distractors.length > 0 && 
+                      isValidBaskDomain(vaultData.tag_bask) && 
+                      hasDna;
         }
         return { ...card, aiData: isValid ? vaultData : null };
     });
@@ -83,11 +84,9 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
     let forceSolo = false;
 
     while (i < cards.length) {
-        const currentCard = cards[i];
-        const ansLen = (currentCard.answer || "").length;
-        const isComplex = ansLen > 150 || forceSolo;
-        let batchSize = isComplex ? 1 : (quizType === 'simple' ? 8 : 4);
-        let STAGGER = isComplex ? 30000 : 20000;
+        // STABILITY LOCK: Batch size 2 for all monolithic generation
+        let batchSize = forceSolo ? 1 : 2;
+        let STAGGER = 30000; 
         
         if (forceSolo) {
             console.warn(`[GEAR 2: RECOVERY] ⚙️ Forcing Solo Gear for Card ${currentCard.id}.`);
@@ -100,10 +99,8 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
                 id: String(c.id).replace(/[\s\n\r]/g, ''),
                 question: c.question,
                 answer: ans,
-                scenario: c.aiData?.scenario || "",
                 targetLength: ans.length,
-                originalPunctuation: ans.includes(';') ? 'semicolon' : 'standard',
-                startsWithVerb: ans.split(' ')[0]
+                originalPunctuation: ans.includes(';') ? 'semicolon' : 'standard'
             };
         });
 
@@ -125,13 +122,11 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
 
                     saveDistractorToVault(cleanId, {
                         ...res,
-                        quizType: quizType,
-                        rationale: res.rationale,
-                        gap_analysis: res.gap_analysis
+                        quizType: quizType
                     }, certLevel);
                 });
                 successfulCount += data.results.length;
-                if (onProgress) onProgress(Math.round((successfulCount / totalRequests) * 100), null);
+                if (onProgress) onProgress(Math.min(100, Math.round((successfulCount / totalRequests) * 100)), null);
             }
             
             i += batchSize; 
@@ -141,10 +136,11 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
         } catch (error) {
             console.error(`ERROR in generateDistractorsBatch:`, error.message);
             if (batchSize > 1) {
+                console.warn(`[THROTTLE DOWN] ⚠️ Batch of 2 failed. Dropping to Solo Gear.`);
                 forceSolo = true; 
-                await new Promise(r => setTimeout(r, 8000));
+                await new Promise(r => setTimeout(r, 10000));
             } else {
-                console.error(`[SURGICAL AUDIT REQUIRED] ⚠️ Card ${currentCard.id} failed Solo-Sync twice. Skipping.`);
+                console.error(`[SURGICAL AUDIT REQUIRED] ⚠️ Card ${currentCard.id} failed Solo-Sync. Checking for data clumping/timeouts.`);
                 i++; 
                 forceSolo = false; 
                 await new Promise(r => setTimeout(r, 5000));
