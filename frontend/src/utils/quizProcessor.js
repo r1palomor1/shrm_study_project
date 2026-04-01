@@ -111,7 +111,12 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
                 body: JSON.stringify({ mode: 'generate-distractors', quizType, certLevel, cards: payloadCards })
             });
 
-            if (!response.ok) throw new Error(`Vercel Bridge Error: ${response.status}`);
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                const error = new Error(`Vercel Bridge Error: ${response.status}`);
+                error.raw = errData.raw;
+                throw error;
+            }
 
             const data = await response.json();
             if (data && data.results) {
@@ -135,6 +140,9 @@ export async function generateDistractorsBatch(cards, quizType = 'intelligent', 
 
         } catch (error) {
             console.error(`ERROR in generateDistractorsBatch:`, error.message);
+            if (error.raw) {
+                console.error(`[FORENSIC AUDIT] Raw AI Output:`, String(error.raw).substring(0, 500));
+            }
             if (batchSize > 1) {
                 console.warn(`[THROTTLE DOWN] ⚠️ Batch of 2 failed. Dropping to Solo Gear.`);
                 forceSolo = true; 

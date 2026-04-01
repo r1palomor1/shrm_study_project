@@ -18,7 +18,11 @@ export default async function handler(req, res) {
         return await handleCoachingInsight(req, res);
     } catch (err) {
         console.error('SERVER ERROR:', err.message);
-        return res.status(500).json({ message: 'Internal Server Error', error: err.message });
+        return res.status(500).json({ 
+            message: 'Internal Server Error', 
+            error: err.message, 
+            raw: err.rawResponse || null 
+        });
     }
 }
 
@@ -54,7 +58,7 @@ OUTPUT REQUIREMENTS (JSON):
 - tag_bask: exactly one of: [People, Organization, Workplace].
 - tag_behavior: exactly one of the 09 SHRM Behavioral Competencies.`;
 
-    const prompt = `${promptSystemInstructions}\nInput Cards:\n${cards.map(c => `ID: ${c.id}\nTerm: ${c.question}\nCorrect Answer: ${c.answer}`).join('\n---\n')}\nReturn JSON: { "results": [{ "id": "string", "scenario": "string", "question": "string", "correct_answer": "string", "distractors": ["3"], "rationale": "string", "gap_analysis": "string", "tag_bask": "People|Organization|Workplace", "tag_behavior": "string" }] }`;
+    const prompt = `${promptSystemInstructions}\nInput Cards:\n${cards.map(c => `ID: ${c.id}\nTerm: ${c.question}\nCorrect Answer: ${c.answer}\nPunctuation: ${c.originalPunctuation}\nStarts With: ${c.startsWithVerb}`).join('\n---\n')}\nReturn JSON: { "results": [{ "id": "string", "scenario": "string", "question": "string", "correct_answer": "string", "distractors": ["3 items"], "rationale": "string", "gap_analysis": "string", "tag_bask": "People|Organization|Workplace", "tag_behavior": "string" }] }`;
 
     const genAI = new GoogleGenerativeAI(geminiKey);
     const model = genAI.getGenerativeModel({
@@ -71,7 +75,12 @@ OUTPUT REQUIREMENTS (JSON):
     const parsedData = parseAIResponse(responseText);
 
     if (parsedData) return res.status(200).json(parsedData);
-    throw new Error("Invalid Response Format");
+    
+    // FORENSIC TRACE: Reveal why JSON parsing failed
+    console.error("AI_TRACE_FAIL (Raw):", responseText);
+    const error = new Error("Invalid Response Format");
+    error.rawResponse = responseText;
+    throw error;
 }
 
 function parseAIResponse(text) {
