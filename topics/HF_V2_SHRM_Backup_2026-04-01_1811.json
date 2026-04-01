@@ -1,0 +1,142 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-04-01T23:11:06.618Z",
+  "decks": [
+    {
+      "title": "People",
+      "cards": [
+        {
+          "id": "1a4tkmx6nzj",
+          "topic": "People – HR Strategy",
+          "question": "Balanced scorecard",
+          "answer": "Performance management tool that depicts an organization’s overall performance, as measured against goals, lagging indicators, and leading indicators.",
+          "status": "unseen"
+        },
+        {
+          "id": "2bcky8ia387",
+          "topic": "People – HR Strategy",
+          "question": "Benchmarking",
+          "answer": "Process by which an organization identifies performance gaps and sets goals for performance improvement by comparing its data, performance levels, and/or processes against those of other organizations.",
+          "status": "unseen"
+        },
+        {
+          "id": "12m2cdvwa77",
+          "topic": "People – HR Strategy",
+          "question": "Environmental scanning",
+          "answer": "Process that involves a systematic survey and interpretation of relevant data to identify external opportunities and threats and to assess how these factors affect the organization currently and how they are likely to affect the organization in the future.",
+          "status": "unseen"
+        }
+      ]
+    }
+  ],
+  "vault": {
+    "1a4tkmx6nzj:intelligent:CP": {
+      "id": "1a4tkmx6nzj",
+      "scenario": "Your organization is implementing a new AI-driven performance management system to replace traditional annual reviews. While the executive team demands immediate adoption to improve data-driven decision-making, the employee resource group expresses significant concerns regarding algorithmic bias and the lack of transparency in the new metrics. You must balance the need for organizational efficiency with the necessity of maintaining psychological safety and ethical standards.",
+      "question": "What is the BEST action for the HR Professional to take?",
+      "correct_answer": "Implement a balanced scorecard that integrates objective performance metrics with qualitative feedback to ensure transparency and fairness.",
+      "distractors": [
+        "Coordinate a benchmarking study that compares internal performance data against industry standards to validate the new system's efficacy.",
+        "Review an environmental scanning report that identifies potential external risks associated with AI adoption to mitigate future legal liabilities.",
+        "Apply a comprehensive communication strategy that explains the technical benefits of the new system to increase overall employee buy-in."
+      ],
+      "rationale": "(1) The correct answer is the most effective because it directly addresses the tension between business efficiency and ethical practice by providing a holistic, transparent framework that balances quantitative data with human-centric feedback. (2) The distractors are sub-optimal because they focus on external validation, risk mitigation, or one-way communication, which fail to resolve the core conflict of employee trust and ethical algorithmic implementation.",
+      "gap_analysis": "This item tests the ability to synthesize Business Acumen (data-driven performance) with Ethical Practice (transparency and fairness) when implementing organizational change.",
+      "tag_bask": "Organization",
+      "tag_behavior": "Ethical Practice",
+      "quizType": "intelligent",
+      "certLevel": "CP",
+      "timestamp": "2026-04-01T23:10:23.413Z"
+    },
+    "2bcky8ia387:intelligent:CP": {
+      "id": "2bcky8ia387",
+      "scenario": "Your organization is undergoing a rapid digital transformation, and leadership demands immediate benchmarking against industry competitors to justify a new AI-driven performance management system. However, your internal data indicates that the current workforce lacks the psychological safety to support such high-frequency monitoring, creating a tension between aggressive business growth and employee retention. You must decide how to proceed with the benchmarking initiative while balancing the ethical implications of data transparency.",
+      "question": "What is the BEST action for the HR Professional to take?",
+      "correct_answer": "Implement a comprehensive benchmarking study that integrates employee sentiment data to ensure performance goals align with organizational capacity.",
+      "distractors": [
+        "Coordinate a rigorous benchmarking project that prioritizes competitive performance metrics to satisfy executive demands for rapid digital transformation.",
+        "Apply a standardized benchmarking framework that ignores internal sentiment data to maintain objective focus on external industry performance standards.",
+        "Review the existing benchmarking protocols that emphasize technical efficiency metrics to accelerate the adoption of new AI-driven management systems."
+      ],
+      "rationale": "The correct answer demonstrates 'Business Acumen' by utilizing benchmarking while simultaneously exercising 'Ethical Practice' by incorporating employee sentiment, ensuring the strategy is sustainable. The distractors are sub-optimal because they either prioritize executive pressure over employee well-being (Option 1), ignore critical internal context (Option 2), or focus exclusively on technical efficiency at the expense of human capital (Option 3).",
+      "gap_analysis": "This item tests the candidate's ability to synthesize external market data with internal cultural realities, specifically identifying the cognitive gap between purely data-driven decision-making and human-centric organizational development.",
+      "tag_bask": "Organization",
+      "tag_behavior": "Business Acumen",
+      "quizType": "intelligent",
+      "certLevel": "CP",
+      "timestamp": "2026-04-01T23:10:26.500Z"
+    },
+    "12m2cdvwa77:intelligent:CP": {
+      "id": "12m2cdvwa77",
+      "scenario": "Your organization is undergoing a rapid digital transformation, and leadership is pressuring HR to implement AI-driven performance monitoring tools to increase efficiency. While the data suggests these tools will improve operational output, employees have expressed significant concerns regarding psychological safety and data privacy. You must balance the immediate need for business optimization with the long-term necessity of maintaining an ethical, trust-based culture.",
+      "question": "What is the BEST action for the HR Professional to take?",
+      "correct_answer": "Conduct a comprehensive environmental scan to evaluate external regulatory trends and internal sentiment before finalizing the implementation strategy.",
+      "distractors": [
+        "Review the existing organizational policies to determine if current data privacy standards align with the proposed AI-driven monitoring tools.",
+        "Identify the primary stakeholders to facilitate a collaborative discussion regarding the potential impact of new technology on employee morale.",
+        "Apply a rigorous analytical framework to measure the projected productivity gains against the potential risks of decreased psychological safety."
+      ],
+      "rationale": "1. The correct answer is the most effective because it utilizes environmental scanning to synthesize both external (regulatory) and internal (sentiment) data, ensuring the decision is evidence-based and risk-aware. 2. The distractors are sub-optimal because they focus on isolated components—policy review, stakeholder management, or productivity metrics—without the holistic, systemic integration required to address the tension between business acumen and ethical practice.",
+      "gap_analysis": "This item tests the cognitive gap between tactical implementation (doing the task) and strategic synthesis (understanding the environmental context before acting).",
+      "tag_bask": "Organization",
+      "tag_behavior": "Business Acumen",
+      "quizType": "intelligent",
+      "certLevel": "CP",
+      "timestamp": "2026-04-01T23:10:29.264Z"
+    },
+    "1a4tkmx6nzj:simple:CP": {
+      "id": "1a4tkmx6nzj",
+      "scenario": "Your organization is implementing an AI-driven performance management tool to replace traditional annual reviews. While the executive team demands immediate adoption to improve operational efficiency and data-driven decision-making, the employee resource group expresses significant concerns regarding algorithmic bias and the lack of transparency in the new scoring metrics. You must balance the urgent business need for digital transformation with the ethical imperative to ensure psychological safety and equitable treatment for all staff.",
+      "question": "What is the BEST action for the HR Professional to take?",
+      "correct_answer": "Implement a pilot program that integrates stakeholder feedback, ensuring the tool aligns with organizational goals while mitigating identified bias risks.",
+      "distractors": [
+        "Coordinate a company-wide training session that explains the tool, emphasizing the strategic benefits while ignoring the specific concerns regarding algorithmic bias.",
+        "Apply the new performance metrics immediately, prioritizing the executive mandate for efficiency while deferring the resolution of employee concerns until next year.",
+        "Review the existing performance data to identify gaps, focusing on the technical accuracy of the software rather than the cultural impact on employees."
+      ],
+      "rationale": "The correct answer demonstrates 'Ethical Practice' by addressing bias and 'Business Acumen' by using a pilot to manage risk during transformation. The distractors fail because they either prioritize efficiency at the expense of ethics (Option 2), ignore stakeholder input (Option 1), or focus solely on technical metrics while neglecting the human element (Option 3).",
+      "gap_analysis": "Tests the ability to synthesize ethical considerations with strategic business objectives, specifically identifying the 'middle path' of risk-mitigated implementation.",
+      "tag_bask": "Organization",
+      "tag_behavior": "Ethical Practice",
+      "quizType": "simple",
+      "certLevel": "CP",
+      "timestamp": "2026-04-01T23:10:32.822Z"
+    },
+    "2bcky8ia387:simple:CP": {
+      "id": "2bcky8ia387",
+      "scenario": "Your organization is undergoing a rapid digital transformation, and leadership demands an immediate benchmarking study against industry competitors to justify aggressive headcount reductions. You discover that the competitor data is based on legacy operational models that do not account for the psychological safety and remote-work productivity metrics your firm currently prioritizes. You must balance the executive mandate for fiscal efficiency with the ethical imperative to maintain an accurate, human-centric performance baseline.",
+      "question": "What is the BEST action for the HR Professional to take?",
+      "correct_answer": "Identify relevant performance metrics that integrate both fiscal efficiency and human-centric data to ensure a balanced comparison against industry peers.",
+      "distractors": [
+        "Review internal performance data that supports the executive mandate for headcount reduction to satisfy the immediate fiscal requirements of the organization.",
+        "Apply standardized industry benchmarks that prioritize traditional operational efficiency to align with the strategic goals established by the executive leadership team.",
+        "Coordinate comprehensive benchmarking studies that utilize external data sets to validate the necessity of the proposed headcount reductions for the organization."
+      ],
+      "rationale": "The correct answer demonstrates 'Business Acumen' by acknowledging the need for fiscal data while upholding 'Ethical Practice' by ensuring the data is contextually accurate and human-centric. The distractors are sub-optimal because they either prioritize fiscal goals at the expense of ethical accuracy (Option 1), rely on outdated metrics that ignore the organization's current values (Option 2), or focus on external validation without addressing the internal nuance of the transformation (Option 3).",
+      "gap_analysis": "This item tests the cognitive gap between 'Data-Driven Decision Making' and 'Ethical Stewardship,' specifically the ability to synthesize competing business needs without compromising the integrity of the benchmarking process.",
+      "tag_bask": "Organization",
+      "tag_behavior": "Business Acumen",
+      "quizType": "simple",
+      "certLevel": "CP",
+      "timestamp": "2026-04-01T23:10:36.436Z"
+    },
+    "12m2cdvwa77:simple:CP": {
+      "id": "12m2cdvwa77",
+      "scenario": "Your organization is undergoing a rapid digital transformation, and leadership is pressuring HR to implement AI-driven recruitment tools to reduce hiring costs. Simultaneously, your employee resource group has raised significant concerns regarding potential algorithmic bias and the erosion of psychological safety in the hiring process. You must balance the mandate for operational efficiency with the ethical imperative to maintain fair, transparent, and inclusive hiring practices.",
+      "question": "What is the BEST action for the HR Professional to take?",
+      "correct_answer": "Conduct a comprehensive environmental scan to evaluate external regulatory trends and internal data risks before finalizing the AI integration strategy.",
+      "distractors": [
+        "Review the existing recruitment workflow to identify immediate cost-saving opportunities while ignoring the long-term implications of algorithmic bias risks.",
+        "Apply the proposed AI software to pilot programs to measure efficiency gains while delaying the assessment of potential ethical compliance gaps.",
+        "Identify the primary stakeholders to negotiate project timelines while minimizing the impact of external market shifts on the current hiring strategy."
+      ],
+      "rationale": "1. The correct answer is the most effective because it utilizes environmental scanning to synthesize external regulatory pressures with internal ethical risks, ensuring a data-driven, compliant, and sustainable implementation. 2. The distractors are sub-optimal because they prioritize short-term operational speed (Business Acumen) at the expense of long-term ethical integrity and risk mitigation (Ethical Practice), failing to account for the holistic organizational impact.",
+      "gap_analysis": "This item tests the cognitive gap between reactive operational decision-making and proactive strategic alignment, specifically measuring the ability to integrate external environmental data into internal ethical governance.",
+      "tag_bask": "Organization",
+      "tag_behavior": "Ethical Practice",
+      "quizType": "simple",
+      "certLevel": "CP",
+      "timestamp": "2026-04-01T23:10:38.744Z"
+    }
+  }
+}
