@@ -23,12 +23,14 @@ export default function DataImporter({ onDeckLoaded }) {
         reader.onload = (event) => {
             try {
                 const markdown = event.target.result;
-                const parsedDeck = parseMarkdownToDeck(markdown);
+                const parsedDecks = parseMarkdownToDeck(markdown);
 
-                if (parsedDeck.cards.length === 0) {
+                if (!parsedDecks || parsedDecks.length === 0 || parsedDecks.every(d => d.cards.length === 0)) {
                     setError('No flashcards found.');
                 } else {
-                    onDeckLoaded(parsedDeck);
+                    parsedDecks.forEach(deck => {
+                        if (deck.cards.length > 0) onDeckLoaded(deck);
+                    });
                     setError('');
                 }
             } catch (err) {

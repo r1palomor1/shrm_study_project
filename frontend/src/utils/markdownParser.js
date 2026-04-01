@@ -12,55 +12,72 @@ import { generateFingerprint } from './hashing';
  * ---
  */
 export function parseMarkdownToDeck(markdownText) {
-    const deck = {
-        title: 'Imported Deck',
-        cards: []
-    };
-
-    const lines = markdownText.split('\n');
+    const decks = [];
+    let currentDeck = null;
     let currentCard = null;
     let inFrontMatter = false;
     let hasReadFrontMatter = false;
+
+    const lines = markdownText.split('\n');
 
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i].trim();
         if (!line && !currentCard) continue;
 
-        // Parse Frontmatter/Dividers
+        // 1. New Deck Detection (Multi-Topic Support)
+        if (line.toLowerCase().startsWith('deck:')) {
+            // Save state of previous card/deck
+            if (currentCard && currentCard.question && currentCard.answer) {
+                currentCard.id = generateFingerprint(currentCard.question, currentCard.answer);
+                currentDeck.cards.push(currentCard);
+                currentCard = null;
+            }
+
+            let parsedTitle = line.substring(5).trim();
+            parsedTitle = parsedTitle.replace(/SHRM 2026/i, '');
+            parsedTitle = parsedTitle.replace(/^[\s\-\u2013\u2014]+/, '').trim();
+            
+            currentDeck = {
+                title: parsedTitle || 'Imported Deck',
+                cards: []
+            };
+            decks.push(currentDeck);
+            continue;
+        }
+
+        // Initialize first deck if none found yet and content starts
+        if (!currentDeck && line && line !== '---') {
+            currentDeck = { title: 'Imported Deck', cards: [] };
+            decks.push(currentDeck);
+        }
+
+        // 2. Parse Dividers
         if (line === '---') {
-            if (!inFrontMatter && !hasReadFrontMatter) {
-                inFrontMatter = true;
-                continue;
-            } else if (inFrontMatter) {
+            if (inFrontMatter) {
                 inFrontMatter = false;
                 hasReadFrontMatter = true;
                 continue;
+            } else if (!hasReadFrontMatter) {
+                inFrontMatter = true;
+                continue;
             } else {
-                // Topic divider
+                // Card divider
                 if (currentCard && currentCard.question && currentCard.answer) {
                     currentCard.id = generateFingerprint(currentCard.question, currentCard.answer);
-                    deck.cards.push(currentCard);
+                    currentDeck.cards.push(currentCard);
                     currentCard = null;
                 }
                 continue;
             }
         }
 
-        if (inFrontMatter) {
-            if (line.toLowerCase().startsWith('deck:')) {
-                let parsedTitle = line.substring(5).trim();
-                parsedTitle = parsedTitle.replace(/SHRM 2026/i, '');
-                parsedTitle = parsedTitle.replace(/^[\s\-\u2013\u2014]+/, '').trim();
-                deck.title = parsedTitle || 'Imported Deck';
-            }
-            continue;
-        }
+        if (inFrontMatter) continue;
 
-        // Parse Card Topic
+        // 3. Parse Topics/Cards
         if (line.startsWith('###')) {
             if (currentCard && currentCard.question && currentCard.answer) {
                 currentCard.id = generateFingerprint(currentCard.question, currentCard.answer);
-                deck.cards.push(currentCard);
+                currentDeck.cards.push(currentCard);
             }
 
             currentCard = {
@@ -73,7 +90,7 @@ export function parseMarkdownToDeck(markdownText) {
             continue;
         }
 
-        // Parse Question/Answer
+        // 4. Parse Q&A
         if (currentCard) {
             if (line.startsWith('**Q:**')) {
                 currentCard.question = line.replace('**Q:**', '').trim();
@@ -89,11 +106,11 @@ export function parseMarkdownToDeck(markdownText) {
         }
     }
 
-    // Push final card
-    if (currentCard && currentCard.question && currentCard.answer) {
+    // Final push for last card
+    if (currentCard && currentCard.question && currentCard.answer && currentDeck) {
         currentCard.id = generateFingerprint(currentCard.question, currentCard.answer);
-        deck.cards.push(currentCard);
+        currentDeck.cards.push(currentCard);
     }
 
-    return deck;
+    return decks;
 }
