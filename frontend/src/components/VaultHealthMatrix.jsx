@@ -109,7 +109,7 @@ const VaultHealthMatrix = ({ decks, onSmartSync, onSyncTopic, onClose, isSyncing
 
         // Simple Recall Section & AUDIT
         const hasSimple = Array.isArray(sData?.distractors) && sData.distractors.length > 0;
-        const hasTags = isValidDomain(sData?.tag_bask || iData?.tag_bask);
+        const hasTags = isValidDomain(sData?.tag_bask) || isValidDomain(iData?.tag_bask);
 
         if (hasSimple) stats.simple.gold++;
         if (hasTags) stats.recallTags.gold++;
