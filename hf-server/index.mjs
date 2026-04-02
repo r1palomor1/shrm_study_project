@@ -17,7 +17,7 @@ const JOBS = new Map();
 
 // HEALTH CHECK ENDPOINT
 app.get('/', (req, res) => {
-    res.json({ status: 'active', engine: 'SHRM 2026 BASK Sync V6 Async', jobs: JOBS.size });
+    res.json({ status: 'active', engine: 'SHRM 2026 BASK Sync V6.1 Strict Sync', jobs: JOBS.size });
 });
 
 // STABLE PROMPT (Elite V3.1 - DO NOT TOUCH)
@@ -47,23 +47,27 @@ OUTPUT REQUIREMENTS (JSON):
 - tag_bask: exactly one of: [People, Organization, Workplace].
 - tag_behavior: exactly one of: [Leadership & Navigation, Ethical Practice, Relationship Management, Communication, Inclusive Mindset, Business Acumen, Consultation, Analytical Aptitude].`;
 
-// BACKGROUND WORKER
+// BACKGROUND WORKER (V6.1 STRICT SYNC)
 async function processSyncJob(jobId, cards, quizType, certLevel, geminiKey) {
     const job = JOBS.get(jobId);
     if (!job) return;
 
     let i = 0;
-    let currentBurstSize = 6; // GEARBOX: Start at 6
+    let currentBurstSize = 6; 
 
     while (i < cards.length) {
+        // Slice the next batch starting from 'i'
         const batch = cards.slice(i, i + currentBurstSize);
-        console.log(`[JOB ${jobId}] Processing Batch ${i}-${i + batch.length} (Burst: ${currentBurstSize})`);
+        console.log(`[JOB ${jobId}] Requesting ${batch.length} cards starting at index ${i}`);
 
         const prompt = `${getSystemInstructions(certLevel)}\nInput Cards:\n${batch.map(c => `ID: ${c.id}\nTerm: ${c.question}\nCorrect Answer: ${c.answer}\nPunctuation: ${c.originalPunctuation}`).join('\n---\n')}\nReturn JSON: { "results": [{ "id": "string", "scenario": "string", "question": "string", "correct_answer": "string", "distractors": ["3 items"], "rationale": "string", "gap_analysis": "string", "tag_bask": "People|Organization|Workplace", "tag_behavior": "string" }] }`;
 
         try {
             const genAI = new GoogleGenerativeAI(geminiKey);
-            const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite-preview", generationConfig: { responseMimeType: "application/json", temperature: 0.1, maxOutputTokens: 4096 } });
+            const model = genAI.getGenerativeModel({ 
+                model: "gemini-3.1-flash-lite-preview", 
+                generationConfig: { responseMimeType: "application/json", temperature: 0.1, maxOutputTokens: 4096 } 
+            });
 
             const result = await model.generateContent(prompt);
             const responseText = result.response.text();
@@ -72,27 +76,31 @@ async function processSyncJob(jobId, cards, quizType, certLevel, geminiKey) {
             const endIdx = responseText.lastIndexOf('}');
             const parsed = JSON.parse(responseText.substring(startIdx, endIdx + 1));
 
-            if (parsed && parsed.results) {
+            if (parsed && parsed.results && Array.isArray(parsed.results)) {
                 job.results = [...job.results, ...parsed.results];
                 job.completed += parsed.results.length;
-                i += batch.length;
                 
+                // CRITICAL FIX: Advance pointer ONLY by the number of cards received
+                i += parsed.results.length; 
+                
+                console.log(`[JOB ${jobId}] Successfully saved ${parsed.results.length} cards. Total: ${job.completed}/${cards.length}`);
+
                 // Optional: Gentle ramp back up if we were downshifted
                 if (currentBurstSize < 6 && (i % 12 === 0)) currentBurstSize = 6;
             } else {
-                throw new Error("Empty Results from AI");
+                throw new Error("Invalid JSON structure from AI");
             }
 
         } catch (err) {
-            console.error(`[JOB ${jobId}] ERROR in Burst:`, err.message);
+            console.error(`[JOB ${jobId}] ERROR at index ${i}:`, err.message);
             
-            if (currentBurstSize > 4) {
-                console.warn(`[GEARBOX DOWNSHIFT] Reducing burst to 4 for stability.`);
-                currentBurstSize = 4;
-                // do not increment 'i', retry this batch at 4
+            if (currentBurstSize > 2) {
+                console.warn(`[GEARBOX] Reducing burst to 2 for stability.`);
+                currentBurstSize = 2;
+                // Pointer 'i' does NOT move; we retry the same cards in a smaller batch.
             } else {
-                console.error(`[JOB ${jobId}] FATAL BATCH FAIL at Card ${cards[i].id}. Skipping.`);
-                i += batch.length; // Preserve momentum
+                console.error(`[JOB ${jobId}] FATAL: Skipping card ${cards[i].id} after repeated failure.`);
+                i += 1; // Move forward by 1 to prevent infinite loop on a "bad" card
             }
         }
         
@@ -101,7 +109,7 @@ async function processSyncJob(jobId, cards, quizType, certLevel, geminiKey) {
     }
 
     job.status = 'done';
-    console.log(`[JOB ${jobId}] COMPLETED ${job.completed}/${cards.length}`);
+    console.log(`[JOB ${jobId}] FINAL COMPLETION: ${job.completed}/${cards.length}`);
 }
 
 // ENDPOINT: SUBMIT
@@ -147,5 +155,5 @@ app.get('/sync-status/:jobId', (req, res) => {
 });
 
 app.listen(port, '0.0.0.0', () => {
-    console.log(`BASK Sync Engine V6 ASYNC listening at http://0.0.0.0:${port}`);
+    console.log(`BASK Sync Engine V6.1 STRICT ASYNC listening at http://0.0.0.0:${port}`);
 });
