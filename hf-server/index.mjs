@@ -13,6 +13,11 @@ app.use(express.json({ limit: '10mb' }));
 
 const JOBS = new Map();
 
+// HEALTH CHECK ENDPOINT
+app.get('/', (req, res) => {
+    res.json({ status: 'active', engine: 'V7.3.1 High-Yield Orchestrator', model: MANDATORY_MODEL });
+});
+
 // PROTOCOL GUARD: MANDATORY ENGINE - DO NOT ALTER
 const MANDATORY_MODEL = "gemini-3.1-flash-lite-preview";
 
