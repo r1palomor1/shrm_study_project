@@ -12,16 +12,13 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
 const JOBS = new Map();
-
-// HEALTH CHECK ENDPOINT
-app.get('/', (req, res) => {
-    res.json({ status: 'active', engine: 'V7.3.1 High-Yield Orchestrator', model: MANDATORY_MODEL });
-});
-
-// PROTOCOL GUARD: MANDATORY ENGINE - DO NOT ALTER
 const MANDATORY_MODEL = "gemini-3.1-flash-lite-preview";
 
-// STABLE PROMPT (V7.2 SOVEREIGNTY - BALANCED 2026 BASK)
+app.get('/', (req, res) => {
+    res.json({ status: 'active', engine: 'V7.4 Surgical Orchestrator', model: MANDATORY_MODEL });
+});
+
+// STABLE PROMPT (V7.2 SOVEREIGNTY SOUL - BALANCED 2026 BASK)
 const getSystemInstructions = (certLevel) => `ROLE: Senior SHRM 2026 Psychometrician & SJI Architect.
 TASK: Generate high-fidelity Situational Judgment Items (SJI) that mirror the cognitive complexity of the 2026 SHRM-CP/SCP exams.
 
@@ -38,39 +35,36 @@ VISUAL PARITY & "CLONAL DNA" MANDATE:
 RETURN ONLY RAW JSON:
 { "results": [{ "id": "string", "scenario": "string", "question": "string", "correct_answer": "string", "distractors": ["string", "string", "string"], "rationale": "string", "gap_analysis": "string", "tag_bask": "string", "tag_behavior": "string" }] }`;
 
-/**
- * HIGH-YIELD PARSER (V7.3)
- * Instead of failing the whole block, we try to recover as much as possible.
- */
+// V7.4 SMART PARSER: Prevents the "7/67" metadata gap via Fuzzy Key Mapping
 const extractHighYieldResults = (text) => {
-    try {
-        // 1. First try a clean parse of the whole block
-        const start = text.indexOf('{');
-        const end = text.lastIndexOf('}');
-        if (start === -1 || end === -1) return [];
-        
-        const jsonStr = text.substring(start, end + 1).replace(/[\u0000-\u001F\u007F-\u009F]/g, ""); 
-        const parsed = JSON.parse(jsonStr);
-        if (parsed?.results) return parsed.results;
-    } catch (e) {
-        // 2. If whole block fails, attempt regex-based extraction of individual result objects
-        console.warn("[V7.3] Block parse failed. Attempting individual object recovery...");
-        const individualResults = [];
-        const objectRegex = /\{[^{}]*"id":\s*"[^"]*"[^{}]*\}/g;
-        const matches = text.match(objectRegex);
-        
-        if (matches) {
-            for (const match of matches) {
-                try {
-                    const cleanedMatch = match.replace(/[\u0000-\u001F\u007F-\u009F]/g, "");
-                    const obj = JSON.parse(cleanedMatch);
-                    if (obj.id && obj.scenario) individualResults.push(obj);
-                } catch (innerE) { continue; }
-            }
+    const results = [];
+    const objectRegex = /\{[^{}]*"id":\s*"[^"]*"[^{}]*\}/g;
+    const matches = text.match(objectRegex);
+    
+    if (matches) {
+        for (const match of matches) {
+            try {
+                const cleaned = match.replace(/[\u0000-\u001F\u007F-\u009F]/g, "");
+                const obj = JSON.parse(cleaned);
+                
+                // FUZZY MAPPING: Standardizes inconsistent AI keys to your Vault schema
+                const standardized = {
+                    id: String(obj.id || '').replace(/[\s\n\r]/g, ''),
+                    scenario: obj.scenario || obj.content_scenario || obj.text_scenario,
+                    question: obj.question || obj.item_question,
+                    correct_answer: obj.correct_answer || obj.correct || obj.answer,
+                    distractors: obj.distractors || obj.incorrect_options || obj.wrong_answers,
+                    rationale: obj.rationale || obj.explanation || obj.feedback,
+                    gap_analysis: obj.gap_analysis || obj.cognitive_gap || obj.assessment_gap,
+                    tag_bask: obj.tag_bask || obj.bask_tag || obj.bask_domain || "General",
+                    tag_behavior: obj.tag_behavior || obj.behavior_tag || obj.behavior_competency || "Professionalism"
+                };
+                
+                if (standardized.id && standardized.scenario) results.push(standardized);
+            } catch (e) { continue; }
         }
-        return individualResults;
     }
-    return [];
+    return results;
 };
 
 async function processInBursts(jobId, cards, certLevel, geminiKey) {
@@ -78,12 +72,7 @@ async function processInBursts(jobId, cards, certLevel, geminiKey) {
     if (!job) return;
 
     const BATCH_SIZE = 4;
-    const CONCURRENCY = 3; 
-    
-    const batches = [];
-    for (let i = 0; i < cards.length; i += BATCH_SIZE) {
-        batches.push(cards.slice(i, i + BATCH_SIZE));
-    }
+    const CONCURRENCY = 2; // REDUCED TO 2 for 15 RPM Safety (Gemini Free Tier)
 
     const genAI = new GoogleGenerativeAI(geminiKey);
     const model = genAI.getGenerativeModel({ 
@@ -91,17 +80,19 @@ async function processInBursts(jobId, cards, certLevel, geminiKey) {
         generationConfig: { temperature: 0.1, maxOutputTokens: 3800 }
     });
 
-    for (let i = 0; i < batches.length; i += CONCURRENCY) {
+    for (let i = 0; i < cards.length; i += (BATCH_SIZE * CONCURRENCY)) {
         const currentJob = JOBS.get(jobId);
-        if (!currentJob || currentJob.status === 'aborted') {
-            console.log(`[V7.3] ABORTED.`);
-            return; 
+        if (!currentJob || currentJob.status === 'aborted') return;
+
+        const currentBatches = [];
+        for (let j = 0; j < CONCURRENCY; j++) {
+            const start = i + (j * BATCH_SIZE);
+            if (start < cards.length) currentBatches.push(cards.slice(start, start + BATCH_SIZE));
         }
 
-        const currentSet = batches.slice(i, i + CONCURRENCY);
-        console.log(`[V7.3 BURST] Firing Burst (${currentSet.length * BATCH_SIZE} cards potential)...`);
+        console.log(`[V7.4 BURST] Processing ${currentBatches.length * BATCH_SIZE} cards...`);
 
-        await Promise.all(currentSet.map(async (batch) => {
+        await Promise.all(currentBatches.map(async (batch) => {
             try {
                 const prompt = `${getSystemInstructions(certLevel)}\nInput Batch:\n${JSON.stringify(batch)}`;
                 const result = await model.generateContent(prompt);
@@ -110,39 +101,39 @@ async function processInBursts(jobId, cards, certLevel, geminiKey) {
                 if (results.length > 0) {
                     job.results.push(...results);
                     job.completed += results.length;
-                    console.log(`[V7.3 SAVED] ${results.length} cards extracted from batch.`);
+                    console.log(`[V7.4 SAVED] ${results.length} cards extracted.`);
                 }
 
-                // If we got fewer results than expected, we trigger the 1-by-1 for the MISSING ones
-                const receivedIds = new Set(results.map(r => String(r.id).replace(/[\s\n\r]/g, '')));
+                // SURGICAL RECOVERY: Hunt down missing IDs with 1-by-1 precision
+                const receivedIds = new Set(results.map(r => r.id));
                 const missingCards = batch.filter(c => !receivedIds.has(String(c.id).replace(/[\s\n\r]/g, '')));
 
                 if (missingCards.length > 0) {
-                    console.log(`[V7.3 RECOVERY] ${missingCards.length} cards missing. Initiating Surgical 1-by-1...`);
+                    console.log(`[V7.4 RECOVERY] ${missingCards.length} missing. Initiating Surgical 1-by-1...`);
                     for (const card of missingCards) {
                         try {
-                            const single = await model.generateContent(`${getSystemInstructions(certLevel)}\nInput: ${JSON.stringify([card])}`);
+                            const single = await model.generateContent(`${getSystemInstructions(certLevel)}\nInput Single: ${JSON.stringify([card])}`);
                             const sResults = extractHighYieldResults(single.response.text());
                             if (sResults?.[0]) {
                                 job.results.push(sResults[0]);
                                 job.completed += 1;
-                                console.log(`[V7.3 RECOVERY] Successfully recovered ${card.id}`);
+                                console.log(`[V7.4 RECOVERY] Success for ${card.id}`);
                             }
-                        } catch (e) { console.error(`[V7.3 FATAL] Totally failed card: ${card.id}`); }
+                        } catch (e) { console.error(`[V7.4 FATAL] Failed ${card.id}`); }
                     }
                 }
             } catch (err) {
-                console.error("[V7.3 BURST ERROR]", err.message);
+                console.error("[V7.4 BURST ERROR]", err.message);
             }
         }));
 
-        if (i + CONCURRENCY < batches.length) {
-            console.log(`[V7.3 THROTTLE] Cooling down 5s... Progress: ${job.completed}/${job.total}`);
-            await new Promise(r => setTimeout(r, 5000));
+        if (i + (BATCH_SIZE * CONCURRENCY) < cards.length) {
+            console.log(`[V7.4 THROTTLE] Cooling down 6s for RPM Safety... Progress: ${job.completed}/${job.total}`);
+            await new Promise(r => setTimeout(r, 6000));
         }
     }
     job.status = 'done';
-    console.log(`[V7.3 COMPLETED] Job Finished at ${job.completed}/${job.total}`);
+    console.log(`[V7.4 COMPLETED] Job Finished at ${job.completed}/${job.total}`);
 }
 
 app.post('/generate-distractors', (req, res) => {
@@ -165,11 +156,8 @@ app.get('/sync-status/:jobId', (req, res) => {
 
 app.delete('/abort-sync/:jobId', (req, res) => {
     const job = JOBS.get(req.params.jobId);
-    if (job) {
-        job.status = 'aborted';
-        return res.json({ status: 'aborted' });
-    }
+    if (job) { job.status = 'aborted'; return res.json({ status: 'aborted' }); }
     res.status(404).json({ error: 'Not found' });
 });
 
-app.listen(port, '0.0.0.0', () => console.log(`V7.3 HIGH-YIELD LIVE ON ${port}`));
+app.listen(port, '0.0.0.0', () => console.log(`V7.4 SURGICAL LIVE ON ${port}`));
