@@ -60,7 +60,10 @@ const extractHighYieldResults = (text) => {
                     tag_behavior: obj.tag_behavior || obj.behavior_tag || obj.behavior_competency || "Professionalism"
                 };
                 
-                if (standardized.id && standardized.scenario) results.push(standardized);
+                if (standardized.id && standardized.scenario) {
+                    results.push(standardized);
+                    console.log(`[V7.5 TRACE] ${standardized.id} Tags: BASK: ${standardized.tag_bask} | BEHAVIOR: ${standardized.tag_behavior}`);
+                }
             } catch (e) { continue; }
         }
     }

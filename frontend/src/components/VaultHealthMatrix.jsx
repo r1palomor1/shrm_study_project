@@ -91,6 +91,7 @@ const VaultHealthMatrix = ({ decks, onSmartSync, onSyncTopic, onClose, isSyncing
         const cleanId = String(card.id).replace(/[\s\n\r]/g, '');
         const sData = vault[`${cleanId}:simple:${safeCertLevel}`];
         const iData = vault[`${cleanId}:intelligent:${safeCertLevel}`];
+        const isValidBehavior = (tag) => tag && tag.length > 3; // Any competency string (Leadership, etc.)
         const isValidDomain = (tag) => tag && (tag.toLowerCase().includes('people') || tag.toLowerCase().includes('organization') || tag.toLowerCase().includes('workplace'));
 
         // Intelligent Section
@@ -104,11 +105,11 @@ const VaultHealthMatrix = ({ decks, onSmartSync, onSyncTopic, onClose, isSyncing
             stats.rationales.gold++;
             stats.traps.gold++;
         }
-        if (isValidDomain(iData?.tag_bask)) stats.behavioral.gold++;
+        if (isValidBehavior(iData?.tag_behavior)) stats.behavioral.gold++;
 
         // Simple Recall Section & AUDIT
         const hasSimple = Array.isArray(sData?.distractors) && sData.distractors.length > 0;
-        const hasTags = isValidDomain(sData?.tag_bask);
+        const hasTags = isValidDomain(sData?.tag_bask || iData?.tag_bask);
 
         if (hasSimple) stats.simple.gold++;
         if (hasTags) stats.recallTags.gold++;
