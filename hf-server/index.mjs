@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import dotenv from 'dotenv';
+import { v4 as uuidv4 } from 'uuid';
 
 dotenv.config();
 
@@ -11,36 +12,23 @@ const port = 7860; // MANDATORY HF PORT
 app.use(cors());
 app.use(express.json());
 
+// GLOBAL JOB STORE (InMemory - Reset on Space Restart)
+const JOBS = new Map();
+
 // HEALTH CHECK ENDPOINT
 app.get('/', (req, res) => {
-    res.json({ status: 'active', engine: 'SHRM 2026 BASK Sync', node: process.version });
+    res.json({ status: 'active', engine: 'SHRM 2026 BASK Sync V6 Async', jobs: JOBS.size });
 });
 
-app.post('/generate-distractors', async (req, res) => {
-    const { cards, quizType = 'intelligent', certLevel = 'CP' } = req.body;
-    
-    console.log(`[TRACE] Incoming Sync Request | Cards: ${cards?.length || 0} | Type: ${quizType} | Cert: ${certLevel}`);
-
-    if (!cards || !Array.isArray(cards)) {
-        console.error('[TRACE] FAILED: Invalid card array received.');
-        return res.status(400).json({ message: 'Invalid card data' });
-    }
-
-    const geminiKey = process.env.GEMINI_API_KEY;
-    if (!geminiKey) {
-        console.error('[TRACE] FAILED: GEMINI_API_KEY is missing from process.env');
-        return res.status(500).json({ message: "AI Provider Failed", error: "GEMINI_API_KEY is missing from HF Secrets" });
-    }
-
-    // ELITE MONOLITHIC PROMPT: Restored from Vercel era logic
-    const promptSystemInstructions = `ROLE: Senior SHRM 2026 Psychometrician & SJI Architect.
+// STABLE PROMPT (Elite V3.1 - DO NOT TOUCH)
+const getSystemInstructions = (certLevel) => `ROLE: Senior SHRM 2026 Psychometrician & SJI Architect.
 TASK: Generate high-fidelity Situational Judgment Items (SJI) that mirror the cognitive complexity of the 2026 SHRM-CP/SCP exams.
 
 MANDATORY "FOUR ANCHOR" ARCHITECTURE:
-1. ORGANIZATIONAL CONTEXT: Define a nuanced environment (e.g., a multi-generational workforce, a merger, or digital transformation).
-2. STAKEHOLDER TENSION: Inject competing interests. The scenario must pit two valid business needs against each other.
-3. BASK LOGIC CONFLICT: Explicitly test Behavioral Competencies. Force the user to choose between "Ethical Practice" and "Business Acumen."
-4. GREY-AREA DISTRACTORS: All four options must be plausible and professional. Only one is BEST per 2026 BASK logic.
+1. ORGANIZATIONAL CONTEXT: Define a nuanced environment.
+2. STAKEHOLDER TENSION: Inject competing interests.
+3. BASK LOGIC CONFLICT: Explicitly test Behavioral Competencies.
+4. GREY-AREA DISTRACTORS: All four options must be plausible. Only one is BEST per 2026 BASK logic.
 
 VISUAL PARITY & "CLONAL DNA" MANDATE (EXTREME SYMMETRY):
 - STRUCTURAL MIRRORING: All 3 distractors MUST share the EXACT same sentence structure and rhetorical rhythm as the "Correct Answer" (Verb + Noun + Clause).
@@ -59,38 +47,105 @@ OUTPUT REQUIREMENTS (JSON):
 - tag_bask: exactly one of: [People, Organization, Workplace].
 - tag_behavior: exactly one of: [Leadership & Navigation, Ethical Practice, Relationship Management, Communication, Inclusive Mindset, Business Acumen, Consultation, Analytical Aptitude].`;
 
-    const prompt = `${promptSystemInstructions}\nInput Cards:\n${cards.map(c => `ID: ${c.id}\nTerm: ${c.question}\nCorrect Answer: ${c.answer}\nPunctuation: ${c.originalPunctuation}`).join('\n---\n')}\nReturn JSON: { "results": [{ "id": "string", "scenario": "string", "question": "string", "correct_answer": "string", "distractors": ["3 items"], "rationale": "string", "gap_analysis": "string", "tag_bask": "People|Organization|Workplace", "tag_behavior": "string" }] }`;
+// BACKGROUND WORKER
+async function processSyncJob(jobId, cards, quizType, certLevel, geminiKey) {
+    const job = JOBS.get(jobId);
+    if (!job) return;
 
-    try {
-        const genAI = new GoogleGenerativeAI(geminiKey);
-        const model = genAI.getGenerativeModel({
-            model: "gemini-3.1-flash-lite-preview", 
-            generationConfig: { 
-                responseMimeType: "application/json", 
-                temperature: 0.1,
-                maxOutputTokens: 4096
-            }
-        });
+    let i = 0;
+    let currentBurstSize = 6; // GEARBOX: Start at 6
 
-        const result = await model.generateContent(prompt);
-        const responseText = result.response.text();
-        
+    while (i < cards.length) {
+        const batch = cards.slice(i, i + currentBurstSize);
+        console.log(`[JOB ${jobId}] Processing Batch ${i}-${i + batch.length} (Burst: ${currentBurstSize})`);
+
+        const prompt = `${getSystemInstructions(certLevel)}\nInput Cards:\n${batch.map(c => `ID: ${c.id}\nTerm: ${c.question}\nCorrect Answer: ${c.answer}\nPunctuation: ${c.originalPunctuation}`).join('\n---\n')}\nReturn JSON: { "results": [{ "id": "string", "scenario": "string", "question": "string", "correct_answer": "string", "distractors": ["3 items"], "rationale": "string", "gap_analysis": "string", "tag_bask": "People|Organization|Workplace", "tag_behavior": "string" }] }`;
+
         try {
-            const cleanText = responseText.trim();
-            const startIdx = cleanText.indexOf('{');
-            const endIdx = cleanText.lastIndexOf('}');
-            const parsed = JSON.parse(cleanText.substring(startIdx, endIdx + 1));
-            res.status(200).json(parsed);
-        } catch (parseErr) {
-            console.error("AI_TRACE_FAIL (Raw):", responseText);
-            res.status(500).json({ message: "Invalid Response Format", raw: responseText });
+            const genAI = new GoogleGenerativeAI(geminiKey);
+            const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite-preview", generationConfig: { responseMimeType: "application/json", temperature: 0.1, maxOutputTokens: 4096 } });
+
+            const result = await model.generateContent(prompt);
+            const responseText = result.response.text();
+            
+            const startIdx = responseText.indexOf('{');
+            const endIdx = responseText.lastIndexOf('}');
+            const parsed = JSON.parse(responseText.substring(startIdx, endIdx + 1));
+
+            if (parsed && parsed.results) {
+                job.results = [...job.results, ...parsed.results];
+                job.completed += parsed.results.length;
+                i += batch.length;
+                
+                // Optional: Gentle ramp back up if we were downshifted
+                if (currentBurstSize < 6 && (i % 12 === 0)) currentBurstSize = 6;
+            } else {
+                throw new Error("Empty Results from AI");
+            }
+
+        } catch (err) {
+            console.error(`[JOB ${jobId}] ERROR in Burst:`, err.message);
+            
+            if (currentBurstSize > 4) {
+                console.warn(`[GEARBOX DOWNSHIFT] Reducing burst to 4 for stability.`);
+                currentBurstSize = 4;
+                // do not increment 'i', retry this batch at 4
+            } else {
+                console.error(`[JOB ${jobId}] FATAL BATCH FAIL at Card ${cards[i].id}. Skipping.`);
+                i += batch.length; // Preserve momentum
+            }
         }
-    } catch (err) {
-        console.error('GENERATE ERROR:', err.message);
-        res.status(500).json({ message: 'AI_PROVIDER_ERROR', error: err.message });
+        
+        // Brief rest between AI calls to respect RPM
+        await new Promise(r => setTimeout(r, 2000));
     }
+
+    job.status = 'done';
+    console.log(`[JOB ${jobId}] COMPLETED ${job.completed}/${cards.length}`);
+}
+
+// ENDPOINT: SUBMIT
+app.post('/generate-distractors', async (req, res) => {
+    const { cards, quizType = 'intelligent', certLevel = 'CP' } = req.body;
+    const geminiKey = process.env.GEMINI_API_KEY;
+
+    if (!geminiKey) return res.status(500).json({ status: 'error', message: 'API Key Missing' });
+    if (!cards || !Array.isArray(cards)) return res.status(400).json({ status: 'error', message: 'Invalid Input Cards' });
+
+    const jobId = uuidv4();
+    JOBS.set(jobId, {
+        id: jobId,
+        status: 'processing',
+        completed: 0,
+        total: cards.length,
+        results: [],
+        createdAt: new Date()
+    });
+
+    // SPAWN BACKGROUND EXECUTION (Non-blocking)
+    processSyncJob(jobId, cards, quizType, certLevel, geminiKey);
+
+    res.json({ job_id: jobId, status: 'processing', total: cards.length });
+});
+
+// ENDPOINT: STATUS
+app.get('/sync-status/:jobId', (req, res) => {
+    const job = JOBS.get(req.params.jobId);
+    if (!job) return res.status(404).json({ status: 'error', message: 'Job not found' });
+
+    // Send partial results and then clear them from the server cache to save memory
+    // The client will accumulate them.
+    const resultsToSend = [...job.results];
+    job.results = []; // CLEAR CACHE (IMPORTANT FOR LONG SYNC STABILITY)
+
+    res.json({
+        status: job.status,
+        completed: job.completed,
+        total: job.total,
+        results: resultsToSend
+    });
 });
 
 app.listen(port, '0.0.0.0', () => {
-    console.log(`BASK Sync Engine listening at http://0.0.0.0:${port}`);
+    console.log(`BASK Sync Engine V6 ASYNC listening at http://0.0.0.0:${port}`);
 });

@@ -438,33 +438,31 @@ function App() {
         const totalToSync = missingIntel.length + missingSimple.length;
         let syncedCount = 0;
 
-        // TIER 1: Intelligent Sync (FIXED ITERATION)
-        for (let i = 0; i < missingIntel.length; i += 4) {
-          const batchToProcess = missingIntel.slice(i, i + 4);
-          setWarmUpStatus(`SJI SYNC: Batch ${Math.floor(i/4) + 1}...`);
-          
-          const result = await generateDistractorsBatch(batchToProcess, 'intelligent', (p, error) => {
-            const batchDone = Math.round((p / 100) * batchToProcess.length);
-            setWarmUpProgress(Math.min(100, Math.round(((syncedCount + batchDone) / totalToSync) * 100)));
-          }, certLevel);
-
-          // Always increment syncedCount to move progress forward, regardless of individual card success
-          syncedCount += batchToProcess.length;
-          setWarmUpProgress(Math.min(100, Math.round((syncedCount / totalToSync) * 100)));
+        // TIER 1: Intelligent Sync (V6 ASYNC)
+        if (missingIntel.length > 0) {
+            setWarmUpStatus(`SJI SYNC: Processing Topic...`);
+            const result = await generateDistractorsBatch(missingIntel, 'intelligent', (p) => {
+                setWarmUpProgress(Math.min(100, Math.round((p * (missingIntel.length / totalToSync)))));
+            }, certLevel);
+            
+            if (!result.success) {
+                console.error(`[V6 FAIL] Intelligent Sync aborted.`);
+            }
+            syncedCount += missingIntel.length;
         }
 
-        // TIER 2: Simple Recall Sync (FIXED ITERATION)
-        for (let i = 0; i < missingSimple.length; i += 8) {
-          const batchToProcess = missingSimple.slice(i, i + 8);
-          setWarmUpStatus(`RECALL SYNC: Batch ${Math.floor(i/8) + 1}...`);
-          
-          const result = await generateDistractorsBatch(batchToProcess, 'simple', (p, error) => {
-            const batchDone = Math.round((p / 100) * batchToProcess.length);
-            setWarmUpProgress(Math.min(100, Math.round(((syncedCount + batchDone) / totalToSync) * 100)));
-          }, certLevel);
-
-          syncedCount += batchToProcess.length;
-          setWarmUpProgress(Math.min(100, Math.round((syncedCount / totalToSync) * 100)));
+        // TIER 2: Simple Recall Sync (V6 ASYNC)
+        if (missingSimple.length > 0) {
+            setWarmUpStatus(`RECALL SYNC: Processing Topic...`);
+            const prevProgress = Math.round((syncedCount / totalToSync) * 100);
+            const result = await generateDistractorsBatch(missingSimple, 'simple', (p) => {
+                const relativeP = Math.round((p * (missingSimple.length / totalToSync)));
+                setWarmUpProgress(Math.min(100, prevProgress + relativeP));
+            }, certLevel);
+            
+            if (!result.success) {
+                console.error(`[V6 FAIL] Simple Sync aborted.`);
+            }
         }
 
 
@@ -488,40 +486,27 @@ function App() {
             let { missingCards: missingIntel } = await getQuizDataForDeck(deck, 'intelligent', certLevel);
             let { missingCards: missingSimple } = await getQuizDataForDeck(deck, 'simple', certLevel);
             
-            const totalToSync = missingIntel.length + missingSimple.length;
+            const totalToSync = (missingIntel?.length || 0) + (missingSimple?.length || 0);
             let syncedCount = 0;
 
-            // Intelligent Sync (SJI)
-            for (let i = 0; i < missingIntel.length; i += 4) {
-                const batch = missingIntel.slice(i, i + 4);
-                setWarmUpStatus(`SJI: ${deck.title} (${Math.round((i/missingIntel.length)*100)}%)`);
-                const result = await generateDistractorsBatch(batch, 'intelligent', (p) => {
-                    const batchDone = Math.round((p / 100) * batch.length);
-                    setWarmUpProgress(Math.min(100, Math.round(((syncedCount + batchDone) / totalToSync) * 100)));
+            // Intelligent Sync (V6 ASYNC)
+            if (missingIntel.length > 0) {
+                setWarmUpStatus(`SJI: ${deck.title} Syncing...`);
+                await generateDistractorsBatch(missingIntel, 'intelligent', (p) => {
+                    const relativeP = Math.round((p * (missingIntel.length / totalToSync)));
+                    setWarmUpProgress(Math.min(100, relativeP));
                 }, certLevel);
-                
-                // FAIL-FORWARD: Log failure but keep moving to finish the topic
-                if (!result.success) {
-                    console.error(`[SYNC FAIL] Batch ${i/4} failed in ${deck.title}. Skipping to next.`);
-                }
-                syncedCount += batch.length;
-                setWarmUpProgress(Math.min(100, Math.round((syncedCount / totalToSync) * 100)));
+                syncedCount += missingIntel.length;
             }
 
-            // Simple Sync (Recall)
-            for (let i = 0; i < missingSimple.length; i += 8) {
-                const batch = missingSimple.slice(i, i + 8);
-                setWarmUpStatus(`RECALL: ${deck.title} (${Math.round((i/missingSimple.length)*100)}%)`);
-                const result = await generateDistractorsBatch(batch, 'simple', (p) => {
-                    const batchDone = Math.round((p / 100) * batch.length);
-                    setWarmUpProgress(Math.min(100, Math.round(((syncedCount + batchDone) / totalToSync) * 100)));
+            // Simple Sync (V6 ASYNC)
+            if (missingSimple.length > 0) {
+                setWarmUpStatus(`RECALL: ${deck.title} Syncing...`);
+                const prevProgress = Math.round((syncedCount / totalToSync) * 100);
+                await generateDistractorsBatch(missingSimple, 'simple', (p) => {
+                    const relativeP = Math.round((p * (missingSimple.length / totalToSync)));
+                    setWarmUpProgress(Math.min(100, prevProgress + relativeP));
                 }, certLevel);
-                
-                if (!result.success) {
-                    console.error(`[SYNC FAIL] Simple Batch ${i/8} failed in ${deck.title}. Skipping.`);
-                }
-                syncedCount += batch.length;
-                setWarmUpProgress(Math.min(100, Math.round((syncedCount / totalToSync) * 100)));
             }
 
             setWarmUpStatus(`${deck.title} Ready!`);

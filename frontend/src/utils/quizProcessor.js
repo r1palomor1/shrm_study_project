@@ -79,88 +79,74 @@ export async function getQuizDataForDeck(deck, requestedQuizType = 'intelligent'
 }
 
 /**
- * ENGINE: HF-STABILITY-GEARBOX
- * Implements dynamic batching (1-4/1-8) and precision staggering.
- * Infrastructure: Hugging Face Spaces (Extended Timeout)
+ * ENGINE: V6 ASYNC POLLING CLUSTER
+ * Submits the full batch to HF and then polls for progress.
+ * Infrastructure: Hugging Face Spaces (Long-Running Worker)
  */
 export async function generateDistractorsBatch(cards, quizType = 'intelligent', onProgress, certLevel = 'CP') {
-    let successfulCount = 0;
     const totalRequests = cards.length;
-    let i = 0;
-    
-    // GEARBOX STATE: 2 = High, 1 = Standard, 0 = Safety
-    let currentGear = 2; 
+    const payloadCards = cards.map(c => ({
+        id: String(c.id).replace(/[\s\n\r]/g, ''),
+        question: c.question,
+        answer: c.answer || "",
+        originalPunctuation: (c.answer || "").includes(';') ? 'semicolon' : 'standard'
+    }));
 
-    while (i < cards.length) {
-        // TIER DYNAMICS: Intelligent vs Recall
-        const isIntelligent = (quizType === 'intelligent');
-        const gearTable = isIntelligent 
-            ? [1, 2, 4] // Safety, Standard, High
-            : [1, 4, 8]; // Safety, Standard, High
-            
-        let batchSize = gearTable[currentGear];
-        const STAGGER = 10000; // PRECISION STAGGER: 10s for client-side processing stability
-
-        const batch = cards.slice(i, i + batchSize);
-        const payloadCards = batch.map(c => {
-            const ans = c.answer || "";
-            return {
-                id: String(c.id).replace(/[\s\n\r]/g, ''),
-                question: c.question,
-                answer: ans,
-                originalPunctuation: ans.includes(';') ? 'semicolon' : 'standard'
-            };
+    try {
+        // 1. SUBMIT JOB
+        console.log(`[V6 ASYNC] Submitting Sync Job for ${totalRequests} cards to HF...`);
+        const submitResponse = await fetch(`${HF_API_BASE_URL}/generate-distractors`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ quizType, certLevel, cards: payloadCards })
         });
 
-        console.log(`[GEARBOX] Tier: ${isIntelligent ? 'INTELLIGENT' : 'RECALL'} | Batch: ${i}-${i + batch.length} | Gear: ${currentGear} (Size ${batchSize})`);
+        if (!submitResponse.ok) throw new Error(`HF Submit Fail: ${submitResponse.status}`);
+        const { job_id } = await submitResponse.json();
+        console.log(`[V6 ASYNC] Job Created: ${job_id}. Starting Heartbeat Poll...`);
 
-        try {
-            const response = await fetch(`${HF_API_BASE_URL}/generate-distractors`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ quizType, certLevel, cards: payloadCards })
-            });
+        // 2. POLLING LOOP (Heartbeat)
+        let isDone = false;
+        let successfulCount = 0;
 
-            if (!response.ok) {
-                const errData = await response.json().catch(() => ({}));
-                throw new Error(`HF Space Error: ${response.status} | ${errData.message || 'Unknown'}`);
-            }
+        while (!isDone) {
+            await new Promise(r => setTimeout(r, 4000)); // Heartbeat interval: 4s
 
-            const data = await response.json();
-            if (data && data.results) {
-                data.results.forEach(res => {
+            const statusResponse = await fetch(`${HF_API_BASE_URL}/sync-status/${job_id}`);
+            if (!statusResponse.ok) continue; // Retry on transient network blip
+
+            const { status, results, completed } = await statusResponse.json();
+            
+            // Incrementally Save Partial Results
+            if (results && results.length > 0) {
+                console.log(`[V6 HEARTBEAT] Received ${results.length} new cards from HF.`);
+                results.forEach(res => {
                     const cleanId = String(res.id).replace(/[\s\n\r]/g, '');
                     saveDistractorToVault(cleanId, {
                         ...res,
                         quizType: quizType
                     }, certLevel);
                 });
-                successfulCount += data.results.length;
+                successfulCount = completed; // Use server-side absolute count
+                
+                // Update Progress UI (Relative to total sync)
                 if (onProgress) onProgress(Math.min(100, Math.round((successfulCount / totalRequests) * 100)), null);
             }
-            
-            i += batch.length; 
-            // Optional: Increment gear if we were downshifted but had a success? 
-            // Keeping it simple as per request: downshift locks at stability.
-            
-            if (i < cards.length) await new Promise(r => setTimeout(r, STAGGER));
 
-        } catch (error) {
-            console.error(`ERROR in generateDistractorsBatch:`, error.message);
-            
-            if (currentGear > 0) {
-                console.warn(`[THROTTLE DOWN] ⚠️ Batch of ${batchSize} failed. Dropping Gear.`);
-                currentGear--; 
-                // Do not increment 'i', retry this batch at lower gear
-                await new Promise(r => setTimeout(r, 5000));
-            } else {
-                console.error(`[STABILITY LOCK FAILED] ⚠️ Solo sync failed for Card ID: ${batch[0].id}. Skipping to preserve momentum.`);
-                i += batch.length; // Skip the failed solo card
-                await new Promise(r => setTimeout(r, 2000));
+            if (status === 'done') {
+                isDone = true;
+                console.log(`[V6 ASYNC] Job Total Complete: ${job_id}`);
+            } else if (status === 'error') {
+                throw new Error("Hugging Face Job Error");
             }
         }
+
+        return { success: true, totalProcessed: successfulCount };
+
+    } catch (error) {
+        console.error(`[V6 FATAL] Sync Pipeline Crashed:`, error.message);
+        return { success: false, error: error.message };
     }
-    return { success: successfulCount > 0, totalProcessed: successfulCount };
 }
 
 export async function refineMetadataBatch(cards, certLevel, onProgress = null) {
