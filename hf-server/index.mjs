@@ -33,21 +33,45 @@ VISUAL PARITY & "CLONAL DNA" MANDATE:
 RETURN ONLY RAW JSON:
 { "results": [{ "id": "string", "scenario": "string", "question": "string", "correct_answer": "string", "distractors": ["string", "string", "string"], "rationale": "string", "gap_analysis": "string", "tag_bask": "string", "tag_behavior": "string" }] }`;
 
-// FORENSIC AUDITOR: The Regex Shield
-const extractCleanJson = (text) => {
+/**
+ * HIGH-YIELD PARSER (V7.3)
+ * Instead of failing the whole block, we try to recover as much as possible.
+ */
+const extractHighYieldResults = (text) => {
     try {
+        // 1. First try a clean parse of the whole block
         const start = text.indexOf('{');
         const end = text.lastIndexOf('}');
-        if (start === -1 || end === -1) return null;
+        if (start === -1 || end === -1) return [];
+        
         const jsonStr = text.substring(start, end + 1).replace(/[\u0000-\u001F\u007F-\u009F]/g, ""); 
-        return JSON.parse(jsonStr);
-    } catch (e) { return null; }
+        const parsed = JSON.parse(jsonStr);
+        if (parsed?.results) return parsed.results;
+    } catch (e) {
+        // 2. If whole block fails, attempt regex-based extraction of individual result objects
+        console.warn("[V7.3] Block parse failed. Attempting individual object recovery...");
+        const individualResults = [];
+        const objectRegex = /\{[^{}]*"id":\s*"[^"]*"[^{}]*\}/g;
+        const matches = text.match(objectRegex);
+        
+        if (matches) {
+            for (const match of matches) {
+                try {
+                    const cleanedMatch = match.replace(/[\u0000-\u001F\u007F-\u009F]/g, "");
+                    const obj = JSON.parse(cleanedMatch);
+                    if (obj.id && obj.scenario) individualResults.push(obj);
+                } catch (innerE) { continue; }
+            }
+        }
+        return individualResults;
+    }
+    return [];
 };
 
 async function processInBursts(jobId, cards, certLevel, geminiKey) {
     const job = JOBS.get(jobId);
     if (!job) return;
-    
+
     const BATCH_SIZE = 4;
     const CONCURRENCY = 3; 
     
@@ -65,45 +89,55 @@ async function processInBursts(jobId, cards, certLevel, geminiKey) {
     for (let i = 0; i < batches.length; i += CONCURRENCY) {
         const currentJob = JOBS.get(jobId);
         if (!currentJob || currentJob.status === 'aborted') {
-            console.log(`[V7.2] ABORTED.`);
+            console.log(`[V7.3] ABORTED.`);
             return; 
         }
 
         const currentSet = batches.slice(i, i + CONCURRENCY);
-        console.log(`[V7.2 BURST] Processing ${currentSet.length * BATCH_SIZE} cards...`);
+        console.log(`[V7.3 BURST] Firing Burst (${currentSet.length * BATCH_SIZE} cards potential)...`);
 
         await Promise.all(currentSet.map(async (batch) => {
             try {
-                const prompt = `${getSystemInstructions(certLevel)}\nInput:\n${JSON.stringify(batch)}`;
+                const prompt = `${getSystemInstructions(certLevel)}\nInput Batch:\n${JSON.stringify(batch)}`;
                 const result = await model.generateContent(prompt);
-                const parsed = extractCleanJson(result.response.text());
+                const results = extractHighYieldResults(result.response.text());
                 
-                if (parsed?.results) {
-                    job.results.push(...parsed.results);
-                    job.completed += parsed.results.length;
-                    console.log(`[V7.2 SAVED] ${parsed.results.length} results added.`);
-                } else { throw new Error("Audit Fail"); }
-            } catch (err) {
-                console.warn(`[V7.2 RECOVERY] Initiating Surgical 1-by-1...`);
-                for (const card of batch) {
-                    try {
-                        const single = await model.generateContent(`${getSystemInstructions(certLevel)}\nInput: ${JSON.stringify([card])}`);
-                        const sParsed = extractCleanJson(single.response.text());
-                        if (sParsed?.results?.[0]) {
-                            job.results.push(sParsed.results[0]);
-                            job.completed += 1;
-                        }
-                    } catch (e) { console.error(`[V7.2 FATAL] Skipped ${card.id}`); }
+                if (results.length > 0) {
+                    job.results.push(...results);
+                    job.completed += results.length;
+                    console.log(`[V7.3 SAVED] ${results.length} cards extracted from batch.`);
                 }
+
+                // If we got fewer results than expected, we trigger the 1-by-1 for the MISSING ones
+                const receivedIds = new Set(results.map(r => String(r.id).replace(/[\s\n\r]/g, '')));
+                const missingCards = batch.filter(c => !receivedIds.has(String(c.id).replace(/[\s\n\r]/g, '')));
+
+                if (missingCards.length > 0) {
+                    console.log(`[V7.3 RECOVERY] ${missingCards.length} cards missing. Initiating Surgical 1-by-1...`);
+                    for (const card of missingCards) {
+                        try {
+                            const single = await model.generateContent(`${getSystemInstructions(certLevel)}\nInput: ${JSON.stringify([card])}`);
+                            const sResults = extractHighYieldResults(single.response.text());
+                            if (sResults?.[0]) {
+                                job.results.push(sResults[0]);
+                                job.completed += 1;
+                                console.log(`[V7.3 RECOVERY] Successfully recovered ${card.id}`);
+                            }
+                        } catch (e) { console.error(`[V7.3 FATAL] Totally failed card: ${card.id}`); }
+                    }
+                }
+            } catch (err) {
+                console.error("[V7.3 BURST ERROR]", err.message);
             }
         }));
 
         if (i + CONCURRENCY < batches.length) {
-            await new Promise(r => setTimeout(r, 5000)); // 5s Throttle
+            console.log(`[V7.3 THROTTLE] Cooling down 5s... Progress: ${job.completed}/${job.total}`);
+            await new Promise(r => setTimeout(r, 5000));
         }
     }
     job.status = 'done';
-    console.log(`[V7.2 COMPLETED] Job: ${jobId} at ${job.completed}/${cards.length}`);
+    console.log(`[V7.3 COMPLETED] Job Finished at ${job.completed}/${job.total}`);
 }
 
 app.post('/generate-distractors', (req, res) => {
@@ -133,4 +167,4 @@ app.delete('/abort-sync/:jobId', (req, res) => {
     res.status(404).json({ error: 'Not found' });
 });
 
-app.listen(port, '0.0.0.0', () => console.log(`V7.2 SOVEREIGNTY LIVE ON ${port}`));
+app.listen(port, '0.0.0.0', () => console.log(`V7.3 HIGH-YIELD LIVE ON ${port}`));
