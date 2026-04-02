@@ -33,7 +33,19 @@ VISUAL PARITY & "CLONAL DNA" MANDATE:
 - TERMINOLOGY: Use 2026 BASK nomenclature (e.g., "Critical Evaluation", "Inclusive Mindset", "Global & Cultural Effectiveness").
 
 RETURN ONLY RAW JSON:
-{ "results": [{ "id": "string", "scenario": "string", "question": "string", "correct_answer": "string", "distractors": ["string", "string", "string"], "rationale": "string", "gap_analysis": "string", "tag_bask": "string", "tag_behavior": "string" }] }`;
+{ 
+  "results": [{ 
+    "id": "string", 
+    "scenario": "string", 
+    "question": "string", 
+    "correct_answer": "string", 
+    "distractors": ["string", "string", "string"], 
+    "rationale": "string", 
+    "gap_analysis": "string", 
+    "tag_bask": "exactly one of: [People, Organization, Workplace]", 
+    "tag_behavior": "exactly one of: [Leadership & Navigation, Ethical Practice, Relationship Management, Communication, Inclusive Mindset, Business Acumen, Consultation, Analytical Aptitude]" 
+  }] 
+}`;
 
 // V7.4 SMART PARSER: Prevents the "7/67" metadata gap via Fuzzy Key Mapping
 const extractHighYieldResults = (text) => {
