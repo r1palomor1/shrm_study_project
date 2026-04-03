@@ -11,15 +11,22 @@ const port = 7860;
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
+// FORENSIC ENGINE CONFIGURATION (V7.7.2 RPD Efficiency Gearbox)
+const ENGINE_CONFIG = {
+    VERSION: process.env.ENGINE_VERSION || "V7.7.2",
+    LABEL: process.env.ENGINE_LABEL || "High-Density Orchestrator"
+};
+
 const JOBS = new Map();
 const MANDATORY_MODEL = "gemini-3.1-flash-lite-preview";
 
 app.get('/', (req, res) => {
-    res.json({ status: 'active', engine: 'V7.4 Surgical Orchestrator', model: MANDATORY_MODEL });
+    res.json({ status: 'active', engine: `${ENGINE_CONFIG.VERSION} ${ENGINE_CONFIG.LABEL}`, model: MANDATORY_MODEL });
 });
 
-// STABLE PROMPT (V7.2 SOVEREIGNTY SOUL - BALANCED 2026 BASK)
+// STABLE PROMPT (SOVEREIGNTY SOUL - BALANCED 2026 BASK)
 const getSystemInstructions = (certLevel) => `ROLE: Senior SHRM 2026 Psychometrician & SJI Architect.
+[ENGINE: ${ENGINE_CONFIG.VERSION} | ${ENGINE_CONFIG.LABEL}]
 TASK: Generate high-fidelity Situational Judgment Items (SJI) that mirror the cognitive complexity of the 2026 SHRM-CP/SCP exams.
 
 MANDATORY "FOUR ANCHOR" ARCHITECTURE:
@@ -47,52 +54,68 @@ RETURN ONLY RAW JSON:
   }] 
 }`;
 
-// V7.4 SMART PARSER: Prevents the "7/67" metadata gap via Fuzzy Key Mapping
+/**
+ * V7.7.2 HARDENED PARSER: Multi-stage extraction to avoid false Surgical Recovery triggers
+ */
 const extractHighYieldResults = (text) => {
+    if (!text) return [];
     const results = [];
+    
+    // Stage 1: Clean & Direct Parse
+    try {
+        const cleaned = text.trim().replace(/^```json\n?/, '').replace(/```$/, '').trim();
+        const parsed = JSON.parse(cleaned);
+        if (Array.isArray(parsed?.results)) return parsed.results.map(standardizeObject).filter(r => r);
+    } catch (e) {
+        // Fallback to Stage 2
+    }
+
+    // Stage 2: Fragment Identification (Regex Fallback)
     const objectRegex = /\{[^{}]*"id":\s*"[^"]*"[^{}]*\}/g;
     const matches = text.match(objectRegex);
-    
     if (matches) {
         for (const match of matches) {
             try {
-                const cleaned = match.replace(/[\u0000-\u001F\u007F-\u009F]/g, "");
-                const obj = JSON.parse(cleaned);
-                
-                // FUZZY MAPPING: Standardizes inconsistent AI keys to your Vault schema
-                const standardized = {
-                    id: String(obj.id || '').replace(/[\s\n\r]/g, ''),
-                    scenario: obj.scenario || obj.content_scenario || obj.text_scenario,
-                    question: obj.question || obj.item_question,
-                    correct_answer: obj.correct_answer || obj.correct || obj.answer,
-                    distractors: obj.distractors || obj.incorrect_options || obj.wrong_answers,
-                    rationale: obj.rationale || obj.explanation || obj.feedback,
-                    gap_analysis: obj.gap_analysis || obj.cognitive_gap || obj.assessment_gap,
-                    tag_bask: obj.tag_bask || obj.bask_tag || obj.bask_domain || "General",
-                    tag_behavior: obj.tag_behavior || obj.behavior_tag || obj.behavior_competency || "Professionalism"
-                };
-                
-                if (standardized.id && standardized.scenario) {
-                    results.push(standardized);
-                    console.log(`[V7.5 TRACE] ${standardized.id} Tags: BASK: ${standardized.tag_bask} | BEHAVIOR: ${standardized.tag_behavior}`);
-                }
+                const cleanedMatch = match.replace(/[\u0000-\u001F\u007F-\u009F]/g, "");
+                const obj = JSON.parse(cleanedMatch);
+                const std = standardizeObject(obj);
+                if (std) results.push(std);
             } catch (e) { continue; }
         }
     }
     return results;
 };
 
+// HELPER: Ensures uniform mapping across all extraction paths
+const standardizeObject = (obj) => {
+    if (!obj || !obj.id || !obj.scenario) return null;
+    const cleanId = String(obj.id).replace(/[\s\n\r]/g, '');
+    return {
+        id: cleanId,
+        scenario: obj.scenario || obj.content_scenario || obj.text_scenario,
+        question: obj.question || obj.item_question,
+        correct_answer: obj.correct_answer || obj.correct || obj.answer,
+        distractors: obj.distractors || obj.incorrect_options || obj.wrong_answers,
+        rationale: obj.rationale || obj.explanation || obj.feedback,
+        gap_analysis: obj.gap_analysis || obj.cognitive_gap || obj.assessment_gap,
+        tag_bask: obj.tag_bask || obj.bask_tag || obj.bask_domain || "General",
+        tag_behavior: obj.tag_behavior || obj.behavior_tag || obj.behavior_competency || "Professionalism"
+    };
+};
+
 async function processInBursts(jobId, cards, certLevel, geminiKey) {
     const job = JOBS.get(jobId);
     if (!job) return;
 
-    const BATCH_SIZE = 4;
-    const CONCURRENCY = 2; // REDUCED TO 2 for 15 RPM Safety (Gemini Free Tier)
+    // V7.7.2 EFFICIENCY CONFIG
+    const BATCH_SIZE = 6;  // Increased from 4 for RPD efficiency
+    const MINI_BATCH_SIZE = 3; 
+    const CONCURRENCY = 2; // Fixed at 2 for 15 RPM Safety
 
     const genAI = new GoogleGenerativeAI(geminiKey);
     const model = genAI.getGenerativeModel({ 
         model: MANDATORY_MODEL, 
-        generationConfig: { temperature: 0.1, maxOutputTokens: 3800 }
+        generationConfig: { temperature: 0.1, maxOutputTokens: 5000 } // Increased token pool for 6-card batches
     });
 
     for (let i = 0; i < cards.length; i += (BATCH_SIZE * CONCURRENCY)) {
@@ -105,50 +128,69 @@ async function processInBursts(jobId, cards, certLevel, geminiKey) {
             if (start < cards.length) currentBatches.push(cards.slice(start, start + BATCH_SIZE));
         }
 
-        console.log(`[V7.4 BURST] Processing ${currentBatches.length * BATCH_SIZE} cards...`);
+        console.log(`[${ENGINE_CONFIG.VERSION} BURST] Density: ${currentBatches.length * BATCH_SIZE} cards...`);
 
         await Promise.all(currentBatches.map(async (batch) => {
             try {
+                // TIER 1: HIGH-DENSITY BATCH
                 const prompt = `${getSystemInstructions(certLevel)}\nInput Batch:\n${JSON.stringify(batch)}`;
                 const result = await model.generateContent(prompt);
                 const results = extractHighYieldResults(result.response.text());
                 
-                if (results.length > 0) {
-                    job.results.push(...results);
-                    job.completed += results.length;
-                    console.log(`[V7.4 SAVED] ${results.length} cards extracted.`);
+                const processBatchResults = (resList) => {
+                    if (resList.length > 0) {
+                        job.results.push(...resList);
+                        job.completed += resList.length;
+                        console.log(`[${ENGINE_CONFIG.VERSION} SAVED] ${resList.length} cards extracted.`);
+                    }
+                };
+                
+                processBatchResults(results);
+
+                // IDENTIFY GAPS
+                const receivedIds = new Set(results.map(r => r.id));
+                let missingCards = batch.filter(c => !receivedIds.has(String(c.id).replace(/[\s\n\r]/g, '')));
+
+                // TIER 2: DOWNSHIFT TO MINI-BATCH (REDUCED RPD COST)
+                if (missingCards.length >= MINI_BATCH_SIZE) {
+                    console.log(`[${ENGINE_CONFIG.VERSION} DOWNSHIFT] Attempting Mini-Batch for ${missingCards.length} missing cards...`);
+                    const miniPrompt = `${getSystemInstructions(certLevel)}\nInput Mini-Batch (Recovery):\n${JSON.stringify(missingCards)}`;
+                    const miniResult = await model.generateContent(miniPrompt);
+                    const miniResults = extractHighYieldResults(miniResult.response.text());
+                    
+                    processBatchResults(miniResults);
+                    
+                    const miniReceivedIds = new Set(miniResults.map(r => r.id));
+                    missingCards = missingCards.filter(c => !miniReceivedIds.has(String(c.id).replace(/[\s\n\r]/g, '')));
                 }
 
-                // SURGICAL RECOVERY: Hunt down missing IDs with 1-by-1 precision
-                const receivedIds = new Set(results.map(r => r.id));
-                const missingCards = batch.filter(c => !receivedIds.has(String(c.id).replace(/[\s\n\r]/g, '')));
-
+                // TIER 3: SURGICAL 1-BY-1 (FINAL RECOURSE)
                 if (missingCards.length > 0) {
-                    console.log(`[V7.4 RECOVERY] ${missingCards.length} missing. Initiating Surgical 1-by-1...`);
+                    console.log(`[${ENGINE_CONFIG.VERSION} SURGICAL] ${missingCards.length} Final Gaps. Extracting 1-by-1...`);
                     for (const card of missingCards) {
                         try {
-                            const single = await model.generateContent(`${getSystemInstructions(certLevel)}\nInput Single: ${JSON.stringify([card])}`);
+                            const single = await model.generateContent(`${getSystemInstructions(certLevel)}\nInput Single (Surgical): ${JSON.stringify([card])}`);
                             const sResults = extractHighYieldResults(single.response.text());
                             if (sResults?.[0]) {
                                 job.results.push(sResults[0]);
                                 job.completed += 1;
-                                console.log(`[V7.4 RECOVERY] Success for ${card.id}`);
+                                console.log(`[${ENGINE_CONFIG.VERSION} SUCCESS] Recovered ${card.id}`);
                             }
-                        } catch (e) { console.error(`[V7.4 FATAL] Failed ${card.id}`); }
+                        } catch (e) { console.error(`[${ENGINE_CONFIG.VERSION} FATAL] Failed ${card.id}`); }
                     }
                 }
             } catch (err) {
-                console.error("[V7.4 BURST ERROR]", err.message);
+                console.error(`[${ENGINE_CONFIG.VERSION} BURST ERROR]`, err.message);
             }
         }));
 
         if (i + (BATCH_SIZE * CONCURRENCY) < cards.length) {
-            console.log(`[V7.4 THROTTLE] Cooling down 6s for RPM Safety... Progress: ${job.completed}/${job.total}`);
+            console.log(`[${ENGINE_CONFIG.VERSION} COOL-DOWN] 6s Sleep... Progress: ${job.completed}/${job.total}`);
             await new Promise(r => setTimeout(r, 6000));
         }
     }
     job.status = 'done';
-    console.log(`[V7.4 COMPLETED] Job Finished at ${job.completed}/${job.total}`);
+    console.log(`[${ENGINE_CONFIG.VERSION} COMPLETED] Job Finished at ${job.completed}/${job.total}`);
 }
 
 app.post('/generate-distractors', (req, res) => {
@@ -175,4 +217,4 @@ app.delete('/abort-sync/:jobId', (req, res) => {
     res.status(404).json({ error: 'Not found' });
 });
 
-app.listen(port, '0.0.0.0', () => console.log(`V7.4 SURGICAL LIVE ON ${port}`));
+app.listen(port, '0.0.0.0', () => console.log(`${ENGINE_CONFIG.VERSION} ${ENGINE_CONFIG.LABEL} LIVE ON ${port}`));
