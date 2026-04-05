@@ -13,7 +13,7 @@ app.use(express.json({ limit: '10mb' }));
 
 // FORENSIC ENGINE CONFIGURATION (V8.0 Strategic Orchestrator)
 const ENGINE_CONFIG = {
-    VERSION: process.env.ENGINE_VERSION || "V8.0",
+    VERSION: process.env.ENGINE_VERSION || "V8.1",
     LABEL: process.env.ENGINE_LABEL || "Strategic Orchestrator"
 };
 
