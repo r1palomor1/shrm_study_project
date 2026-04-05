@@ -11,9 +11,9 @@ const port = 7860;
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
-// FORENSIC ENGINE CONFIGURATION (V7.7.2 RPD Efficiency Gearbox)
+// FORENSIC ENGINE CONFIGURATION (V7.7.3 Forensic RPM Stagger)
 const ENGINE_CONFIG = {
-    VERSION: process.env.ENGINE_VERSION || "V7.7.2",
+    VERSION: process.env.ENGINE_VERSION || "V7.7.3",
     LABEL: process.env.ENGINE_LABEL || "High-Density Orchestrator"
 };
 
@@ -55,7 +55,7 @@ RETURN ONLY RAW JSON:
 }`;
 
 /**
- * V7.7.2 HARDENED PARSER: Multi-stage extraction to avoid false Surgical Recovery triggers
+ * HARDENED PARSER: Multi-stage extraction to avoid false Surgical Recovery triggers
  */
 const extractHighYieldResults = (text) => {
     if (!text) return [];
@@ -103,90 +103,96 @@ const standardizeObject = (obj) => {
     };
 };
 
+const STAGGER_WAIT = 3000; // Mandatory 3s stagger between RPM calls
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
 async function processInBursts(jobId, cards, certLevel, geminiKey) {
     const job = JOBS.get(jobId);
     if (!job) return;
 
-    // V7.7.2 EFFICIENCY CONFIG
-    const BATCH_SIZE = 6;  // Increased from 4 for RPD efficiency
-    const MINI_BATCH_SIZE = 3; 
-    const CONCURRENCY = 2; // Fixed at 2 for 15 RPM Safety
+    // V7.7.3 RPM STABILITY CONFIG
+    const BATCH_SIZE = 4; // CALIBRATED: Maximum stability for Flash-Lite
+    const CONCURRENCY = 1; // CALIBRATED: Required for 15 RPM Free Tier Safety
+    const SUB_BATCH_SIZE = 2; // MINI-BATCH: Intermediate recovery tier
 
     const genAI = new GoogleGenerativeAI(geminiKey);
     const model = genAI.getGenerativeModel({ 
         model: MANDATORY_MODEL, 
-        generationConfig: { temperature: 0.1, maxOutputTokens: 5000 } // Increased token pool for 6-card batches
+        generationConfig: { temperature: 0.1, maxOutputTokens: 5000 } 
     });
 
     for (let i = 0; i < cards.length; i += (BATCH_SIZE * CONCURRENCY)) {
         const currentJob = JOBS.get(jobId);
         if (!currentJob || currentJob.status === 'aborted') return;
 
-        const currentBatches = [];
-        for (let j = 0; j < CONCURRENCY; j++) {
-            const start = i + (j * BATCH_SIZE);
-            if (start < cards.length) currentBatches.push(cards.slice(start, start + BATCH_SIZE));
+        const batch = cards.slice(i, i + BATCH_SIZE);
+        console.log(`[${ENGINE_CONFIG.VERSION} STABILITY] Target: ${batch.length} cards... Pool: ${i}/${cards.length}`);
+
+        try {
+            // TIER 1: BASE BATCH
+            const prompt = `${getSystemInstructions(certLevel)}\nInput Batch:\n${JSON.stringify(batch)}`;
+            const result = await model.generateContent(prompt);
+            const results = extractHighYieldResults(result.response.text());
+            
+            const processBatchResults = (resList) => {
+                if (resList.length > 0) {
+                    job.results.push(...resList);
+                    job.completed += resList.length;
+                    console.log(`[${ENGINE_CONFIG.VERSION} SAVED] ${resList.length} cards extracted.`);
+                }
+            };
+            
+            processBatchResults(results);
+
+            // IDENTIFY GAPS
+            const receivedIds = new Set(results.map(r => r.id));
+            let missingCards = batch.filter(c => !receivedIds.has(String(c.id).replace(/[\s\n\r]/g, '')));
+
+            // TIER 2: DOWNSHIFT (MINI-BATCH) - If > 1 missing
+            if (missingCards.length >= SUB_BATCH_SIZE) {
+                await sleep(STAGGER_WAIT);
+                console.log(`[${ENGINE_CONFIG.VERSION} DOWNSHIFT] Recovery tier for ${missingCards.length} missing cards...`);
+                const miniPrompt = `${getSystemInstructions(certLevel)}\nInput Mini-Batch (Recovery):\n${JSON.stringify(missingCards)}`;
+                const miniResult = await model.generateContent(miniPrompt);
+                const miniResults = extractHighYieldResults(miniResult.response.text());
+                
+                processBatchResults(miniResults);
+                
+                const miniReceivedIds = new Set(miniResults.map(r => r.id));
+                missingCards = missingCards.filter(c => !miniReceivedIds.has(String(c.id).replace(/[\s\n\r]/g, '')));
+            }
+
+            // TIER 3: SURGICAL 1-BY-1 (STAGGERED BOLT)
+            if (missingCards.length > 0) {
+                console.log(`[${ENGINE_CONFIG.VERSION} SURGICAL] ${missingCards.length} Gaps. Extracting Staggered...`);
+                for (const card of missingCards) {
+                    await sleep(STAGGER_WAIT); 
+                    try {
+                        const single = await model.generateContent(`${getSystemInstructions(certLevel)}\nInput Single (Surgical): ${JSON.stringify([card])}`);
+                        const sResults = extractHighYieldResults(single.response.text());
+                        if (sResults?.[0]) {
+                            job.results.push(sResults[0]);
+                            job.completed += 1;
+                            console.log(`[${ENGINE_CONFIG.VERSION} SUCCESS] Recovered ${card.id}`);
+                        }
+                    } catch (e) {
+                        if (e.message.includes('429')) throw e; // Pass 429 up to kill job
+                        console.error(`[${ENGINE_CONFIG.VERSION} FATAL] Failed ${card.id}`); 
+                    }
+                }
+            }
+        } catch (err) {
+            console.error(`[${ENGINE_CONFIG.VERSION} ERROR]`, err.message);
+            if (err.message.includes('429')) {
+                console.error(`[${ENGINE_CONFIG.VERSION} CRITICAL] 429 RECEIVED. HALTING JOB TO PREVENT RPD WASTE.`);
+                job.status = 'error';
+                return;
+            }
         }
 
-        console.log(`[${ENGINE_CONFIG.VERSION} BURST] Density: ${currentBatches.length * BATCH_SIZE} cards...`);
-
-        await Promise.all(currentBatches.map(async (batch) => {
-            try {
-                // TIER 1: HIGH-DENSITY BATCH
-                const prompt = `${getSystemInstructions(certLevel)}\nInput Batch:\n${JSON.stringify(batch)}`;
-                const result = await model.generateContent(prompt);
-                const results = extractHighYieldResults(result.response.text());
-                
-                const processBatchResults = (resList) => {
-                    if (resList.length > 0) {
-                        job.results.push(...resList);
-                        job.completed += resList.length;
-                        console.log(`[${ENGINE_CONFIG.VERSION} SAVED] ${resList.length} cards extracted.`);
-                    }
-                };
-                
-                processBatchResults(results);
-
-                // IDENTIFY GAPS
-                const receivedIds = new Set(results.map(r => r.id));
-                let missingCards = batch.filter(c => !receivedIds.has(String(c.id).replace(/[\s\n\r]/g, '')));
-
-                // TIER 2: DOWNSHIFT TO MINI-BATCH (REDUCED RPD COST)
-                if (missingCards.length >= MINI_BATCH_SIZE) {
-                    console.log(`[${ENGINE_CONFIG.VERSION} DOWNSHIFT] Attempting Mini-Batch for ${missingCards.length} missing cards...`);
-                    const miniPrompt = `${getSystemInstructions(certLevel)}\nInput Mini-Batch (Recovery):\n${JSON.stringify(missingCards)}`;
-                    const miniResult = await model.generateContent(miniPrompt);
-                    const miniResults = extractHighYieldResults(miniResult.response.text());
-                    
-                    processBatchResults(miniResults);
-                    
-                    const miniReceivedIds = new Set(miniResults.map(r => r.id));
-                    missingCards = missingCards.filter(c => !miniReceivedIds.has(String(c.id).replace(/[\s\n\r]/g, '')));
-                }
-
-                // TIER 3: SURGICAL 1-BY-1 (FINAL RECOURSE)
-                if (missingCards.length > 0) {
-                    console.log(`[${ENGINE_CONFIG.VERSION} SURGICAL] ${missingCards.length} Final Gaps. Extracting 1-by-1...`);
-                    for (const card of missingCards) {
-                        try {
-                            const single = await model.generateContent(`${getSystemInstructions(certLevel)}\nInput Single (Surgical): ${JSON.stringify([card])}`);
-                            const sResults = extractHighYieldResults(single.response.text());
-                            if (sResults?.[0]) {
-                                job.results.push(sResults[0]);
-                                job.completed += 1;
-                                console.log(`[${ENGINE_CONFIG.VERSION} SUCCESS] Recovered ${card.id}`);
-                            }
-                        } catch (e) { console.error(`[${ENGINE_CONFIG.VERSION} FATAL] Failed ${card.id}`); }
-                    }
-                }
-            } catch (err) {
-                console.error(`[${ENGINE_CONFIG.VERSION} BURST ERROR]`, err.message);
-            }
-        }));
-
-        if (i + (BATCH_SIZE * CONCURRENCY) < cards.length) {
-            console.log(`[${ENGINE_CONFIG.VERSION} COOL-DOWN] 6s Sleep... Progress: ${job.completed}/${job.total}`);
-            await new Promise(r => setTimeout(r, 6000));
+        if (i + BATCH_SIZE < cards.length) {
+            console.log(`[${ENGINE_CONFIG.VERSION} COOL-DOWN] 10s Cycle Sleep... Progress: ${job.completed}/${job.total}`);
+            await sleep(10000); // 10s cooldown between 4-card cycles
         }
     }
     job.status = 'done';
