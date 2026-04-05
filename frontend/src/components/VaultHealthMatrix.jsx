@@ -89,7 +89,7 @@ const VaultHealthMatrix = ({ decks, onSmartSync, onSyncTopic, onClose, isSyncing
 
       targetDeck.cards.forEach(card => {
         const cleanId = String(card.id).replace(/[\s\n\r]/g, '');
-        const sData = vault[`${cleanId}:simple:${safeCertLevel}`];
+        const sData = vault[`${cleanId}:simple:${safeCertLevel}`] || (safeCertLevel === 'SCP' ? vault[`${cleanId}:simple:CP`] : null);
         const iData = vault[`${cleanId}:intelligent:${safeCertLevel}`];
         const isValidBehavior = (tag) => tag && tag.length > 3; // Any competency string (Leadership, etc.)
         const isValidDomain = (tag) => tag && (tag.toLowerCase().includes('people') || tag.toLowerCase().includes('organization') || tag.toLowerCase().includes('workplace'));
