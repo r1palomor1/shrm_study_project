@@ -414,10 +414,14 @@ function App() {
 
   const [warmUpStatus, setWarmUpStatus] = useState(null);
 
+  /**
+   * V8.0 HIGH-DENSITY SMART SYNC
+   * Orchestrates bucketized sync operations across all decks.
+   */
   const handleBulkWarmUp = async () => {
     if (decks.length === 0) return;
     setWarmUpError(null);
-    setWarmUpStatus("Initializing...");
+    setWarmUpStatus("Initializing V8.0 Sync...");
 
     let targetCards = [];
     if (selectedDeckTitle === 'ALL') { targetCards = decks.flatMap(d => d.cards); } 
@@ -432,41 +436,45 @@ function App() {
 
     const runWarming = async () => {
       try {
-        let { missingCards: missingIntel } = await getQuizDataForDeck({ cards: targetCards }, 'intelligent', certLevel);
-        let { missingCards: missingSimple } = await getQuizDataForDeck({ cards: targetCards }, 'simple', certLevel);
+        // TIERED DISCOVERY
+        const { buckets: bucketsIntel } = await getQuizDataForDeck({ cards: targetCards }, 'intelligent', certLevel);
+        const { buckets: bucketsSimple } = await getQuizDataForDeck({ cards: targetCards }, 'simple', certLevel);
         
-        const totalToSync = missingIntel.length + missingSimple.length;
+        const totalToSync = 
+            bucketsIntel.fullSync.length + bucketsIntel.repairDistractors.length + bucketsIntel.repairMetadata.length +
+            bucketsSimple.fullSync.length + bucketsSimple.repairDistractors.length + bucketsSimple.repairMetadata.length;
+        
         let syncedCount = 0;
+        const updateAllProgress = (p, increment) => {
+            syncedCount += increment;
+            setWarmUpProgress(Math.min(100, Math.round((syncedCount / totalToSync) * 100)));
+        };
 
-        // TIER 1: Intelligent Sync (V6 ASYNC)
-        if (missingIntel.length > 0) {
-            setWarmUpStatus(`SJI SYNC: Processing Topic...`);
-            const result = await generateDistractorsBatch(missingIntel, 'intelligent', (p) => {
-                setWarmUpProgress(Math.min(100, Math.round((p * (missingIntel.length / totalToSync)))));
-            }, certLevel);
-            
-            if (!result.success) {
-                console.error(`[V6 FAIL] Intelligent Sync aborted.`);
-            }
-            syncedCount += missingIntel.length;
-        }
+        const syncBucket = async (bucket, quizType, mode, label) => {
+            if (bucket.length === 0) return;
+            setWarmUpStatus(`${label}: Syncing ${bucket.length} items...`);
+            let lastP = 0;
+            await generateDistractorsBatch(bucket, quizType, (p) => {
+                const delta = p - lastP;
+                if (delta > 0) {
+                   const absoluteIncrement = (delta / 100) * bucket.length;
+                   updateAllProgress(p, absoluteIncrement);
+                   lastP = p;
+                }
+            }, certLevel, mode);
+        };
 
-        // TIER 2: Simple Recall Sync (V6 ASYNC)
-        if (missingSimple.length > 0) {
-            setWarmUpStatus(`RECALL SYNC: Processing Topic...`);
-            const prevProgress = Math.round((syncedCount / totalToSync) * 100);
-            const result = await generateDistractorsBatch(missingSimple, 'simple', (p) => {
-                const relativeP = Math.round((p * (missingSimple.length / totalToSync)));
-                setWarmUpProgress(Math.min(100, prevProgress + relativeP));
-            }, certLevel);
-            
-            if (!result.success) {
-                console.error(`[V6 FAIL] Simple Sync aborted.`);
-            }
-        }
+        // 1. INTELLIGENT TIERS
+        await syncBucket(bucketsIntel.fullSync, 'intelligent', 'full', 'SJI (FULL)');
+        await syncBucket(bucketsIntel.repairDistractors, 'intelligent', 'repair-distractors', 'SJI (DISTRACTORS)');
+        await syncBucket(bucketsIntel.repairMetadata, 'intelligent', 'repair-metadata', 'SJI (TAGS)');
 
+        // 2. SIMPLE TIERS
+        await syncBucket(bucketsSimple.fullSync, 'simple', 'full', 'RECALL (FULL)');
+        await syncBucket(bucketsSimple.repairDistractors, 'simple', 'repair-distractors', 'RECALL (DISTRACTORS)');
+        await syncBucket(bucketsSimple.repairMetadata, 'simple', 'repair-metadata', 'RECALL (TAGS)');
 
-        setWarmUpStatus("COMPLETED: All Data Synced.");
+        setWarmUpStatus("V8.0 COMPLETED: Topics Hardened.");
         setWarmUpProgress(100);
         setTimeout(() => setIsWarmingUp(false), 2000);
       } catch (err) { setIsWarmingUp(false); }
@@ -474,6 +482,10 @@ function App() {
     runWarming();
   };
 
+  /**
+   * V8.0 SURGICAL TOPIC SYNC
+   * Focuses on a single topic with high-density repair logic.
+   */
   const handleSurgicalTopicSync = async (deck) => {
     if (!deck) return;
     setIsWarmingUp(true);
@@ -483,33 +495,54 @@ function App() {
 
     const runSurgical = async () => {
         try {
-            let { missingCards: missingIntel } = await getQuizDataForDeck(deck, 'intelligent', certLevel);
-            let { missingCards: missingSimple } = await getQuizDataForDeck(deck, 'simple', certLevel);
+            // TIERED DISCOVERY
+            const { buckets: bucketsIntel } = await getQuizDataForDeck(deck, 'intelligent', certLevel);
+            const { buckets: bucketsSimple } = await getQuizDataForDeck(deck, 'simple', certLevel);
             
-            const totalToSync = (missingIntel?.length || 0) + (missingSimple?.length || 0);
+            const totalToSync = 
+                bucketsIntel.fullSync.length + bucketsIntel.repairDistractors.length + bucketsIntel.repairMetadata.length +
+                bucketsSimple.fullSync.length + bucketsSimple.repairDistractors.length + bucketsSimple.repairMetadata.length;
+            
+            if (totalToSync === 0) {
+               setWarmUpStatus(`${deck.title} is Pure Gold!`);
+               setWarmUpProgress(100);
+               setTimeout(() => setIsWarmingUp(false), 1500);
+               return;
+            }
+
             let syncedCount = 0;
+            const updateAllProgress = (p, increment) => {
+                syncedCount += increment;
+                setWarmUpProgress(Math.min(100, Math.round((syncedCount / totalToSync) * 100)));
+            };
 
-            // Intelligent Sync (V6 ASYNC)
-            if (missingIntel.length > 0) {
-                setWarmUpStatus(`SJI: ${deck.title} Syncing...`);
-                await generateDistractorsBatch(missingIntel, 'intelligent', (p) => {
-                    const relativeP = Math.round((p * (missingIntel.length / totalToSync)));
-                    setWarmUpProgress(Math.min(100, relativeP));
-                }, certLevel);
-                syncedCount += missingIntel.length;
-            }
+            const syncBucket = async (bucket, quizType, mode, label) => {
+                if (bucket.length === 0) return;
+                setWarmUpStatus(`${deck.title}: ${label}...`);
+                let lastP = 0;
+                await generateDistractorsBatch(bucket, quizType, (p) => {
+                    const delta = p - lastP;
+                    if (delta > 0) {
+                       const absoluteIncrement = (delta / 100) * bucket.length;
+                       updateAllProgress(p, absoluteIncrement);
+                       lastP = p;
+                    }
+                }, certLevel, mode);
+            };
 
-            // Simple Sync (V6 ASYNC)
-            if (missingSimple.length > 0) {
-                setWarmUpStatus(`RECALL: ${deck.title} Syncing...`);
-                const prevProgress = Math.round((syncedCount / totalToSync) * 100);
-                await generateDistractorsBatch(missingSimple, 'simple', (p) => {
-                    const relativeP = Math.round((p * (missingSimple.length / totalToSync)));
-                    setWarmUpProgress(Math.min(100, prevProgress + relativeP));
-                }, certLevel);
-            }
+            // 1. INTELLIGENT TIERS
+            await syncBucket(bucketsIntel.fullSync, 'intelligent', 'full', 'Full SJI Sync');
+            await syncBucket(bucketsIntel.repairDistractors, 'intelligent', 'repair-distractors', 'Repairing Distractors');
+            await syncBucket(bucketsIntel.repairMetadata, 'intelligent', 'repair-metadata', 'Syncing Metadata Tags');
 
-            setWarmUpStatus(`${deck.title} Ready!`);
+            // 2. SIMPLE TIERS
+            await syncBucket(bucketsSimple.fullSync, 'simple', 'full', 'Full Recall Sync');
+            await syncBucket(bucketsSimple.repairDistractors, 'simple', 'repair-distractors', 'Repairing Recall Logic');
+            await syncBucket(bucketsSimple.repairMetadata, 'simple', 'repair-metadata', 'Syncing Recall Metadata');
+
+            setDecks(loadDecksFromStorage());
+            setWarmUpStatus(`${deck.title} Optimized!`);
+            setWarmUpProgress(100);
             setTimeout(() => setIsWarmingUp(false), 2000);
         } catch (err) {
             setWarmUpError(err.message);

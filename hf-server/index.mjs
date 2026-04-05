@@ -11,10 +11,10 @@ const port = 7860;
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
-// FORENSIC ENGINE CONFIGURATION (V7.7.3 Forensic RPM Stagger)
+// FORENSIC ENGINE CONFIGURATION (V8.0 Strategic Orchestrator)
 const ENGINE_CONFIG = {
-    VERSION: process.env.ENGINE_VERSION || "V7.7.3",
-    LABEL: process.env.ENGINE_LABEL || "High-Density Orchestrator"
+    VERSION: process.env.ENGINE_VERSION || "V8.0",
+    LABEL: process.env.ENGINE_LABEL || "Strategic Orchestrator"
 };
 
 const JOBS = new Map();
@@ -24,10 +24,30 @@ app.get('/', (req, res) => {
     res.json({ status: 'active', engine: `${ENGINE_CONFIG.VERSION} ${ENGINE_CONFIG.LABEL}`, model: MANDATORY_MODEL });
 });
 
-// STABLE PROMPT (SOVEREIGNTY SOUL - BALANCED 2026 BASK)
-const getSystemInstructions = (certLevel) => `ROLE: Senior SHRM 2026 Psychometrician & SJI Architect.
+/**
+ * STRATEGIC INSTRUCTION ENGINE (V8.0)
+ * Differentiates cognitive depth between Operational (CP) and Strategic (SCP) certifications.
+ */
+const getSystemInstructions = (certLevel) => {
+    const baseRole = certLevel === 'SCP' 
+        ? "Senior Strategic Business Partner & Organizational Visionary"
+        : "Operational HR Specialist & Compliance Lead";
+
+    const cognitiveLayer = certLevel === 'SCP'
+        ? `STRATEGIC LAYER (SCP): 
+           - Focus on Macro-Financial impact and Organizational Strategy.
+           - Stakeholders: CEO, Board of Directors, and global workforce.
+           - Key Conflict: How does this decision drive long-term business goals and organizational culture?`
+        : `OPERATIONAL LAYER (CP):
+           - Focus on Process Execution and Policy Application.
+           - Stakeholders: Mid-level Management and immediate team members.
+           - Key Conflict: How do we resolve this specific incident while maintaining consistency and compliance?`;
+
+    return `ROLE: ${baseRole}.
 [ENGINE: ${ENGINE_CONFIG.VERSION} | ${ENGINE_CONFIG.LABEL}]
-TASK: Generate high-fidelity Situational Judgment Items (SJI) that mirror the cognitive complexity of the 2026 SHRM-CP/SCP exams.
+TASK: Generate high-fidelity Situational Judgment Items (SJI) that mirror the cognitive complexity of the 2026 SHRM-${certLevel} exam.
+
+${cognitiveLayer}
 
 MANDATORY "FOUR ANCHOR" ARCHITECTURE:
 1. ORGANIZATIONAL CONTEXT: Define a nuanced environment.
@@ -36,8 +56,8 @@ MANDATORY "FOUR ANCHOR" ARCHITECTURE:
 4. GREY-AREA DISTRACTORS: Plausible but only one is BEST per 2026 BASK logic.
 
 VISUAL PARITY & "CLONAL DNA" MANDATE:
-- STRUCTURAL MIRRORING: All 3 distractors MUST share the EXACT same visual weight and professional tone as the Correct Answer.
-- TERMINOLOGY: Use 2026 BASK nomenclature (e.g., "Critical Evaluation", "Inclusive Mindset", "Global & Cultural Effectiveness").
+- STRUCTURAL MIRRORING: All distractors MUST share the EXACT same visual weight and professional tone as the Correct Answer.
+- TERMINOLOGY: Use 2026 BASK nomenclature exclusively.
 
 RETURN ONLY RAW JSON:
 { 
@@ -53,24 +73,49 @@ RETURN ONLY RAW JSON:
     "tag_behavior": "exactly one of: [Leadership & Navigation, Ethical Practice, Relationship Management, Communication, Inclusive Mindset, Business Acumen, Consultation, Analytical Aptitude]" 
   }] 
 }`;
+};
 
 /**
- * HARDENED PARSER: Multi-stage extraction to avoid false Surgical Recovery triggers
+ * REPAIR PROMPTS (SURGICAL PRESERVATION)
+ */
+const getRepairMetadataInstructions = (certLevel) => `ROLE: Senior SHRM 2026 Psychometrician.
+TASK: Analyze the provided SHRM-${certLevel} Scenarios and identify the correct 2026 BASK Tags.
+[MANDATE]: DO NOT CHANGE THE SCENARIO. ONLY PROVIDE THE TAGS.
+
+RETURN JSON:
+{ 
+  "results": [{ 
+    "id": "string", 
+    "tag_bask": "string", 
+    "tag_behavior": "string" 
+  }] 
+}`;
+
+const getRepairDistractorsInstructions = (certLevel) => `ROLE: Senior SHRM 2026 Psychometrician.
+TASK: Analyze the SHRM-${certLevel} Scenario and regenerate 3 modern distractors.
+[MANDATE]: DO NOT CHANGE THE SCENARIO. 
+[VISUAL MIRROR]: Distractors MUST match the visual length and tone of the Correct Answer perfectly.
+
+RETURN JSON:
+{ 
+  "results": [{ 
+    "id": "string", 
+    "distractors": ["string", "string", "string"]
+  }] 
+}`;
+
+/**
+ * HARDENED PARSER: Multi-stage extraction
  */
 const extractHighYieldResults = (text) => {
     if (!text) return [];
     const results = [];
-    
-    // Stage 1: Clean & Direct Parse
     try {
         const cleaned = text.trim().replace(/^```json\n?/, '').replace(/```$/, '').trim();
         const parsed = JSON.parse(cleaned);
         if (Array.isArray(parsed?.results)) return parsed.results.map(standardizeObject).filter(r => r);
-    } catch (e) {
-        // Fallback to Stage 2
-    }
+    } catch (e) {}
 
-    // Stage 2: Fragment Identification (Regex Fallback)
     const objectRegex = /\{[^{}]*"id":\s*"[^"]*"[^{}]*\}/g;
     const matches = text.match(objectRegex);
     if (matches) {
@@ -80,132 +125,140 @@ const extractHighYieldResults = (text) => {
                 const obj = JSON.parse(cleanedMatch);
                 const std = standardizeObject(obj);
                 if (std) results.push(std);
-            } catch (e) { continue; }
+            } catch (e) {}
         }
     }
     return results;
 };
 
-// HELPER: Ensures uniform mapping across all extraction paths
 const standardizeObject = (obj) => {
-    if (!obj || !obj.id || !obj.scenario) return null;
+    if (!obj || !obj.id) return null;
     const cleanId = String(obj.id).replace(/[\s\n\r]/g, '');
     return {
-        id: cleanId,
-        scenario: obj.scenario || obj.content_scenario || obj.text_scenario,
-        question: obj.question || obj.item_question,
-        correct_answer: obj.correct_answer || obj.correct || obj.answer,
-        distractors: obj.distractors || obj.incorrect_options || obj.wrong_answers,
-        rationale: obj.rationale || obj.explanation || obj.feedback,
-        gap_analysis: obj.gap_analysis || obj.cognitive_gap || obj.assessment_gap,
-        tag_bask: obj.tag_bask || obj.bask_tag || obj.bask_domain || "General",
-        tag_behavior: obj.tag_behavior || obj.behavior_tag || obj.behavior_competency || "Professionalism"
+        ...obj,
+        id: cleanId
     };
 };
 
-const STAGGER_WAIT = 3000; // Mandatory 3s stagger between RPM calls
+const STAGGER_WAIT = 3000;
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
+/**
+ * TIER A: FULL SYNC ORCHESTRATOR
+ */
 async function processInBursts(jobId, cards, certLevel, geminiKey) {
     const job = JOBS.get(jobId);
     if (!job) return;
 
-    // V7.7.3 RPM STABILITY CONFIG
-    const BATCH_SIZE = 4; // CALIBRATED: Maximum stability for Flash-Lite
-    const CONCURRENCY = 1; // CALIBRATED: Required for 15 RPM Free Tier Safety
-    const SUB_BATCH_SIZE = 2; // MINI-BATCH: Intermediate recovery tier
+    const BATCH_SIZE = 4;
+    const CONCURRENCY = 1;
+    const SUB_BATCH_SIZE = 2;
 
     const genAI = new GoogleGenerativeAI(geminiKey);
-    const model = genAI.getGenerativeModel({ 
-        model: MANDATORY_MODEL, 
-        generationConfig: { temperature: 0.1, maxOutputTokens: 5000 } 
-    });
+    const model = genAI.getGenerativeModel({ model: MANDATORY_MODEL, generationConfig: { temperature: 0.1, maxOutputTokens: 5000 } });
 
-    for (let i = 0; i < cards.length; i += (BATCH_SIZE * CONCURRENCY)) {
+    for (let i = 0; i < cards.length; i += BATCH_SIZE) {
         const currentJob = JOBS.get(jobId);
         if (!currentJob || currentJob.status === 'aborted') return;
 
         const batch = cards.slice(i, i + BATCH_SIZE);
-        console.log(`[${ENGINE_CONFIG.VERSION} STABILITY] Target: ${batch.length} cards... Pool: ${i}/${cards.length}`);
+        console.log(`[${ENGINE_CONFIG.VERSION} FULL] Target: ${batch.length} cards...`);
 
         try {
-            // TIER 1: BASE BATCH
             const prompt = `${getSystemInstructions(certLevel)}\nInput Batch:\n${JSON.stringify(batch)}`;
             const result = await model.generateContent(prompt);
             const results = extractHighYieldResults(result.response.text());
             
-            const processBatchResults = (resList) => {
-                if (resList.length > 0) {
-                    job.results.push(...resList);
-                    job.completed += resList.length;
-                    console.log(`[${ENGINE_CONFIG.VERSION} SAVED] ${resList.length} cards extracted.`);
-                }
-            };
-            
-            processBatchResults(results);
+            if (results.length > 0) {
+                job.results.push(...results);
+                job.completed += results.length;
+                console.log(`[${ENGINE_CONFIG.VERSION} SAVED] ${results.length} cards.`);
+            }
 
-            // IDENTIFY GAPS
             const receivedIds = new Set(results.map(r => r.id));
             let missingCards = batch.filter(c => !receivedIds.has(String(c.id).replace(/[\s\n\r]/g, '')));
 
-            // TIER 2: DOWNSHIFT (MINI-BATCH) - If > 1 missing
             if (missingCards.length >= SUB_BATCH_SIZE) {
                 await sleep(STAGGER_WAIT);
-                console.log(`[${ENGINE_CONFIG.VERSION} DOWNSHIFT] Recovery tier for ${missingCards.length} missing cards...`);
-                const miniPrompt = `${getSystemInstructions(certLevel)}\nInput Mini-Batch (Recovery):\n${JSON.stringify(missingCards)}`;
-                const miniResult = await model.generateContent(miniPrompt);
+                const miniResult = await model.generateContent(`${getSystemInstructions(certLevel)}\nInput Recovery:\n${JSON.stringify(missingCards)}`);
                 const miniResults = extractHighYieldResults(miniResult.response.text());
-                
-                processBatchResults(miniResults);
-                
+                if (miniResults.length > 0) {
+                    job.results.push(...miniResults);
+                    job.completed += miniResults.length;
+                }
                 const miniReceivedIds = new Set(miniResults.map(r => r.id));
                 missingCards = missingCards.filter(c => !miniReceivedIds.has(String(c.id).replace(/[\s\n\r]/g, '')));
             }
 
-            // TIER 3: SURGICAL 1-BY-1 (STAGGERED BOLT)
             if (missingCards.length > 0) {
-                console.log(`[${ENGINE_CONFIG.VERSION} SURGICAL] ${missingCards.length} Gaps. Extracting Staggered...`);
                 for (const card of missingCards) {
-                    await sleep(STAGGER_WAIT); 
-                    try {
-                        const single = await model.generateContent(`${getSystemInstructions(certLevel)}\nInput Single (Surgical): ${JSON.stringify([card])}`);
-                        const sResults = extractHighYieldResults(single.response.text());
-                        if (sResults?.[0]) {
-                            job.results.push(sResults[0]);
-                            job.completed += 1;
-                            console.log(`[${ENGINE_CONFIG.VERSION} SUCCESS] Recovered ${card.id}`);
-                        }
-                    } catch (e) {
-                        if (e.message.includes('429')) throw e; // Pass 429 up to kill job
-                        console.error(`[${ENGINE_CONFIG.VERSION} FATAL] Failed ${card.id}`); 
+                    await sleep(STAGGER_WAIT);
+                    const single = await model.generateContent(`${getSystemInstructions(certLevel)}\nInput Surgical: ${JSON.stringify([card])}`);
+                    const sResults = extractHighYieldResults(single.response.text());
+                    if (sResults?.[0]) {
+                        job.results.push(sResults[0]);
+                        job.completed += 1;
                     }
                 }
             }
         } catch (err) {
-            console.error(`[${ENGINE_CONFIG.VERSION} ERROR]`, err.message);
-            if (err.message.includes('429')) {
-                console.error(`[${ENGINE_CONFIG.VERSION} CRITICAL] 429 RECEIVED. HALTING JOB TO PREVENT RPD WASTE.`);
-                job.status = 'error';
-                return;
-            }
+            if (err.message.includes('429')) { job.status = 'error'; return; }
         }
-
-        if (i + BATCH_SIZE < cards.length) {
-            console.log(`[${ENGINE_CONFIG.VERSION} COOL-DOWN] 10s Cycle Sleep... Progress: ${job.completed}/${job.total}`);
-            await sleep(10000); // 10s cooldown between 4-card cycles
-        }
+        if (i + BATCH_SIZE < cards.length) await sleep(10000);
     }
     job.status = 'done';
-    console.log(`[${ENGINE_CONFIG.VERSION} COMPLETED] Job Finished at ${job.completed}/${job.total}`);
+}
+
+/**
+ * TIER B/C: REPAIR ORCHESTRATORS
+ */
+async function processRepair(jobId, cards, certLevel, geminiKey, type) {
+    const job = JOBS.get(jobId);
+    if (!job) return;
+
+    const BATCH_SIZE = type === 'metadata' ? 20 : 8;
+    const instructions = type === 'metadata' ? getRepairMetadataInstructions : getRepairDistractorsInstructions;
+
+    const genAI = new GoogleGenerativeAI(geminiKey);
+    const model = genAI.getGenerativeModel({ model: MANDATORY_MODEL });
+
+    for (let i = 0; i < cards.length; i += BATCH_SIZE) {
+        const currentJob = JOBS.get(jobId);
+        if (!currentJob || currentJob.status === 'aborted') return;
+
+        const batch = cards.slice(i, i + BATCH_SIZE);
+        console.log(`[${ENGINE_CONFIG.VERSION} REPAIR-${type.toUpperCase()}] Batch: ${batch.length} cards...`);
+
+        try {
+            const prompt = `${instructions(certLevel)}\nInput Batch:\n${JSON.stringify(batch)}`;
+            const result = await model.generateContent(prompt);
+            const results = extractHighYieldResults(result.response.text());
+            
+            if (results.length > 0) {
+                job.results.push(...results);
+                job.completed += results.length;
+            }
+        } catch (err) {
+            if (err.message.includes('429')) { job.status = 'error'; return; }
+        }
+        await sleep(5000);
+    }
+    job.status = 'done';
 }
 
 app.post('/generate-distractors', (req, res) => {
-    const { cards, certLevel = 'CP' } = req.body;
+    const { cards, certLevel = 'CP', mode = 'full' } = req.body;
     const geminiKey = process.env.GEMINI_API_KEY;
     if (!geminiKey || !cards) return res.status(400).json({ status: 'error' });
     const jobId = uuidv4();
     JOBS.set(jobId, { id: jobId, status: 'processing', completed: 0, total: cards.length, results: [] });
-    processInBursts(jobId, cards, certLevel, geminiKey);
+    
+    if (mode === 'repair-metadata' || mode === 'repair-distractors') {
+        processRepair(jobId, cards, certLevel, geminiKey, mode === 'repair-metadata' ? 'metadata' : 'distractors');
+    } else {
+        processInBursts(jobId, cards, certLevel, geminiKey);
+    }
+    
     res.json({ job_id: jobId, status: 'processing', total: cards.length });
 });
 
